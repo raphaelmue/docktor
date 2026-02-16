@@ -1,0 +1,12 @@
+model StatusLog {
+  id         String       @id @default(cuid())
+  stackId    String
+  stack      Stack        @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  fromStatus StackStatus?
+  toStatus   StackStatus
+  message    String?      // human-readable context
+  output     String?      // command output (truncated)
+
+  createdAt  DateTime     @default(now())
+}

@@ -1,0 +1,26 @@
+model Backup {
+  id               String        @id @default(cuid())
+  stackId          String
+  stack            Stack         @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  resticSnapshotId String        // restic snapshot ID
+  sizeBytes        BigInt?
+  trigger          BackupTrigger // manual or scheduled
+  status           BackupStatus
+  errorMessage     String?
+
+  startedAt        DateTime
+  completedAt      DateTime?
+  createdAt        DateTime      @default(now())
+}
+
+enum BackupTrigger {
+  MANUAL
+  SCHEDULED
+}
+
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}

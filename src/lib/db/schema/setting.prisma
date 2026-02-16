@@ -1,0 +1,6 @@
+model Setting {
+  key       String   @id
+  value     String   // stored as string; JSON for complex values, encrypted for secrets
+  encrypted Boolean  @default(false) // if true, value is AES-encrypted
+  updatedAt DateTime @updatedAt
+}
