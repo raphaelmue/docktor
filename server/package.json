@@ -18,7 +18,7 @@
         "fastify": "^5.2.1",
         "node-cron": "^3.0.3",
         "yaml": "^2.7.0",
-        "zod": "^3.24.2"
+        "zod": "^4.3.6"
     },
     "devDependencies": {
         "@types/dockerode": "^3.3.35",

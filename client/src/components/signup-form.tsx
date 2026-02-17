@@ -1,28 +1,20 @@
 import {useState} from "react";
 import {Link, useNavigate} from "react-router";
 import {useForm} from "react-hook-form";
-import {z} from "zod";
 import {standardSchemaResolver} from "@hookform/resolvers/standard-schema";
+import {signupSchema, SignupInput} from "@docktor/shared";
 import {signUp} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form";
 
-const signupSchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-type SignupValues = z.infer<typeof signupSchema>;
-
 export function SignupForm() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const form = useForm<SignupValues>({
+    const form = useForm<SignupInput>({
         resolver: standardSchemaResolver(signupSchema),
         defaultValues: {
             name: "",
@@ -31,7 +23,7 @@ export function SignupForm() {
         },
     });
 
-    async function onSubmit(values: SignupValues) {
+    async function onSubmit(values: SignupInput) {
         setError("");
         setLoading(true);
 

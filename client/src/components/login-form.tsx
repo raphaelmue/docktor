@@ -1,27 +1,20 @@
 import {useState} from "react";
 import {Link, useNavigate} from "react-router";
 import {useForm} from "react-hook-form";
-import {z} from "zod";
 import {standardSchemaResolver} from "@hookform/resolvers/standard-schema";
+import {loginSchema, LoginInput} from "@docktor/shared";
 import {signIn} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card";
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form";
 
-const loginSchema = z.object({
-    email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(1, "Password is required"),
-});
-
-type LoginValues = z.infer<typeof loginSchema>;
-
 export function LoginForm() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const form = useForm<LoginValues>({
+    const form = useForm<LoginInput>({
         resolver: standardSchemaResolver(loginSchema),
         defaultValues: {
             email: "",
@@ -29,7 +22,7 @@ export function LoginForm() {
         },
     });
 
-    async function onSubmit(values: LoginValues) {
+    async function onSubmit(values: LoginInput) {
         setError("");
         setLoading(true);
 

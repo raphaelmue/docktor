@@ -5,6 +5,8 @@ import fastifyCors from "@fastify/cors";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import authRoutes from "./routes/auth.js";
+import stackRoutes from "./routes/stacks.js";
+import {AppError} from "./lib/errors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,10 +33,23 @@ await app.register(fastifyCors, {
 
 await app.register(fastifyCookie);
 
+// Global error handler for AppError subclasses
+app.setErrorHandler((error: Error, _request, reply) => {
+    if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({error: error.message});
+    }
+    // Zod validation errors
+    if (error.name === "ZodError") {
+        return reply.status(400).send({error: error.message});
+    }
+    app.log.error(error);
+    reply.status(500).send({error: "Internal server error"});
+});
+
 // API routes
 await app.register(authRoutes);
+await app.register(stackRoutes);
 // TODO: Register additional route plugins here
-// await app.register(stackRoutes, { prefix: "/api/stacks" });
 // await app.register(settingsRoutes, { prefix: "/api/settings" });
 // await app.register(backupRoutes, { prefix: "/api/backups" });
 

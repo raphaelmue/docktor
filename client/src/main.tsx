@@ -1,13 +1,17 @@
 import {StrictMode} from "react";
 import {createRoot} from "react-dom/client";
 import {BrowserRouter, Navigate, Route, Routes} from "react-router";
-import {signOut, useSession} from "./lib/auth-client";
+import {useSession} from "./lib/auth-client";
 import LoginPage from "./routes/auth/login";
 import SignupPage from "./routes/auth/signup";
 import "./index.css";
+import {AppLayout} from "@/components/app-layout";
 import Dashboard from "@/routes/app/dashboard";
+import StacksPage from "@/routes/app/stacks/index";
+import CreateStackPage from "@/routes/app/stacks/create";
+import StackDetailPage from "@/routes/app/stacks/[id]";
 
-function ProtectedRoute({children}: { children: React.ReactNode }) {
+function ProtectedRoute({children}: {children: React.ReactNode}) {
     const {data: session, isPending} = useSession();
 
     if (isPending) {
@@ -19,7 +23,7 @@ function ProtectedRoute({children}: { children: React.ReactNode }) {
     }
 
     if (!session) {
-        return <Navigate to="/login" replace/>;
+        return <Navigate to="/login" replace />;
     }
 
     return <>{children}</>;
@@ -29,16 +33,26 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/login" element={<LoginPage/>}/>
-                <Route path="/signup" element={<SignupPage/>}/>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
                 <Route
-                    path="/"
                     element={
                         <ProtectedRoute>
-                            <Dashboard/>
+                            <AppLayout />
                         </ProtectedRoute>
                     }
-                />
+                >
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/stacks" element={<StacksPage />} />
+                    <Route
+                        path="/stacks/create"
+                        element={<CreateStackPage />}
+                    />
+                    <Route
+                        path="/stacks/:id"
+                        element={<StackDetailPage />}
+                    />
+                </Route>
             </Routes>
         </BrowserRouter>
     );
@@ -46,6 +60,6 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
-        <App/>
+        <App />
     </StrictMode>,
 );
