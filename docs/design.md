@@ -1,4 +1,4 @@
-# Docktor – Technical Design Document
+# Docktor – Technical Design Document (v2)
 
 ## Overview
 
@@ -139,9 +139,9 @@ services:
 #### Enforcement
 
 1. **On stack creation / edit:** Docktor parses the compose file and checks all volume definitions.
-   - **Relative bind mounts into `./volumes/`**: Accepted silently.
-   - **Named Docker volumes**: Rejected with an error message explaining the convention and offering to auto-convert (rewrite the compose file to use bind mounts).
-   - **Absolute paths outside the stack directory**: Accepted with a warning — the user may have legitimate reasons (e.g., NAS mount), but Docktor warns that these paths will **not** be included in backups.
+    - **Relative bind mounts into `./volumes/`**: Accepted silently.
+    - **Named Docker volumes**: Rejected with an error message explaining the convention and offering to auto-convert (rewrite the compose file to use bind mounts).
+    - **Absolute paths outside the stack directory**: Accepted with a warning — the user may have legitimate reasons (e.g., NAS mount), but Docktor warns that these paths will **not** be included in backups.
 2. **Auto-conversion tool:** When importing a third-party compose file or deploying from the marketplace, Docktor offers a one-click "Convert volumes" action that rewrites named volumes to `./volumes/<volume-name>` bind mounts.
 3. **Directory creation:** On deploy, Docktor ensures all `./volumes/<subdir>` directories exist with correct ownership before running `docker compose up`.
 
@@ -242,9 +242,9 @@ User reviews the plan. They can:
 2. Create `/stacks/<stack-id>/` directory structure.
 3. Copy `docker-compose.yml` and create/extract `.env`.
 4. **Migrate volume data:**
-   - For **named Docker volumes**: `docker run --rm -v <volume-name>:/source -v /stacks/<stack-id>/volumes/<name>:/dest alpine cp -a /source/. /dest/` — copies data from the Docker-managed volume into the bind mount directory.
-   - For **existing bind mounts at other paths**: `cp -a` or `rsync` the data into `./volumes/<name>/`, then update the compose file path.
-   - For **absolute paths the user wants to keep**: Leave as-is, record in the database.
+    - For **named Docker volumes**: `docker run --rm -v <volume-name>:/source -v /stacks/<stack-id>/volumes/<name>:/dest alpine cp -a /source/. /dest/` — copies data from the Docker-managed volume into the bind mount directory.
+    - For **existing bind mounts at other paths**: `cp -a` or `rsync` the data into `./volumes/<name>/`, then update the compose file path.
+    - For **absolute paths the user wants to keep**: Leave as-is, record in the database.
 5. Rewrite `docker-compose.yml` to use `./volumes/` bind mounts.
 6. Store import provenance in the database (original path, migration date, original compose hash).
 7. `docker compose up -d` from the new location.
@@ -294,26 +294,32 @@ After import (either mode), Docktor runs its standard validation:
 
 ## Implementation Stack
 
-### Backend
+### Architecture: Single Process
+
+Docktor runs as a **single Fastify server** that handles everything: API, background jobs, SSE streams, and serving the frontend. There is no separate frontend server.
+
+**Why not Next.js for everything?** Docktor needs persistent background processes running continuously — file watcher, container state poller (every 15s), cron jobs for backups and update checks, SSE streams for live logs. Next.js is built around request/response and doesn't support long-lived server processes alongside route handling without fighting the framework.
+
+**Why not Next.js as the frontend?** Docktor is a private dashboard behind auth — no SEO, no public pages, no crawlers. SSR provides zero benefit but adds hydration complexity and larger bundles. A simple SPA is the right tool.
+
+**Why Fastify + Vite React SPA?** Fastify natively handles everything Docktor's backend needs (HTTP, SSE, background processes, static file serving). Vite builds the React SPA into static files at compile time. Fastify serves these files via `@fastify/static`. In development, Vite's dev server provides HMR. In production, it's a single process serving a single port.
+
+### Technology Choices
 
 | Layer | Technology | Rationale |
 |---|---|---|
 | Runtime | **Node.js (LTS) with TypeScript** | Strong Docker SDK support, async I/O for log streaming, type safety throughout |
-| Framework | **Fastify** | Schema-based validation, high performance, excellent plugin ecosystem |
+| Server framework | **Fastify** | Schema-based validation, high performance, plugin ecosystem, native SSE support, serves static frontend |
+| Frontend | **React + Vite** (SPA) | Fast builds, HMR in dev, outputs static bundle. No SSR overhead. |
+| UI library | **shadcn/ui + Tailwind CSS** | Accessible, composable components without heavy dependencies |
+| YAML editor | **CodeMirror 6** | Mature, extensible, good YAML mode support |
+| Client-side routing | **React Router** | Lightweight, standard SPA routing |
+| Real-time logs | **SSE (Server-Sent Events)** | Simpler than WebSockets for unidirectional log streaming |
 | ORM / DB | **Prisma + SQLite** (upgrade path to Postgres) | SQLite keeps single-host deployment trivial; Prisma makes migration painless later |
 | Docker interaction | **dockerode** | Mature Node.js Docker client for inspect, log streaming, events |
 | Compose orchestration | Shell out to `docker compose` CLI | Wrapped in a typed service layer; dockerode doesn't handle compose natively |
-| Job scheduler | **node-cron** (MVP), upgrade to **BullMQ + Redis** later | File-watch reconciliation, update checks, backup scheduling |
+| Job scheduler | **node-cron** (MVP) | File-watch reconciliation, update checks, backup scheduling. All runs in the same process. |
 | Auth | **Lucia** or **better-auth** | Lightweight, session-based; sufficient for single-user MVP |
-
-### Frontend
-
-| Layer | Technology | Rationale |
-|---|---|---|
-| Framework | **Next.js (App Router)** | Full-stack React framework, SSR, API routes, strong ecosystem |
-| UI library | **shadcn/ui + Tailwind CSS** | Accessible, composable components without heavy dependencies |
-| YAML editor | **CodeMirror 6** | Mature, extensible, good YAML mode support |
-| Real-time logs | **SSE (Server-Sent Events)** | Simpler than WebSockets for unidirectional log streaming from `docker logs --follow` |
 
 ### Infrastructure / System-Level
 
@@ -329,19 +335,82 @@ After import (either mode), Docktor runs its standard validation:
 
 ```
 docktor/
-├── apps/
-│   ├── api/              # Fastify backend (TypeScript)
-│   └── web/              # Next.js frontend
-├── packages/
-│   ├── docker/           # dockerode + compose CLI wrapper
-│   ├── backup/           # restic CLI wrapper
-│   ├── proxy/            # Nginx config generator / NPM API client
-│   └── shared/           # shared types, validation, utils
+├── server/                    # Fastify backend (TypeScript)
+│   ├── src/
+│   │   ├── index.ts           # Server entry point, plugin registration
+│   │   ├── routes/            # API routes (stacks, backups, settings, auth, etc.)
+│   │   ├── services/          # Business logic (docker, backup, proxy, scanner)
+│   │   ├── jobs/              # Background jobs (file watcher, state poller, cron)
+│   │   └── lib/               # Utilities (path resolver, compose parser, etc.)
+│   └── tsconfig.json
+├── client/                    # React SPA (Vite)
+│   ├── src/
+│   │   ├── main.tsx           # SPA entry point
+│   │   ├── routes/            # Page components (dashboard, stack detail, settings, etc.)
+│   │   ├── components/        # Reusable UI components (shadcn/ui based)
+│   │   ├── hooks/             # Custom hooks (useSSE, useStack, etc.)
+│   │   └── lib/               # API client, types, utilities
+│   ├── index.html
+│   └── vite.config.ts
+├── shared/                    # Shared TypeScript types and validation schemas
+│   ├── types/                 # Stack, Service, Backup, etc. type definitions
+│   └── validation/            # Zod schemas used by both server and client
 ├── prisma/
 │   └── schema.prisma
-├── docker-compose.yml    # Docktor's own deployment
+├── Dockerfile                 # Multi-stage: build client → bundle with server
+├── docker-compose.yml         # Docktor's own deployment
 └── install.sh
 ```
+
+### Build & Deployment
+
+The Dockerfile uses a multi-stage build:
+
+1. **Stage 1 — Build client:** `npm run build` in `client/` → produces static files in `client/dist/`.
+2. **Stage 2 — Build server:** Compile TypeScript in `server/`, run `prisma generate`.
+3. **Stage 3 — Runtime:** Copies compiled server, built client, and Prisma client into a slim Node.js image. Installs `docker compose` CLI and `restic`. Fastify serves `client/dist/` via `@fastify/static` and API routes under `/api/`.
+
+```dockerfile
+# Simplified — actual Dockerfile will be more detailed
+FROM node:22-slim AS client-build
+WORKDIR /app/client
+COPY client/ .
+RUN npm ci && npm run build
+
+FROM node:22-slim AS server-build
+WORKDIR /app
+COPY server/ server/
+COPY shared/ shared/
+COPY prisma/ prisma/
+RUN npm ci && npm run build && npx prisma generate
+
+FROM node:22-slim
+# Install docker-compose-plugin and restic
+RUN apt-get update && apt-get install -y docker-compose-plugin restic && rm -rf /var/lib/apt/lists/*
+COPY --from=server-build /app/dist ./dist
+COPY --from=client-build /app/client/dist ./client-dist
+COPY prisma/ ./prisma/
+ENV CLIENT_DIST_PATH=./client-dist
+CMD ["node", "dist/server/src/index.js"]
+```
+
+### Development Workflow
+
+In development, both the Vite dev server and Fastify run simultaneously:
+
+- **Vite dev server** (`localhost:5173`): Serves the React SPA with HMR. API requests are proxied to Fastify via `vite.config.ts`:
+  ```typescript
+  // client/vite.config.ts
+  export default defineConfig({
+    server: {
+      proxy: { '/api': 'http://localhost:3000' }
+    }
+  });
+  ```
+- **Fastify** (`localhost:3000`): Handles API routes, background jobs, SSE streams. In dev mode, it does **not** serve static files (Vite handles that).
+- **Shared types** are imported directly via TypeScript path aliases — changes to shared types are picked up by both Vite and the server without a build step.
+
+A single `npm run dev` command in the root starts both via `concurrently`.
 
 ---
 
@@ -367,7 +436,7 @@ Docktor itself runs as a Docker Compose stack. This creates a recursive situatio
 │  │    /opt/docktor/data    → SQLite DB, config     │   │
 │  │    /opt/docktor/backups → restic repo           │   │
 │  │                                                │   │
-│  │  Runs: Fastify API + Next.js frontend          │   │
+│  │  Runs: Fastify (API + React SPA + background jobs) │   │
 │  │  Tools: docker compose CLI, restic             │   │
 │  │                                                │   │
 │  └────────────────────────────────────────────────┘   │
@@ -952,17 +1021,17 @@ Docktor tracks disk usage per stack and for the host:
 - **Per stack:** Size of `./volumes/` directory, calculated periodically (every hour via cron job) using `du -sb`. Stored in the Stack model.
 - **Host-level:** Total/used/available disk space on the partition where `/stacks/` lives, via `df`. Displayed on the dashboard.
 - **Warnings:**
-  - Stack-level: if a stack's volume data has grown more than 20% since last check.
-  - Host-level: if available disk drops below 10% or 2 GB (whichever is larger).
+    - Stack-level: if a stack's volume data has grown more than 20% since last check.
+    - Host-level: if available disk drops below 10% or 2 GB (whichever is larger).
 - Disk warnings appear as a banner on the dashboard and in notification emails (if configured).
 
 ### Updates
 
 - Docktor checks Docker registries for newer image versions based on **version tags**, not `:latest`.
 - Version comparison strategy (best-effort, since tagging conventions vary):
-  - **Semver tags** (e.g., `1.2.3`): Compare using semver rules.
-  - **Date-based tags** (e.g., `2025-01-15`): Compare chronologically.
-  - **Digest comparison**: Always available as fallback — compare image digest of local vs. remote.
+    - **Semver tags** (e.g., `1.2.3`): Compare using semver rules.
+    - **Date-based tags** (e.g., `2025-01-15`): Compare chronologically.
+    - **Digest comparison**: Always available as fallback — compare image digest of local vs. remote.
 - The UI shows what changed: current tag/digest vs. available tag/digest.
 - **Updates are never automatic.** Always triggered by the user via an "Update" button.
 - On update: pull new image, recreate containers, verify health.
@@ -998,13 +1067,13 @@ Rather than building a reverse proxy from scratch, Docktor integrates with exist
 ### Supported Approaches
 
 1. **Nginx Proxy Manager (NPM) integration** (recommended for target audience):
-   - NPM runs as a system-level stack managed by Docktor.
-   - When a user configures proxy exposure for a stack, Docktor calls the NPM API to create/update proxy hosts.
-   - TLS is handled automatically by NPM via Let's Encrypt.
+    - NPM runs as a system-level stack managed by Docktor.
+    - When a user configures proxy exposure for a stack, Docktor calls the NPM API to create/update proxy hosts.
+    - TLS is handled automatically by NPM via Let's Encrypt.
 
 2. **Raw Nginx config generation** (advanced users):
-   - Docktor generates Nginx server blocks and writes them to a config directory.
-   - User manages Nginx and Certbot themselves.
+    - Docktor generates Nginx server blocks and writes them to a config directory.
+    - User manages Nginx and Certbot themselves.
 
 ### Exposure Rules
 
@@ -1131,10 +1200,10 @@ Docktor should never prevent users from doing what Docker itself allows. The too
 1. **Syntax validation:** YAML parse errors are caught and shown inline in CodeMirror before deployment.
 2. **Volume convention enforcement:** Named Docker volumes are rejected with an auto-convert offer. Absolute paths outside the stack directory trigger a warning that they won't be backed up (see Volume Strategy).
 3. **Warning system:** The following patterns trigger a visible warning banner (yellow, not blocking):
-   - `privileged: true`
-   - Host volume mounts outside `/stacks/` (e.g., mounting `/etc` or `/var/run/docker.sock`)
-   - `network_mode: host`
-   - `cap_add` with sensitive capabilities
+    - `privileged: true`
+    - Host volume mounts outside `/stacks/` (e.g., mounting `/etc` or `/var/run/docker.sock`)
+    - `network_mode: host`
+    - `cap_add` with sensitive capabilities
 4. **Confirmation dialog:** If warnings are present, deployment requires an explicit "I understand the risks, deploy anyway" confirmation.
 
 > **Design note:** This mirrors the philosophy of tools like `sudo` — warn clearly, then trust the user. Blocking dangerous configs would make Docktor less useful than raw Docker, which defeats the purpose.
