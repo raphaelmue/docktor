@@ -14,20 +14,24 @@
         "build": "yarn workspace @docktor/shared build && yarn workspace @docktor/client build && yarn workspace @docktor/server build",
         "build:server": "yarn workspace @docktor/shared build && yarn workspace @docktor/server build",
         "build:client": "yarn workspace @docktor/client build",
-        "db:generate": "prisma generate --schema=prisma/schema",
-        "db:migrate": "prisma migrate dev --schema=prisma/schema",
-        "db:push": "prisma db push --schema=prisma/schema",
+        "db:generate": "dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
+        "db:migrate": "dotenv -e .env.development -- prisma migrate dev --config=prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
+        "db:push": "dotenv -e .env.development -- prisma db push --config=prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
         "lint": "eslint . --ext .ts,.tsx",
         "typecheck": "tsc --build"
     },
     "devDependencies": {
         "@types/node": "^22.13.0",
+        "@types/pg": "^8",
         "concurrently": "^9.1.2",
-        "prisma": "^6.4.1",
+        "dotenv-cli": "^11.0.0",
+        "prisma": "7",
         "typescript": "^5.7.3"
     },
     "dependencies": {
-        "@prisma/client": "^6.4.1"
+        "@prisma/adapter-pg": "^7.4.0",
+        "@prisma/client": "7",
+        "pg": "^8.18.0"
     },
     "engines": {
         "node": ">=22.0.0"

@@ -17,6 +17,7 @@ server/dist/
 shared/dist/
 
 # Prisma
+prisma/generated/
 prisma/*.db
 prisma/*.db-journal
 
@@ -24,6 +25,9 @@ prisma/*.db-journal
 .env
 .env.local
 .env.production
+
+# Dev data
+dev-data/
 
 # IDE
 .idea/

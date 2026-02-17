@@ -5,6 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "8443:3000"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
       - /var/run/docker.sock:/var/run/docker.sock
@@ -12,7 +15,7 @@ services:
       # Stacks directory — where all managed stacks live
       - /opt/docktor/stacks:/stacks
 
-      # Docktor's own persistent data (SQLite DB, config)
+      # Docktor's own persistent data (config, logs)
       - /opt/docktor/data:/data
 
       # Restic backup repository
@@ -21,8 +24,24 @@ services:
       # Brownfield: host filesystem access for scanning existing stacks
       - /:/host:ro
     environment:
+      - DATABASE_URL=postgresql://docktor:CHANGE_ME@db:5432/docktor
       - DOCKTOR_BASE_URL=https://docktor.example.com
       - DOCKTOR_STACKS_DIR=/stacks
       - DOCKTOR_DATA_DIR=/data
       - DOCKTOR_BACKUP_DIR=/backups
-      - DATABASE_URL=file:/data/docktor.db
+
+  db:
+    image: postgres:17
+    container_name: docktor-db
+    restart: unless-stopped
+    volumes:
+      - /opt/docktor/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: docktor
+      POSTGRES_PASSWORD: CHANGE_ME
+      POSTGRES_DB: docktor
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docktor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

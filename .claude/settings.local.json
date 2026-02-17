@@ -7,7 +7,14 @@
       "Bash(corepack:*)",
       "Bash(yarn install:*)",
       "Bash(yarn prisma validate:*)",
-      "Bash(DATABASE_URL=\"file:./dev.db\" yarn prisma generate:*)"
+      "Bash(DATABASE_URL=\"file:./dev.db\" yarn prisma generate:*)",
+      "WebSearch",
+      "Bash(yarn add:*)",
+      "Bash(DATABASE_URL=\"postgresql://localhost:5432/docktor\" yarn prisma generate:*)",
+      "Bash(yarn prisma generate:*)",
+      "Bash(yarn db:push:*)",
+      "Bash(dotenv -e .env.development -- prisma db push:*)",
+      "Bash(npx dotenv-cli:*)"
     ]
   }
 }

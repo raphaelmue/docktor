@@ -23,7 +23,7 @@ COPY prisma/ prisma/
 RUN yarn install --immutable
 COPY shared/ shared/
 COPY server/ server/
-RUN yarn workspace @docktor/shared build && yarn workspace @docktor/server build && yarn prisma generate --schema=prisma/schema
+RUN yarn workspace @docktor/shared build && yarn workspace @docktor/server build && yarn prisma generate --config=prisma/prisma.config.ts
 
 FROM node:22-slim
 WORKDIR /app
@@ -47,12 +47,10 @@ COPY --from=server-build /app/node_modules ./node_modules
 COPY --from=server-build /app/server/dist ./dist/server
 COPY --from=server-build /app/shared/dist ./dist/shared
 COPY --from=server-build /app/prisma ./prisma
-COPY --from=server-build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=client-build /app/client/dist ./client-dist
 
 ENV NODE_ENV=production
 ENV CLIENT_DIST_PATH=./client-dist
-ENV DATABASE_URL="file:/data/docktor.db"
 
 EXPOSE 3000
 
