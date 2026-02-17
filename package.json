@@ -14,9 +14,9 @@
         "build": "yarn workspace @docktor/shared build && yarn workspace @docktor/client build && yarn workspace @docktor/server build",
         "build:server": "yarn workspace @docktor/shared build && yarn workspace @docktor/server build",
         "build:client": "yarn workspace @docktor/client build",
-        "db:generate": "dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
-        "db:migrate": "dotenv -e .env.development -- prisma migrate dev --config=prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
-        "db:push": "dotenv -e .env.development -- prisma db push --config=prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=prisma/prisma.config.ts",
+        "db:generate": "dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
+        "db:migrate": "dotenv -e .env.development -- prisma migrate dev --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
+        "db:push": "dotenv -e .env.development -- prisma db push --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
         "lint": "eslint . --ext .ts,.tsx",
         "typecheck": "tsc --build"
     },
@@ -31,6 +31,7 @@
     "dependencies": {
         "@prisma/adapter-pg": "^7.4.0",
         "@prisma/client": "7",
+        "better-auth": "^1.4.18",
         "pg": "^8.18.0"
     },
     "engines": {

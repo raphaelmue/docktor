@@ -17,9 +17,9 @@ server/dist/
 shared/dist/
 
 # Prisma
-prisma/generated/
-prisma/*.db
-prisma/*.db-journal
+server/src/generated/
+server/prisma/*.db
+server/prisma/*.db-journal
 
 # Environment
 .env
@@ -41,3 +41,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Typescript
+tsconfig.tsbuildinfo
+
+# AI
+.claude/

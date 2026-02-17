@@ -672,7 +672,8 @@ host directory (e.g., `/home/user/docker/nextcloud/`). This works because:
    the user to save changes on the host (or the user can migrate to full management under `/stacks/`).
 
 > **Limitation:** Adopted-in-place stacks have reduced Docktor functionality — no direct compose editing, no volume
-> convention enforcement, incomplete backup coverage. The UI makes this clear with a "Partially managed — migrate for full
+> convention enforcement, incomplete backup coverage. The UI makes this clear with a "Partially managed — migrate for
+> full
 > features" badge.
 
 ---
@@ -1001,7 +1002,8 @@ recreated (e.g., during an update). The StatusLog in the database records deploy
 container recreation happened.
 
 > **Design note:** Piping Docker logs to Docktor-managed files was considered but rejected — it duplicates storage,
-> requires a background process per container, and reinvents what Docker's json-file driver already does well. Leveraging
+> requires a background process per container, and reinvents what Docker's json-file driver already does well.
+> Leveraging
 > Docker's native logging keeps things simple and predictable.
 
 ### Status & Health Checks
@@ -1145,7 +1147,8 @@ Docktor tracks disk usage per stack and for the host:
 - On update: pull new image, recreate containers, verify health.
 
 > **Design note:** Unifying version detection across all images is inherently imperfect. The goal is to surface "a newer
-> version likely exists" with enough detail for the user to make an informed decision. Edge cases (custom tags, multi-arch
+> version likely exists" with enough detail for the user to make an informed decision. Edge cases (custom tags,
+> multi-arch
 > digests) are accepted limitations.
 
 ---

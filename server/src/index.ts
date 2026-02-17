@@ -4,6 +4,7 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import authRoutes from "./routes/auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,9 +32,9 @@ await app.register(fastifyCors, {
 await app.register(fastifyCookie);
 
 // API routes
-// TODO: Register route plugins here
+await app.register(authRoutes);
+// TODO: Register additional route plugins here
 // await app.register(stackRoutes, { prefix: "/api/stacks" });
-// await app.register(authRoutes, { prefix: "/api/auth" });
 // await app.register(settingsRoutes, { prefix: "/api/settings" });
 // await app.register(backupRoutes, { prefix: "/api/backups" });
 
