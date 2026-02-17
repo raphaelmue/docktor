@@ -1,0 +1,13 @@
+model Registry {
+  id        String  @id @default(cuid())
+  name      String // display name
+  url       String // e.g. "docker.io", "ghcr.io"
+  username  String?
+  password  String? // encrypted
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([url])
+}

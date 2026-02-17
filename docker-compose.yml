@@ -1,0 +1,28 @@
+services:
+  docktor:
+    image: docktor/docktor:latest
+    container_name: docktor
+    restart: unless-stopped
+    ports:
+      - "8443:3000"
+    volumes:
+      # Docker socket — allows Docktor to manage containers on the host
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Stacks directory — where all managed stacks live
+      - /opt/docktor/stacks:/stacks
+
+      # Docktor's own persistent data (SQLite DB, config)
+      - /opt/docktor/data:/data
+
+      # Restic backup repository
+      - /opt/docktor/backups:/backups
+
+      # Brownfield: host filesystem access for scanning existing stacks
+      - /:/host:ro
+    environment:
+      - DOCKTOR_BASE_URL=https://docktor.example.com
+      - DOCKTOR_STACKS_DIR=/stacks
+      - DOCKTOR_DATA_DIR=/data
+      - DOCKTOR_BACKUP_DIR=/backups
+      - DATABASE_URL=file:/data/docktor.db

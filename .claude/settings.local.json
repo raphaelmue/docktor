@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(corepack enable:*)",
+      "Bash(corepack prepare:*)",
+      "Bash(yarn --version:*)",
+      "Bash(corepack:*)",
+      "Bash(yarn install:*)",
+      "Bash(yarn prisma validate:*)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" yarn prisma generate:*)"
+    ]
+  }
+}

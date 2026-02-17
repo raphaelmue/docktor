@@ -1,0 +1,27 @@
+model Service {
+  id          String @id @default(cuid())
+  stackId     String
+  stack       Stack  @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  serviceName String // as defined in docker-compose.yml
+  image       String // e.g. "nextcloud:28"
+  imageTag    String? // e.g. "28" (extracted)
+  imageDigest String? // current local digest
+
+  // Ports (JSON array of { host: number, container: number, protocol: string })
+  ports String? // JSON
+
+  // Volumes (JSON array of { hostPath: string, containerPath: string, type: "bind"|"external" })
+  volumes String? // JSON
+
+  // Container runtime state (updated by poller)
+  containerId    String?
+  containerState String? // "running", "exited", "restarting", etc.
+  healthStatus   String? // "healthy", "unhealthy", "starting", null
+  restartCount   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([stackId, serviceName])
+}

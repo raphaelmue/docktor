@@ -1,0 +1,35 @@
+{
+    "name": "docktor",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Self-hosting management platform for Docker Compose applications",
+    "packageManager": "yarn@4.12.0",
+    "workspaces": [
+        "shared",
+        "server",
+        "client"
+    ],
+    "scripts": {
+        "dev": "concurrently -n server,client -c blue,green \"yarn workspace @docktor/server dev\" \"yarn workspace @docktor/client dev\"",
+        "build": "yarn workspace @docktor/shared build && yarn workspace @docktor/client build && yarn workspace @docktor/server build",
+        "build:server": "yarn workspace @docktor/shared build && yarn workspace @docktor/server build",
+        "build:client": "yarn workspace @docktor/client build",
+        "db:generate": "prisma generate --schema=prisma/schema",
+        "db:migrate": "prisma migrate dev --schema=prisma/schema",
+        "db:push": "prisma db push --schema=prisma/schema",
+        "lint": "eslint . --ext .ts,.tsx",
+        "typecheck": "tsc --build"
+    },
+    "devDependencies": {
+        "@types/node": "^22.13.0",
+        "concurrently": "^9.1.2",
+        "prisma": "^6.4.1",
+        "typescript": "^5.7.3"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.4.1"
+    },
+    "engines": {
+        "node": ">=22.0.0"
+    }
+}
