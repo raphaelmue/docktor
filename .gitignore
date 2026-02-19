@@ -26,6 +26,9 @@ server/prisma/*.db-journal
 .env.local
 .env.production
 
+# Testing
+.test/
+
 # Dev data
 dev-data/
 

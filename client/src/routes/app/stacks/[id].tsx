@@ -10,7 +10,7 @@ import {
     stopStack,
     updateStack,
 } from "@/lib/stacks-api";
-import {StackStatusBadge} from "@/components/stack-status-badge";
+import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Textarea} from "@/components/ui/textarea";

@@ -2,7 +2,7 @@ import {Link} from "react-router";
 import {AlertTriangle, Layers, Play, Plus, Square} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {StackStatusBadge} from "@/components/stack-status-badge";
+import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
 import {useStacks} from "@/hooks/use-stacks";
 
 export default function Dashboard() {

@@ -18,11 +18,15 @@
         "db:migrate": "dotenv -e .env.development -- prisma migrate dev --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
         "db:push": "dotenv -e .env.development -- prisma db push --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
         "lint": "eslint . --ext .ts,.tsx",
-        "typecheck": "tsc --build"
+        "typecheck": "tsc --build",
+        "test": "yarn workspaces foreach -A run test",
+        "test:unit": "yarn workspaces foreach -A run test:unit",
+        "test:integration": "yarn workspaces foreach -A --exclude @docktor/shared run test:integration"
     },
     "devDependencies": {
         "@types/node": "^22.13.0",
         "@types/pg": "^8",
+        "@vitest/coverage-v8": "^4.0.18",
         "concurrently": "^9.1.2",
         "dotenv-cli": "^11.0.0",
         "prisma": "7",

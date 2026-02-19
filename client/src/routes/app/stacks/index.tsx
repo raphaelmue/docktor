@@ -2,7 +2,7 @@ import {Link} from "react-router";
 import {Plus} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
-import {StackStatusBadge} from "@/components/stack-status-badge";
+import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
 import {useStacks} from "@/hooks/use-stacks";
 
 export default function StacksPage() {
