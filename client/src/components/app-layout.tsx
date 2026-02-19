@@ -1,5 +1,5 @@
 import {Link, Outlet, useLocation} from "react-router";
-import {LayoutDashboard, Layers, LogOut} from "lucide-react";
+import {Layers, LayoutDashboard, LogOut} from "lucide-react";
 import {signOut, useSession} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Separator} from "@/components/ui/separator";

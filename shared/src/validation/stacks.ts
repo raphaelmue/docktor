@@ -23,5 +23,10 @@ export const updateStackSchema = z.object({
     envContent: z.string().optional(),
 });
 
+export const stackParamsSchema = z.object({
+    id: stackIdSchema,
+});
+
+export type StackParams = z.infer<typeof stackParamsSchema>;
 export type CreateStackInput = z.infer<typeof createStackSchema>;
 export type UpdateStackInput = z.infer<typeof updateStackSchema>;

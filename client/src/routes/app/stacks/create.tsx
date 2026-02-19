@@ -2,21 +2,13 @@ import {useState} from "react";
 import {useNavigate} from "react-router";
 import {useForm} from "react-hook-form";
 import {standardSchemaResolver} from "@hookform/resolvers/standard-schema";
-import {createStackSchema, type CreateStackInput} from "@docktor/shared";
+import {type CreateStackInput, createStackSchema} from "@docktor/shared";
 import {createStack} from "@/lib/stacks-api";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-    FormDescription,
-} from "@/components/ui/form";
+import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,} from "@/components/ui/form";
 
 export default function CreateStackPage() {
     const navigate = useNavigate();

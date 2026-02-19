@@ -1,5 +1,5 @@
 import {Link} from "react-router";
-import {Plus, Layers, Play, Square, AlertTriangle} from "lucide-react";
+import {AlertTriangle, Layers, Play, Plus, Square} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {StackStatusBadge} from "@/components/stack-status-badge";

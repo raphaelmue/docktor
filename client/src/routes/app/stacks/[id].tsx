@@ -1,37 +1,23 @@
-import {useState, useEffect} from "react";
-import {useParams, useNavigate} from "react-router";
+import {useEffect, useState} from "react";
+import {useNavigate, useParams} from "react-router";
 import {useStack} from "@/hooks/use-stack";
 import {
-    updateStack,
     deleteStack,
     deployStack,
-    stopStack,
-    restartStack,
     getComposeContent,
     getEnvContent,
+    restartStack,
+    stopStack,
+    updateStack,
 } from "@/lib/stacks-api";
 import {StackStatusBadge} from "@/components/stack-status-badge";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Textarea} from "@/components/ui/textarea";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {
-    Play,
-    Square,
-    RotateCcw,
-    Trash2,
-    Save,
-    AlertTriangle,
-} from "lucide-react";
+import {AlertTriangle, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
 
 export default function StackDetailPage() {
     const {id} = useParams<{id: string}>();

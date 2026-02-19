@@ -2,7 +2,7 @@ import {useState} from "react";
 import {Link, useNavigate} from "react-router";
 import {useForm} from "react-hook-form";
 import {standardSchemaResolver} from "@hookform/resolvers/standard-schema";
-import {signupSchema, SignupInput} from "@docktor/shared";
+import {SignupInput, signupSchema} from "@docktor/shared";
 import {signUp} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";

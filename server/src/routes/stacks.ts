@@ -1,10 +1,9 @@
-import type {FastifyPluginAsync} from "fastify";
-import {createStackSchema, updateStackSchema} from "@docktor/shared";
+import type {FastifyPluginAsyncZod} from "fastify-type-provider-zod";
+import {createStackSchema, stackParamsSchema, updateStackSchema,} from "@docktor/shared";
 import {requireAuth} from "../lib/auth-middleware.js";
-import * as stackService from "../services/stack-service.js";
-import * as dockerService from "../services/docker-service.js";
+import {stackService} from "../application/index.js";
 
-const stackRoutes: FastifyPluginAsync = async (app) => {
+const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     app.addHook("onRequest", requireAuth);
 
     // List all stacks
@@ -13,87 +12,84 @@ const stackRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // Create stack
-    app.post("/api/stacks", async (request, reply) => {
-        const input = createStackSchema.parse(request.body);
-        const stack = await stackService.createStack(input);
+    app.post("/api/stacks", {
+        schema: {body: createStackSchema},
+    }, async (request, reply) => {
+        const stack = await stackService.createStack(request.body);
         return reply.status(201).send(stack);
     });
 
     // Get stack detail
-    app.get<{Params: {id: string}}>("/api/stacks/:id", async (request) => {
+    app.get("/api/stacks/:id", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
         return stackService.getStack(request.params.id);
     });
 
     // Update stack
-    app.put<{Params: {id: string}}>("/api/stacks/:id", async (request) => {
-        const input = updateStackSchema.parse(request.body);
-        return stackService.updateStack(request.params.id, input);
+    app.put("/api/stacks/:id", {
+        schema: {params: stackParamsSchema, body: updateStackSchema},
+    }, async (request) => {
+        return stackService.updateStack(request.params.id, request.body);
     });
 
     // Delete stack
-    app.delete<{Params: {id: string}}>(
-        "/api/stacks/:id",
-        async (request, reply) => {
-            await stackService.deleteStack(request.params.id);
-            return reply.status(204).send();
-        },
-    );
+    app.delete("/api/stacks/:id", {
+        schema: {params: stackParamsSchema},
+    }, async (request, reply) => {
+        await stackService.deleteStack(request.params.id);
+        return reply.status(204).send();
+    });
 
     // Deploy stack
-    app.post<{Params: {id: string}}>(
-        "/api/stacks/:id/deploy",
-        async (request) => {
-            return dockerService.deployStack(request.params.id);
-        },
-    );
+    app.post("/api/stacks/:id/deploy", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        return stackService.deployStack(request.params.id);
+    });
 
     // Stop stack
-    app.post<{Params: {id: string}}>(
-        "/api/stacks/:id/stop",
-        async (request) => {
-            await dockerService.stopStack(request.params.id);
-            return {success: true};
-        },
-    );
+    app.post("/api/stacks/:id/stop", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        await stackService.stopStack(request.params.id);
+        return {success: true};
+    });
 
     // Restart stack
-    app.post<{Params: {id: string}}>(
-        "/api/stacks/:id/restart",
-        async (request) => {
-            await dockerService.restartStack(request.params.id);
-            return {success: true};
-        },
-    );
+    app.post("/api/stacks/:id/restart", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        await stackService.restartStack(request.params.id);
+        return {success: true};
+    });
 
     // Get compose file content
-    app.get<{Params: {id: string}}>(
-        "/api/stacks/:id/compose",
-        async (request) => {
-            const content = await stackService.getComposeContent(
-                request.params.id,
-            );
-            return {content};
-        },
-    );
+    app.get("/api/stacks/:id/compose", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        const content = await stackService.getComposeContent(
+            request.params.id,
+        );
+        return {content};
+    });
 
     // Get env file content
-    app.get<{Params: {id: string}}>(
-        "/api/stacks/:id/env",
-        async (request) => {
-            const content = await stackService.getEnvContent(
-                request.params.id,
-            );
-            return {content};
-        },
-    );
+    app.get("/api/stacks/:id/env", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        const content = await stackService.getEnvContent(
+            request.params.id,
+        );
+        return {content};
+    });
 
     // Get live container statuses
-    app.get<{Params: {id: string}}>(
-        "/api/stacks/:id/containers",
-        async (request) => {
-            return dockerService.getContainerStatuses(request.params.id);
-        },
-    );
+    app.get("/api/stacks/:id/containers", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        return stackService.getContainerStatuses(request.params.id);
+    });
 };
 
 export default stackRoutes;

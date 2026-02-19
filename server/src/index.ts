@@ -1,7 +1,9 @@
+import type {FastifyError} from "fastify";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
+import {serializerCompiler, validatorCompiler, type ZodTypeProvider,} from "fastify-type-provider-zod";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import authRoutes from "./routes/auth.js";
@@ -24,7 +26,10 @@ const env = process.env.NODE_ENV ?? "development";
 
 const app = Fastify({
     logger: envToLogger[env] ?? true,
-});
+}).withTypeProvider<ZodTypeProvider>();
+
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
 await app.register(fastifyCors, {
     origin: env === "development" ? "http://localhost:5173" : false,
@@ -34,11 +39,17 @@ await app.register(fastifyCors, {
 await app.register(fastifyCookie);
 
 // Global error handler for AppError subclasses
-app.setErrorHandler((error: Error, _request, reply) => {
+app.setErrorHandler((error: FastifyError | AppError, _request, reply) => {
     if (error instanceof AppError) {
         return reply.status(error.statusCode).send({error: error.message});
     }
-    // Zod validation errors
+    // Zod validation errors (from type-provider-zod validator compiler)
+    if (error.statusCode === 400 && "validation" in error) {
+        return reply.status(400).send({
+            error: "Validation error",
+            details: (error as any).validation,
+        });
+    }
     if (error.name === "ZodError") {
         return reply.status(400).send({error: error.message});
     }
