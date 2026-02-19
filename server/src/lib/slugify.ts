@@ -1,9 +1,9 @@
 export function slugify(input: string): string {
     return input
         .toLowerCase()
-        .replace(/[\s_]+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-        .replace(/-{2,}/g, "-")
-        .replace(/^-+|-+$/g, "")
+        .replaceAll(/[\s_]+/g, "-")
+        .replaceAll(/[^a-z0-9-]/g, "")
+        .replaceAll(/-{2,}/g, "-")
+        .replaceAll(/^-+|-+$/g, "")
         .slice(0, 63);
 }

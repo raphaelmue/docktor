@@ -1,10 +1,31 @@
-import type {
-    Stack,
-    Service,
-    CreateStackInput,
-    UpdateStackInput,
-} from "@docktor/shared";
+import type {CreateStackInput, UpdateStackInput} from "@docktor/shared";
 import {apiFetch} from "./api";
+
+export interface Stack {
+    id: string;
+    displayName: string;
+    description: string | null;
+    hostPath: string;
+    status: string;
+    configChanged: boolean;
+    lastKnownHash: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Service {
+    id: string;
+    stackId: string;
+    serviceName: string;
+    image: string;
+    imageTag: string | null;
+    ports: string | null;
+    volumes: string | null;
+    containerId: string | null;
+    containerState: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export interface StackWithServices extends Stack {
     services: Service[];

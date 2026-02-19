@@ -1,4 +1,3 @@
-import type {StackStatus} from "@docktor/shared";
 import {Badge} from "@/components/ui/badge";
 
 const statusConfig: Record<
@@ -29,7 +28,7 @@ const statusColors: Record<string, string> = {
     DRAFT: "bg-gray-500/15 text-gray-700 border-gray-500/25",
 };
 
-export function StackStatusBadge({status}: {status: StackStatus | string}) {
+export function StackStatusBadge({status}: {status: string}) {
     const config = statusConfig[status] ?? {
         label: status,
         variant: "outline" as const,

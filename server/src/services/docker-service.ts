@@ -4,7 +4,7 @@ import {prisma} from "../lib/db.js";
 import {hashComposeContent} from "../lib/compose-parser.js";
 import {getStackPath, getComposePath} from "../lib/stacks-dir.js";
 import {NotFoundError, BadRequestError} from "../lib/errors.js";
-import type {StackStatus} from "@docktor/shared";
+import type {StackStatus} from "../generated/prisma/enums.js";
 import fs from "node:fs/promises";
 
 const execFileAsync = promisify(execFile);
