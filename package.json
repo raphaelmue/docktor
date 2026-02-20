@@ -29,6 +29,7 @@
         "@vitest/coverage-v8": "^4.0.18",
         "concurrently": "^9.1.2",
         "dotenv-cli": "^11.0.0",
+        "lcov-result-merger": "^5.0.1",
         "prisma": "7",
         "typescript": "^5.7.3"
     },
