@@ -6,6 +6,7 @@ import LoginPage from "./routes/auth/login";
 import SignupPage from "./routes/auth/signup";
 import "./index.css";
 import {AppLayout} from "@/components/app-layout";
+import {Toaster} from "@/components/ui/sonner";
 import Dashboard from "@/routes/app/dashboard";
 import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
@@ -32,6 +33,7 @@ function ProtectedRoute({children}: {children: React.ReactNode}) {
 function App() {
     return (
         <BrowserRouter>
+            <Toaster />
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />

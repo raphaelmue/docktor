@@ -20,7 +20,7 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     });
 
     // Get stack detail
-    app.get("/api/s<tacks/:id", {
+    app.get("/api/stacks/:id", {
         schema: {params: stackParamsSchema},
     }, async (request) => {
         return stackService.getStack(request.params.id);
