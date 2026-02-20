@@ -9,7 +9,7 @@ export class ApiError extends Error {
 }
 
 const BASE =
-    window.location.port === "5173" ? "http://localhost:3000" : "";
+    globalThis.location.port === "5173" ? "http://localhost:3000" : "";
 
 export async function apiFetch<T>(
     path: string,

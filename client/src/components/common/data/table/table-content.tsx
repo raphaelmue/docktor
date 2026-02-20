@@ -15,13 +15,15 @@ interface TableContentProps<T> {
     data: T[];
     columns: TableColumn<T>[];
     itemRoute?: (item: T) => string;
+    getRowKey: (item: T, index: number) => string;
 }
 
 export function TableContent<T>({
     data,
     columns,
     itemRoute,
-}: TableContentProps<T>) {
+    getRowKey,
+}: Readonly<TableContentProps<T>>) {
     const isMobile = useIsMobile();
     const navigate = useNavigate();
 
@@ -31,9 +33,9 @@ export function TableContent<T>({
 
         return (
             <div className="space-y-3">
-                {data.map((item, i) => (
+                {data.map((item, index) => (
                     <Card
-                        key={i}
+                        key={getRowKey(item, index)}
                         className={itemRoute ? "cursor-pointer hover:bg-accent/50 transition-colors" : ""}
                         onClick={itemRoute ? () => navigate(itemRoute(item)) : undefined}
                     >
@@ -69,9 +71,9 @@ export function TableContent<T>({
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {data.map((item, i) => (
+                {data.map((item, index) => (
                     <TableRow
-                        key={i}
+                        key={getRowKey(item, index)}
                         className={itemRoute ? "cursor-pointer" : ""}
                         onClick={
                             itemRoute

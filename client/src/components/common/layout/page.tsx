@@ -38,13 +38,15 @@ function PageHeader({
     )
 }
 
-function PageTitle({className, ...props}: React.ComponentProps<"h1">) {
+function PageTitle({className, children, ...props}: React.ComponentProps<"h1">) {
     return (
         <h1
             data-slot="page-title"
             className={cn("text-2xl font-bold", className)}
             {...props}
-        />
+        >
+            {children}
+        </h1>
     )
 }
 

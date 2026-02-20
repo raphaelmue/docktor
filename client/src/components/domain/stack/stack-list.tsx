@@ -41,11 +41,12 @@ const columns: TableColumn<StackWithServices>[] = [
     },
 ];
 
-export function StackList({stacks, loading, pagination}: StackListProps) {
+export function StackList({stacks, loading, pagination}: Readonly<StackListProps>) {
     return (
         <DataTable
             data={stacks}
             columns={columns}
+            getRowKey={(stack) => stack.id}
             itemRoute={(stack) => `/stacks/${stack.id}`}
             loading={loading}
             emptyMessage="No stacks yet"

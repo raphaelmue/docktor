@@ -28,7 +28,7 @@ const statusColors: Record<string, string> = {
     DRAFT: "bg-gray-500/15 text-gray-700 border-gray-500/25",
 };
 
-export function StackStatusBadge({status}: {status: string}) {
+export function StackStatusBadge({status}: Readonly<{status: string}>) {
     const config = statusConfig[status] ?? {
         label: status,
         variant: "outline" as const,

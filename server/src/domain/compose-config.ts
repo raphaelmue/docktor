@@ -1,6 +1,6 @@
-import {hashComposeContent, parseComposeContent, type ParsedService,} from "../lib/compose-parser.js";
+import {hashComposeContent, parseComposeContent, type ParsedService} from "../lib/compose-parser.js";
 
-export type {ParsedService};
+export type {ParsedService} from "../lib/compose-parser.js";
 
 export interface ComposeConfig {
     readonly hash: string;

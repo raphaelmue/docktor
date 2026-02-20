@@ -23,9 +23,9 @@ import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPa
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 
 export default function StackDetailPage() {
-    const {id} = useParams<{id: string}>();
+    const {id = ""} = useParams<{id: string}>();
     const navigate = useNavigate();
-    const {stack, loading, error, refetch} = useStack(id!);
+    const {stack, loading, error, refetch} = useStack(id);
 
     const [composeContent, setComposeContent] = useState("");
     const [envContent, setEnvContent] = useState("");
@@ -120,22 +120,22 @@ export default function StackDetailPage() {
 
     function handleSaveCompose() {
         handleAction(async () => {
-            await updateStack(id!, {composeContent});
+            await updateStack(id, {composeContent});
             setComposeDirty(false);
         }, "Save compose");
     }
 
     function handleSaveEnv() {
         handleAction(async () => {
-            await updateStack(id!, {envContent});
+            await updateStack(id, {envContent});
             setEnvDirty(false);
         }, "Save environment");
     }
 
     function handleDelete() {
-        if (!confirm(`Delete stack "${stack!.displayName}"?`)) return;
+        if (!stack || !confirm(`Delete stack "${stack.displayName}"?`)) return;
         handleAction(async () => {
-            await deleteStack(id!);
+            await deleteStack(id);
             navigate("/stacks");
         }, "Delete");
     }
@@ -187,7 +187,7 @@ export default function StackDetailPage() {
                             size="sm"
                             disabled={actionLoading}
                             onClick={() =>
-                                handleAction(() => deployStack(id!), "Deploy")
+                                handleAction(() => deployStack(id), "Deploy")
                             }
                         >
                             <Play className="h-4 w-4 mr-1" />
@@ -200,7 +200,7 @@ export default function StackDetailPage() {
                             variant="outline"
                             disabled={actionLoading}
                             onClick={() =>
-                                handleAction(() => stopStack(id!), "Stop")
+                                handleAction(() => stopStack(id), "Stop")
                             }
                         >
                             <Square className="h-4 w-4 mr-1" />
@@ -213,7 +213,7 @@ export default function StackDetailPage() {
                             variant="outline"
                             disabled={actionLoading}
                             onClick={() =>
-                                handleAction(() => restartStack(id!), "Restart")
+                                handleAction(() => restartStack(id), "Restart")
                             }
                         >
                             <RotateCcw className="h-4 w-4 mr-1" />

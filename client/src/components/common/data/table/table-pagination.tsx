@@ -28,7 +28,7 @@ export function TablePagination({
     totalPages,
     pageSize,
     totalItems,
-}: TablePaginationProps) {
+}: Readonly<TablePaginationProps>) {
     const [, setSearchParams] = useSearchParams();
 
     function goToPage(page: number) {
@@ -51,7 +51,7 @@ export function TablePagination({
     return (
         <div className="flex items-center justify-between px-2">
             <div className="text-sm text-muted-foreground">
-                {totalItems} item{totalItems !== 1 ? "s" : ""}
+                {totalItems} item{totalItems === 1 ? "" : "s"}
             </div>
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">

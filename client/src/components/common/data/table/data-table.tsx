@@ -13,6 +13,7 @@ export interface TableColumn<T> {
 export interface DataTableProps<T> {
     data: T[];
     columns: TableColumn<T>[];
+    getRowKey?: (item: T, index: number) => string;
     itemRoute?: (item: T) => string;
     loading?: boolean;
     emptyMessage?: string;
@@ -20,9 +21,14 @@ export interface DataTableProps<T> {
     defaultPageSize?: number;
 }
 
+function defaultGetRowKey<T>(_item: T, index: number): string {
+    return String(index);
+}
+
 export function DataTable<T>({
     data,
     columns,
+    getRowKey = defaultGetRowKey,
     itemRoute,
     loading = false,
     emptyMessage = "No data",
@@ -48,7 +54,7 @@ export function DataTable<T>({
         return (
             <div className="space-y-3">
                 {Array.from({length: 3}).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
+                    <Skeleton key={`skeleton-${String(i)}`} className="h-12 w-full" />
                 ))}
             </div>
         );
@@ -68,6 +74,7 @@ export function DataTable<T>({
                 data={pageData}
                 columns={columns}
                 itemRoute={itemRoute}
+                getRowKey={getRowKey}
             />
             {pagination && data.length > pageSize && (
                 <TablePagination

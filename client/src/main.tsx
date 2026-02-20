@@ -12,7 +12,7 @@ import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
 import StackDetailPage from "@/routes/app/stacks/[id]";
 
-function ProtectedRoute({children}: {children: React.ReactNode}) {
+function ProtectedRoute({children}: Readonly<{children: React.ReactNode}>) {
     const {data: session, isPending} = useSession();
 
     if (isPending) {
