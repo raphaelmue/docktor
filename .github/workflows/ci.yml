@@ -46,6 +46,16 @@ jobs:
       - name: Integration tests
         run: yarn test:integration
 
+      - name: Fix coverage paths for SonarQube
+        if: always()
+        run: |
+          for pkg in server client shared; do
+            lcov="$pkg/.test/coverage/lcov.info"
+            if [ -f "$lcov" ]; then
+              sed -i "s|^SF:src/|SF:$pkg/src/|" "$lcov"
+            fi
+          done
+
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         if: always()
