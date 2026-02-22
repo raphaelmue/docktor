@@ -9,6 +9,9 @@ import {PrismaClient} from "../../src/generated/prisma/client.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prismaConfigPath = path.resolve(__dirname, "../../prisma/prisma.config.ts");
+// Prisma is a root devDependency — resolve it by path so it works without
+// being on $PATH (e.g. in CI or when running vitest directly)
+const prismaBin = path.resolve(__dirname, "../../../node_modules/.bin/prisma");
 
 let container: StartedPostgreSqlContainer;
 let app: FastifyInstance;
@@ -29,7 +32,7 @@ export async function startContainer(): Promise<void> {
     process.env.BETTER_AUTH_SECRET = "test-secret";
 
     // Push schema to the test database
-    execSync(`prisma db push --config=${prismaConfigPath}`, {
+    execSync(`${prismaBin} db push --config=${prismaConfigPath}`, {
         env: {...process.env, DATABASE_URL: connectionString},
         stdio: "pipe",
     });
