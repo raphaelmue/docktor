@@ -25,17 +25,18 @@ self-host applications like Nextcloud, Vaultwarden, etc. without deep Docker exp
 - **Shared types & validation**: Zod schemas and TypeScript types in `shared/`
 - **Client shell**: React + React Router + shadcn/ui + Tailwind CSS, Vite build
 - **Dev/prod config**: Docker Compose files for dev and production, environment configs
+- **Stack CRUD API**: REST endpoints for create, read, update, delete stacks
+- **Docker service layer**: `docker-executor` (compose CLI wrapper) + `stack-filesystem` (file ops)
+- **Stack operations**: deploy (`up -d`), stop, restart
+- **Stack state machine**: All 10 states + allowed transitions enforced in `stack-status-machine.ts`
+- **Dashboard UI**: Stack list, counts by status, recent stacks
+- **Stack detail page**: Services table, compose/env editors, deploy/stop/restart/delete actions, config-changed alert
+- **Create stack page**: Paste YAML + optional `.env`, validates and redirects to detail
 
 ### MVP — Up Next
 
-- [ ] Stack CRUD API (create, read, update, delete stacks via REST)
-- [ ] Docker service layer (dockerode + compose CLI wrapper)
-- [ ] Stack operations: deploy, stop, restart, update
-- [ ] Container state poller (15s interval via docker inspect)
+- [ ] Container state poller (15s background job via `docker compose ps` or dockerode inspect)
 - [ ] Live log streaming (SSE via dockerode log streams)
-- [ ] Dashboard UI (stack list, host disk usage, status overview)
-- [ ] Stack detail page (services, logs, state, compose editor)
-- [ ] Create stack page (paste/upload YAML, configure .env)
 - [ ] Basic settings page (instance name, base URL, timezone)
 
 ### Post-MVP
@@ -49,17 +50,6 @@ self-host applications like Nextcloud, Vaultwarden, etc. without deep Docker exp
 - Disk space monitoring & warnings
 - File watcher (chokidar + polling reconciliation)
 - Update checker (registry polling, version/digest comparison)
-
----
-
-## Goals
-
-- Simplify service deployment and updates via a web UI.
-- Store service configuration in `docker-compose.yml` files on disk.
-- Provide a marketplace for community-contributed templates.
-- Support email notifications on errors or failures.
-- Allow volume and environment file backups per service (stack).
-- Monitor container health and uptime.
 
 ---
 
@@ -794,41 +784,6 @@ future project.
 | Arbitrary YAML               | Warning system + confirmation dialog. Never blocks, always informs.                               |
 | Marketplace templates        | Confirmation dialog with risk summary for community templates.                                    |
 | RBAC                         | Deferred to post-MVP. Single-user model sufficient for personal server use case.                  |
-
----
-
-## Implementation Priority
-
-### Phase 1 — MVP (Core Stack Management)
-
-| Task                        | Status |
-|-----------------------------|--------|
-| Auth (better-auth)          | Done   |
-| DB schema (Prisma models)   | Done   |
-| Shared types & validation   | Done   |
-| Client shell (React + routing + shadcn/ui) | Done |
-| Dev/prod config             | Done   |
-| Stack CRUD API              | Next   |
-| Docker service layer        | Next   |
-| Stack operations (deploy/stop/restart/update) | Next |
-| Container state poller      | Next   |
-| Live log streaming (SSE)    | Next   |
-| Dashboard UI                | Next   |
-| Stack detail page           | Next   |
-| Create stack page           | Next   |
-| Basic settings page         | Next   |
-
-### Phase 2 — Post-MVP (in rough priority order)
-
-1. First-run wizard
-2. Brownfield import & scanning
-3. Backup & restore (restic)
-4. Proxy configuration (NPM integration)
-5. Marketplace (bundled templates + remote index)
-6. Notifications (SMTP)
-7. Disk space monitoring
-8. File watcher
-9. Update checker
 
 ---
 
