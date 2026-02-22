@@ -1,4 +1,5 @@
-import {test, expect, type Page} from "@playwright/test";
+import {test, expect} from "./fixtures";
+import type {Page} from "@playwright/test";
 
 const mockUser = {id: "1", name: "E2E Tester", email: "test@example.com"};
 const mockSession = {session: {id: "sess-1", userId: "1"}, user: mockUser};

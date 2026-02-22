@@ -20,8 +20,8 @@
         "lint": "eslint . --ext .ts,.tsx",
         "typecheck": "tsc --build",
         "test": "yarn workspaces foreach -A run test",
-        "test:unit": "yarn workspaces foreach -A run test:unit",
-        "test:integration": "yarn workspaces foreach -A --exclude @docktor/shared run test:integration"
+        "test:unit": "yarn workspaces foreach -A --exclude @docktor/server run test:unit",
+        "test:integration": "yarn workspaces foreach -A --exclude @docktor/shared --exclude @docktor/server run test:integration"
     },
     "devDependencies": {
         "@types/node": "^22.13.0",

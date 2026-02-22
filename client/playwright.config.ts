@@ -7,6 +7,7 @@ const monorepoRoot = path.resolve(__dirname, "..");
 
 export default defineConfig({
     testDir: "test/integration",
+    globalTeardown: "./test/playwright-teardown.ts",
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,

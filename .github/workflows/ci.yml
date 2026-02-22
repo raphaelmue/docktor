@@ -37,13 +37,18 @@ jobs:
       - name: Typecheck
         run: yarn typecheck
 
-      - name: Unit tests
+      - name: Unit tests (client + shared)
         run: yarn test:unit
+
+      - name: Server tests (unit + integration combined for accurate coverage)
+        run: yarn workspace @docktor/server test
 
       - name: Install Playwright browsers
         run: yarn workspace @docktor/client exec playwright install --with-deps chromium
 
-      - name: Integration tests
+      - name: Client integration tests
+        env:
+          VITE_COVERAGE: "true"
         run: yarn test:integration
 
       - name: Fix coverage paths for SonarQube
