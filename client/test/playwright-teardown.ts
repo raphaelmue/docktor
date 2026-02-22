@@ -12,7 +12,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import {createRequire} from "node:module";
 import {execSync} from "node:child_process";
+
+// CJS modules must be loaded with require() in an ESM context — dynamic
+// import() only exposes a `default` key for CJS packages, not named exports.
+const require = createRequire(import.meta.url);
 
 // ESM equivalent of __dirname — teardown lives at client/test/playwright-teardown.ts
 // so one level up resolves to the client/ root
@@ -35,10 +40,9 @@ export default async function teardown() {
         return;
     }
 
-    // Dynamically import the istanbul packages (ESM/CJS mixed environment)
-    const {createCoverageMap} = await import("istanbul-lib-coverage");
-    const libReport = await import("istanbul-lib-report");
-    const reports = await import("istanbul-reports");
+    const {createCoverageMap} = require("istanbul-lib-coverage") as typeof import("istanbul-lib-coverage");
+    const libReport = require("istanbul-lib-report") as typeof import("istanbul-lib-report");
+    const reports = require("istanbul-reports") as typeof import("istanbul-reports");
 
     // Merge all per-test coverage snapshots
     const map = createCoverageMap({});
