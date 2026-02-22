@@ -4,6 +4,7 @@ export function slugify(input: string): string {
         .replaceAll(/[\s_]+/g, "-")
         .replaceAll(/[^a-z0-9-]/g, "")
         .replaceAll(/-{2,}/g, "-")
-        .replaceAll(/(^-+)|(-+$)/g, "")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "")
         .slice(0, 63);
 }
