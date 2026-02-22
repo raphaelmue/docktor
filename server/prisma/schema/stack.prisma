@@ -1,0 +1,58 @@
+model Stack {
+  id               String      @id // slugified name, e.g. "my-nextcloud"
+  displayName      String // user-facing name, e.g. "My Nextcloud"
+  description      String?
+
+  // Filesystem
+  hostPath         String // absolute host path, e.g. "/opt/docktor/stacks/my-nextcloud"
+  isAdoptedInPlace Boolean     @default(false) // true = brownfield adopt, limited features
+
+  // State machine
+  status           StackStatus @default(DRAFT)
+  previousStatus   StackStatus? // stored before transient states (BACKING_UP, etc.)
+
+  // Compose parsing cache
+  lastKnownHash    String? // SHA256 of docker-compose.yml
+  lastParsedAt     DateTime?
+  configChanged    Boolean     @default(false) // true = file changed since last deploy
+
+  // Import provenance (brownfield migration)
+  importedFrom     String? // original host path before migration
+  importedAt       DateTime?
+
+  // Disk usage
+  volumeSizeBytes  BigInt? // last measured size of ./volumes/
+  volumeSizeAt     DateTime? // when volumeSizeBytes was last updated
+
+  // Backup hooks (optional)
+  backupPreHook    String? // shell command to run before backup
+  backupPostHook   String? // shell command to run after backup
+
+  // Scheduling
+  backupSchedule   String? // cron expression, null = use global default
+  backupRetention  String? // JSON retention policy, null = use global default
+
+  // Relations
+  services     Service[]
+  proxyConfigs ProxyConfig[]
+  backups      Backup[]
+  statusLogs   StatusLog[]
+  deployments  Deployment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum StackStatus {
+  DRAFT
+  DEPLOYING
+  RUNNING
+  HEALTHY
+  UNHEALTHY
+  STOPPED
+  ERROR
+  UPDATING
+  BACKING_UP
+  RESTORING
+  MIGRATING
+}

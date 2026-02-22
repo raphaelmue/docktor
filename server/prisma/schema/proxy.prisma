@@ -1,0 +1,19 @@
+model ProxyConfig {
+  id          String @id @default(cuid())
+  stackId     String
+  stack       Stack  @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  serviceName String // which service in the stack to expose
+  domain      String // e.g. "cloud.example.com"
+  internalPort Int   // e.g. 80
+  tlsEnabled  Boolean @default(true)
+  isPublic    Boolean @default(true) // false = LAN-only
+
+  // NPM integration
+  npmProxyHostId Int? // Nginx Proxy Manager host ID, if managed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([domain])
+}

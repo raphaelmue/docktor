@@ -1,0 +1,13 @@
+model Deployment {
+  id      String @id @default(cuid())
+  stackId String
+  stack   Stack  @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  templateId      String? // marketplace template ID, null if manual
+  templateVersion String? // version of the template used
+
+  composeHash  String // SHA256 of the compose file at deploy time
+  deployedAt   DateTime @default(now())
+  success      Boolean
+  errorMessage String?
+}

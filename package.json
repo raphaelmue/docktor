@@ -1,0 +1,45 @@
+{
+    "name": "docktor",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Self-hosting management platform for Docker Compose applications",
+    "packageManager": "yarn@4.12.0",
+    "workspaces": [
+        "shared",
+        "server",
+        "client"
+    ],
+    "scripts": {
+        "dev": "concurrently -n server,client -c blue,green \"yarn workspace @docktor/server dev\" \"yarn workspace @docktor/client dev\"",
+        "build": "yarn workspace @docktor/shared build && yarn workspace @docktor/client build && yarn workspace @docktor/server build",
+        "build:server": "yarn workspace @docktor/shared build && yarn workspace @docktor/server build",
+        "build:client": "yarn workspace @docktor/client build",
+        "db:generate": "dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
+        "db:migrate": "dotenv -e .env.development -- prisma migrate dev --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
+        "db:push": "dotenv -e .env.development -- prisma db push --config=server/prisma/prisma.config.ts && dotenv -e .env.development -- prisma generate --config=server/prisma/prisma.config.ts",
+        "lint": "eslint . --ext .ts,.tsx",
+        "typecheck": "tsc --build",
+        "test": "yarn workspaces foreach -A run test",
+        "test:unit": "yarn workspaces foreach -A --exclude @docktor/server run test:unit",
+        "test:integration": "yarn workspaces foreach -A --exclude @docktor/shared --exclude @docktor/server run test:integration"
+    },
+    "devDependencies": {
+        "@types/node": "^22.13.0",
+        "@types/pg": "^8",
+        "@vitest/coverage-v8": "^4.0.18",
+        "concurrently": "^9.1.2",
+        "dotenv-cli": "^11.0.0",
+        "lcov-result-merger": "^5.0.1",
+        "prisma": "7",
+        "typescript": "^5.7.3"
+    },
+    "dependencies": {
+        "@prisma/adapter-pg": "^7.4.0",
+        "@prisma/client": "7",
+        "better-auth": "^1.4.18",
+        "pg": "^8.18.0"
+    },
+    "engines": {
+        "node": ">=22.0.0"
+    }
+}
