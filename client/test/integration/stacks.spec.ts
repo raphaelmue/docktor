@@ -201,7 +201,7 @@ test.describe("Stacks", () => {
 
         await expect(page.getByRole("heading", {name: "My App"})).toBeVisible();
         await expect(page.getByText("A test application")).toBeVisible();
-        await expect(page.getByText("Running")).toBeVisible();
+        await expect(page.getByText("Running", {exact: true})).toBeVisible();
 
         // Services table
         await expect(page.getByText("web")).toBeVisible();
@@ -271,7 +271,7 @@ test.describe("Stacks", () => {
 
         await expect(page.getByRole("heading", {name: "Dashboard"})).toBeVisible();
         await expect(page.getByText("Total Stacks")).toBeVisible();
-        await expect(page.getByText("Running")).toBeVisible();
+        await expect(page.getByText("Running").first()).toBeVisible();
         await expect(page.getByText("My App")).toBeVisible();
     });
 
@@ -293,7 +293,7 @@ test.describe("Stacks", () => {
         await page.goto("/stacks/my-app");
 
         // Breadcrumb should show "Stacks > My App"
-        await expect(page.getByRole("link", {name: "Stacks"})).toBeVisible();
+        await expect(page.getByLabel("breadcrumb").getByRole("link", {name: "Stacks"})).toBeVisible();
         await expect(page.locator("[aria-current='page']", {hasText: "My App"})).toBeVisible();
     });
 
