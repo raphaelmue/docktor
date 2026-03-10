@@ -1,7 +1,7 @@
 # Phase 1: MVP Completion - Context
 
 **Gathered:** 2026-03-10
-**Status:** Partial — log viewer and settings UX still need discussion (run /gsd:discuss-phase 1 to continue)
+**Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
@@ -20,10 +20,22 @@ Users can observe real-time container status in both the dashboard and stack det
 - On initial page load: show skeleton until SSE connection is established (not stale REST data)
 
 ### Log viewer layout
-- TBD — discuss in next session via /gsd:discuss-phase 1
+- New "Logs" tab added to existing stack detail Tabs (alongside Overview, Compose, Environment)
+- Service filter: dropdown selector above the log area ("All services" + per-service options); combined view prefixes each line with service name
+- Log display: dark terminal style (black/dark-gray background, monospace font), fixed height with overflow scroll
+- Toolbar controls: auto-scroll toggle, timestamps toggle, line wrap toggle, clear display button
+- Service row in the services table has a "Logs" button that switches to the Logs tab pre-filtered to that service
+
+### Service status in detail view
+- Services table gets a Status column with a colored badge (consistent with StackStatusBadge pattern)
+- Status badge updates silently in place when SSE events arrive (no flash, no toast per update)
+- Stack-level status badge in the page header also updates live via the SSE feed (not just on page refresh)
 
 ### Settings page UX
-- TBD — discuss in next session via /gsd:discuss-phase 1
+- Settings lives as a dedicated sidebar nav item (same level as Dashboard and Stacks)
+- Sectioned layout: one Card per logical category ("General" for Phase 1; later phases add Notifications, Backup, etc.)
+- Timezone field: searchable combobox (user types to filter IANA timezone list — no free-text input)
+- Save behavior: Save button per card section (each section saves independently)
 
 ### Claude's Discretion
 - SSE event schema/format (what fields each state event contains)
@@ -31,6 +43,8 @@ Users can observe real-time container status in both the dashboard and stack det
 - Exact skeleton design for initial load
 - dockerode client adapter structure (parallel to DockerExecutor)
 - State poller reconciliation implementation details
+- Exact fixed height for log viewer terminal area
+- ANSI color rendering library choice
 
 </decisions>
 
@@ -43,7 +57,9 @@ Users can observe real-time container status in both the dashboard and stack det
 - `client/src/hooks/use-stacks.ts`: list hook — extend with SSE for live dashboard updates
 - `server/src/infrastructure/docker-executor.ts`: existing Docker adapter for compose CLI — new `DockerodeClient` adapter follows same interface pattern
 - `server/src/application/stack-service.ts`: use-case orchestrator — new `SettingsService` follows same pattern
-- shadcn/ui primitives in `client/src/components/ui/` — reuse for settings form (Input, Button, Select, Form)
+- `client/src/components/ui/`: shadcn/ui primitives — reuse for settings form (Input, Button, Select/Combobox, Form, Tabs)
+- `client/src/components/domain/stack/stack-status-badge.tsx`: existing status badge — reuse or adapt for per-service status column
+- `client/src/routes/app/stacks/[id].tsx`: existing Tabs pattern (overview/compose/environment) — add Logs as 4th tab here
 
 ### Established Patterns
 - Fastify plugin pattern: `const routes: FastifyPluginAsyncZod = async (app) => { ... }`
@@ -53,6 +69,7 @@ Users can observe real-time container status in both the dashboard and stack det
 - No formatter configured — 4-space indent, no semicolons, double quotes, trailing commas
 - Server imports use `.js` extension on relative imports (Node ESM)
 - Client uses `@/` path alias for `client/src/`
+- Page layout uses `Page`, `PageHeader`, `PageContent`, `PageActions`, `PageTitle` components from `@/components/common/layout/page`
 
 ### Integration Points
 - New SSE state route: `GET /api/events` or `GET /api/stacks/events` — registered in `server/src/app.ts`
@@ -60,6 +77,8 @@ Users can observe real-time container status in both the dashboard and stack det
 - New settings routes: `server/src/routes/settings.ts` — registered in `server/src/app.ts`
 - Background jobs start in `server/src/app.ts` `onReady` hook — new Docker event listener registered there
 - `server/src/jobs/index.ts` — job registry that `app.ts` calls on ready
+- Sidebar navigation: new Settings item added to `client/src/components/app-sidebar.tsx`
+- Router: new `/settings` route added to router configuration
 
 </code_context>
 
@@ -68,6 +87,7 @@ Users can observe real-time container status in both the dashboard and stack det
 
 - User explicitly chose skeleton (not stale data) for initial load — this is a deliberate UX preference, not a default
 - Event-driven container state (docker events API) was user's suggestion to avoid polling latency — this is a core design choice
+- "Logs" button in service row should pre-select that service in the Logs tab dropdown (programmatic tab + filter switch)
 
 </specifics>
 
@@ -81,4 +101,4 @@ None — discussion stayed within phase scope.
 ---
 
 *Phase: 01-mvp-completion*
-*Context gathered: 2026-03-10 (partial — continue with /gsd:discuss-phase 1)*
+*Context gathered: 2026-03-10*
