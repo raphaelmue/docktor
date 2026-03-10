@@ -31,7 +31,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Log viewer renders colored ANSI output and prefixes each line with the service name; user can filter by service in the combined view
   4. Browser reconnects to the log stream automatically if the SSE connection drops
   5. User can set instance name, base URL, and timezone on a Settings page and have those values survive a server restart
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Test scaffolds (Wave 0 RED state for all 12 requirements)
+- [ ] 01-02-PLAN.md — Server foundation: DockerodeClient, StateBroadcaster, Settings backend
+- [ ] 01-03-PLAN.md — StatePoller job: Docker event stream + 60s reconciliation + app wiring
+- [ ] 01-04-PLAN.md — Shared settings validation schemas + cmdk/Command component install
+- [ ] 01-05-PLAN.md — State SSE route + useContainerEvents + dashboard/detail live updates
+- [ ] 01-06-PLAN.md — Log SSE route + LogViewer component + Logs tab
+- [ ] 01-07-PLAN.md — Settings page UI + sidebar nav + router registration
 
 ### Phase 2: Observability
 **Goal**: Users are passively informed when compose files change externally and when newer container images are available
@@ -97,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. MVP Completion | 0/? | Not started | - |
+| 1. MVP Completion | 0/7 | Not started | - |
 | 2. Observability | 0/? | Not started | - |
 | 3. Notifications | 0/? | Not started | - |
 | 4. Backup & Restore | 0/? | Not started | - |
