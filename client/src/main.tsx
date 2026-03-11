@@ -11,6 +11,7 @@ import Dashboard from "@/routes/app/dashboard";
 import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
 import StackDetailPage from "@/routes/app/stacks/[id]";
+import SettingsPage from "@/routes/app/settings";
 
 function ProtectedRoute({children}: Readonly<{children: React.ReactNode}>) {
     const {data: session, isPending} = useSession();
@@ -54,6 +55,7 @@ function App() {
                         path="/stacks/:id"
                         element={<StackDetailPage />}
                     />
+                    <Route path="/settings" element={<SettingsPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>
