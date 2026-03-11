@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-mvp-completion-01-07-PLAN.md
-last_updated: "2026-03-11T15:00:00.000Z"
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-03-11T15:01:52.127Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 7
   percent: 71
 ---
 
@@ -56,6 +56,7 @@ Progress: [███████░░░] 71%
 | Phase 01-mvp-completion P04 | 6 | 2 tasks | 5 files |
 | Phase 01-mvp-completion P06 | 35 | 2 tasks | 7 files |
 | Phase 01-mvp-completion P07 | 20 | 2 tasks | 5 files |
+| Phase 01-mvp-completion P05 | 15 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting current work:
 - [Phase 01-mvp-completion Plan 06]: Global EventSource stub added to test/setup.ts — jsdom lacks EventSource; component tests using useLogStream would throw without it
 - [Phase 01-mvp-completion Plan 07]: Used radix-ui Popover directly (not shadcn CLI) for popover.tsx - consistent with existing dialog.tsx and select.tsx pattern
 - [Phase 01-mvp-completion Plan 07]: TimezoneCombobox is unexported component in settings.tsx - no other page needs it in Phase 1
+- [Phase 01-mvp-completion]: Added healthStatus to Service interface — SSE events include it but DB type was missing it
+- [Phase 01-mvp-completion]: ServiceStatusBadge inline in [id].tsx — too small to warrant separate file
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T15:00:00.000Z
-Stopped at: Completed 01-mvp-completion-01-07-PLAN.md
+Last session: 2026-03-11T15:01:52.067Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
