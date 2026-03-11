@@ -23,6 +23,42 @@ import {AlertTriangle, FileText, Play, RotateCcw, Save, Square, Trash2,} from "l
 import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 
+interface ServiceStatusBadgeProps {
+    containerState: string | null;
+    healthStatus: string | null;
+}
+
+function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgeProps) {
+    if (!containerState) {
+        return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">unknown</span>;
+    }
+
+    let className: string;
+    let label: string;
+
+    if (containerState === "running" && healthStatus === "healthy") {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+        label = "healthy";
+    } else if (containerState === "running" && healthStatus === "unhealthy") {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+        label = "unhealthy";
+    } else if (containerState === "running") {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+        label = "running";
+    } else if (containerState === "exited") {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground";
+        label = "exited";
+    } else if (containerState === "restarting") {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+        label = "restarting";
+    } else {
+        className = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground";
+        label = containerState;
+    }
+
+    return <span className={className}>{label}</span>;
+}
+
 export default function StackDetailPage() {
     const {id = ""} = useParams<{id: string}>();
     const navigate = useNavigate();
@@ -271,6 +307,7 @@ export default function StackDetailPage() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Name</TableHead>
+                                                <TableHead>Status</TableHead>
                                                 <TableHead>Image</TableHead>
                                                 <TableHead>Tag</TableHead>
                                                 <TableHead>Ports</TableHead>
@@ -282,6 +319,12 @@ export default function StackDetailPage() {
                                                 <TableRow key={svc.id}>
                                                     <TableCell className="font-medium">
                                                         {svc.serviceName}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <ServiceStatusBadge
+                                                            containerState={svc.containerState}
+                                                            healthStatus={svc.healthStatus}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
                                                         {svc.image}

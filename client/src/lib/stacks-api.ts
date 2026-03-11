@@ -23,6 +23,7 @@ export interface Service {
     volumes: string | null;
     containerId: string | null;
     containerState: string | null;
+    healthStatus: string | null;
     createdAt: string;
     updatedAt: string;
 }

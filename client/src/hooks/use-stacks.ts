@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from "react";
 import {listStacks, type StackWithServices} from "@/lib/stacks-api";
+import {useContainerEvents} from "@/hooks/use-container-events";
 
 export function useStacks() {
     const [stacks, setStacks] = useState<StackWithServices[]>([]);
@@ -22,6 +23,22 @@ export function useStacks() {
     useEffect(() => {
         fetch();
     }, [fetch]);
+
+    useContainerEvents((event) => {
+        setStacks(prev => prev.map(stack =>
+            stack.id === event.stackId
+                ? {
+                    ...stack,
+                    status: event.stackStatus,
+                    services: stack.services.map(s =>
+                        s.serviceName === event.serviceName
+                            ? {...s, containerState: event.containerState, healthStatus: event.healthStatus}
+                            : s
+                    ),
+                }
+                : stack
+        ));
+    });
 
     return {stacks, loading, error, refetch: fetch};
 }
