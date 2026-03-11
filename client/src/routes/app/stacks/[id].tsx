@@ -12,13 +12,14 @@ import {
     updateStack,
 } from "@/lib/stacks-api";
 import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
+import {LogViewer} from "@/components/domain/stack/log-viewer";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Textarea} from "@/components/ui/textarea";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {AlertTriangle, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
+import {AlertTriangle, FileText, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
 import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 
@@ -32,6 +33,8 @@ export default function StackDetailPage() {
     const [composeDirty, setComposeDirty] = useState(false);
     const [envDirty, setEnvDirty] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState("overview");
+    const [logsService, setLogsService] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         if (!id) return;
@@ -245,11 +248,12 @@ export default function StackDetailPage() {
                     </Alert>
                 )}
 
-                <Tabs defaultValue="overview">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="compose">Compose</TabsTrigger>
                         <TabsTrigger value="environment">Environment</TabsTrigger>
+                        <TabsTrigger value="logs">Logs</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4 mt-4">
@@ -270,6 +274,7 @@ export default function StackDetailPage() {
                                                 <TableHead>Image</TableHead>
                                                 <TableHead>Tag</TableHead>
                                                 <TableHead>Ports</TableHead>
+                                                <TableHead></TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -298,6 +303,19 @@ export default function StackDetailPage() {
                                                                   )
                                                                   .join(", ")
                                                             : "-"}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            title={`View logs for ${svc.serviceName}`}
+                                                            onClick={() => {
+                                                                setLogsService(svc.serviceName);
+                                                                setActiveTab("logs");
+                                                            }}
+                                                        >
+                                                            <FileText className="h-4 w-4" />
+                                                        </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -447,6 +465,14 @@ export default function StackDetailPage() {
                                 />
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="logs" className="mt-4">
+                        <LogViewer
+                            stackId={id}
+                            serviceNames={stack.services.map((s) => s.serviceName)}
+                            initialService={logsService}
+                        />
                     </TabsContent>
                 </Tabs>
             </PageContent>

@@ -593,6 +593,7 @@ __metadata:
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^5.1.4"
+    ansi-to-react: "npm:^6.2.6"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
     cmdk: "npm:^1.1.1"
@@ -3962,6 +3963,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"anser@npm:^2.3.2":
+  version: 2.3.5
+  resolution: "anser@npm:2.3.5"
+  checksum: 10c0/c8ab6eb8241f675a9a8c0e2f5ade9f8ead55ddb6e4f3587214ceac662012d89ab1a6e5d7daa0010941a5d8d9bda2c7ea958cd6fe6e52db0fb612f7fcd6c4ce3f
+  languageName: node
+  linkType: hard
+
 "ansi-regex@npm:^5.0.1":
   version: 5.0.1
   resolution: "ansi-regex@npm:5.0.1"
@@ -3996,6 +4004,20 @@ __metadata:
   version: 6.2.3
   resolution: "ansi-styles@npm:6.2.3"
   checksum: 10c0/23b8a4ce14e18fb854693b95351e286b771d23d8844057ed2e7d083cd3e708376c3323707ec6a24365f7d7eda3ca00327fe04092e29e551499ec4c8b7bfac868
+  languageName: node
+  linkType: hard
+
+"ansi-to-react@npm:^6.2.6":
+  version: 6.2.6
+  resolution: "ansi-to-react@npm:6.2.6"
+  dependencies:
+    anser: "npm:^2.3.2"
+    escape-carriage: "npm:^1.3.1"
+    linkify-it: "npm:^3.0.3"
+  peerDependencies:
+    react: ^16.3.2 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^16.3.2 || ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10c0/2f3d5f3d91d0b93ec244e7bad99da43e77efcf61f09164cc8bd13d6a423284991e69e981083589bf5b84affdf03c380e336c49a3c31d4835364b1a31fc908e51
   languageName: node
   linkType: hard
 
@@ -5545,6 +5567,13 @@ __metadata:
   version: 3.2.0
   resolution: "escalade@npm:3.2.0"
   checksum: 10c0/ced4dd3a78e15897ed3be74e635110bbf3b08877b0a41be50dcb325ee0e0b5f65fc2d50e9845194d7c4633f327e2e1c6cce00a71b617c5673df0374201d67f65
+  languageName: node
+  linkType: hard
+
+"escape-carriage@npm:^1.3.1":
+  version: 1.3.1
+  resolution: "escape-carriage@npm:1.3.1"
+  checksum: 10c0/ef82888d664d93a0b7246eecf33859235da4a1059c14ce4102894145bc31f82d095579ffd405c01eb8b77a7ee751d1e29e25df85a4b0769ad1c79afa8e983de5
   languageName: node
   linkType: hard
 
@@ -7115,6 +7144,15 @@ __metadata:
   version: 1.2.4
   resolution: "lines-and-columns@npm:1.2.4"
   checksum: 10c0/3da6ee62d4cd9f03f5dc90b4df2540fb85b352081bee77fe4bbcd12c9000ead7f35e0a38b8d09a9bb99b13223446dd8689ff3c4959807620726d788701a83d2d
+  languageName: node
+  linkType: hard
+
+"linkify-it@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "linkify-it@npm:3.0.3"
+  dependencies:
+    uc.micro: "npm:^1.0.1"
+  checksum: 10c0/468cb4954f85cdfc16e169db89a42d65287e3f121a9448b29c3c00d64c6f5a8f4367bea3978ba9109a0e3a10b19d50632b983639f91b9be9f20d1f63a5ff5bc1
   languageName: node
   linkType: hard
 
@@ -9979,6 +10017,13 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10c0/ad09fdf7a756814dce65bc60c1657b40d44451346858eea230e10f2e95a289d9183b6e32e5c11e95acc0ccc214b4f36289dcad4bf1886b0adb84d711d336a430
+  languageName: node
+  linkType: hard
+
+"uc.micro@npm:^1.0.1":
+  version: 1.0.6
+  resolution: "uc.micro@npm:1.0.6"
+  checksum: 10c0/9bde2afc6f2e24b899db6caea47dae778b88862ca76688d844ef6e6121dec0679c152893a74a6cfbd2e6fde34654e6bd8424fee8e0166cdfa6c9ae5d42b8a17b
   languageName: node
   linkType: hard
 
