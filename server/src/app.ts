@@ -13,6 +13,7 @@ import {fileURLToPath} from "node:url";
 import authRoutes from "./routes/auth.js";
 import stackRoutes from "./routes/stacks.js";
 import settingsRoutes from "./routes/settings.js";
+import eventsRoutes from "./routes/events.js";
 import {AppError} from "./lib/errors.js";
 import {statePoller} from "./jobs/state-poller.js";
 
@@ -69,6 +70,7 @@ export async function buildApp() {
     await app.register(authRoutes);
     await app.register(stackRoutes);
     await app.register(settingsRoutes);
+    await app.register(eventsRoutes);
 
     // StatePoller: start/stop with server lifecycle (skipped in test environment)
     if (process.env.NODE_ENV !== "test") {

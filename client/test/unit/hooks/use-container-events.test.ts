@@ -20,7 +20,7 @@ function createMockEventSource() {
 }
 
 let mockEventSourceInstance: ReturnType<typeof createMockEventSource>;
-const MockEventSource = vi.fn(() => {
+const MockEventSource = vi.fn(function () {
     mockEventSourceInstance = createMockEventSource();
     return mockEventSourceInstance;
 });
