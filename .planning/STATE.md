@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-mvp-completion-01-01-PLAN.md
-last_updated: "2026-03-11T09:33:00.924Z"
+stopped_at: Completed 01-mvp-completion-01-02-PLAN.md
+last_updated: "2026-03-11T09:55:03.870Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-mvp-completion P01 | 284 | 2 tasks | 6 files |
+| Phase 01-mvp-completion P02 | 19 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - Bind mounts only: Named Docker volumes rejected; all data in ./volumes/ subdir
 - [Phase 01-mvp-completion]: StatePoller accepts DockerodeClient and StackRepository via constructor for testability (not module-level mocks)
 - [Phase 01-mvp-completion]: log-viewer tests use it.todo() for render-level assertions that need the component to exist
+- [Phase 01-mvp-completion]: DockerodeClient uses factory pattern (not new) to support vi.fn() arrow function mocking in tests
+- [Phase 01-mvp-completion]: vitest.config.ts regex resolve alias added to handle deep relative test imports (../../../../src/)
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T09:33:00.889Z
-Stopped at: Completed 01-mvp-completion-01-01-PLAN.md
+Last session: 2026-03-11T09:55:03.865Z
+Stopped at: Completed 01-mvp-completion-01-02-PLAN.md
 Resume file: None
