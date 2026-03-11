@@ -14,6 +14,7 @@ import authRoutes from "./routes/auth.js";
 import stackRoutes from "./routes/stacks.js";
 import settingsRoutes from "./routes/settings.js";
 import {AppError} from "./lib/errors.js";
+import {statePoller} from "./jobs/state-poller.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -68,6 +69,19 @@ export async function buildApp() {
     await app.register(authRoutes);
     await app.register(stackRoutes);
     await app.register(settingsRoutes);
+
+    // StatePoller: start/stop with server lifecycle (skipped in test environment)
+    if (process.env.NODE_ENV !== "test") {
+        app.addHook("onReady", async () => {
+            await statePoller.start();
+            app.log.info("StatePoller started");
+        });
+
+        app.addHook("onClose", async () => {
+            statePoller.stop();
+            app.log.info("StatePoller stopped");
+        });
+    }
 
     // In production, serve the built client SPA
     const clientDistPath =
