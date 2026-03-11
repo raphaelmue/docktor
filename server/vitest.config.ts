@@ -1,6 +1,17 @@
 import {defineConfig} from "vitest/config";
+import {resolve} from "node:path";
 
 export default defineConfig({
+    resolve: {
+        alias: [
+            // Allows tests to import via deep relative "../../../../src/..." paths
+            // regardless of test subdirectory nesting depth
+            {
+                find: /^(?:\.\.\/)+src\//,
+                replacement: resolve(__dirname, "src") + "/",
+            },
+        ],
+    },
     test: {
         projects: [
             {

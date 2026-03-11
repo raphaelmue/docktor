@@ -12,6 +12,7 @@ import path from "node:path";
 import {fileURLToPath} from "node:url";
 import authRoutes from "./routes/auth.js";
 import stackRoutes from "./routes/stacks.js";
+import settingsRoutes from "./routes/settings.js";
 import {AppError} from "./lib/errors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,6 +67,7 @@ export async function buildApp() {
     // API routes
     await app.register(authRoutes);
     await app.register(stackRoutes);
+    await app.register(settingsRoutes);
 
     // In production, serve the built client SPA
     const clientDistPath =
