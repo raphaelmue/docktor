@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-mvp-completion-01-04-PLAN.md
-last_updated: "2026-03-11T14:29:57.645Z"
+stopped_at: Completed 01-mvp-completion-01-07-PLAN.md
+last_updated: "2026-03-11T15:00:00.000Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 71
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 0 of ? in current phase
 Status: Ready to plan
 Last activity: 2026-03-10 — Roadmap created
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -54,6 +54,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-mvp-completion P02 | 19 | 2 tasks | 8 files |
 | Phase 01-mvp-completion P03 | 15 | 2 tasks | 4 files |
 | Phase 01-mvp-completion P04 | 6 | 2 tasks | 5 files |
+| Phase 01-mvp-completion P06 | 35 | 2 tasks | 7 files |
+| Phase 01-mvp-completion P07 | 20 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -72,6 +74,11 @@ Recent decisions affecting current work:
 - [Phase 01-mvp-completion]: StatePoller uses lazy dynamic import() for StackRepository to avoid db.ts in module graph during unit tests
 - [Phase 01-mvp-completion]: StatePoller TRANSITIONAL_STATES uses Set<string> (not StackStatus enum) to avoid importing missing prisma enums in test env
 - [Phase 01-mvp-completion]: IANA timezone validation uses Intl.supportedValuesOf + Intl.DateTimeFormat fallback because some Node.js environments omit UTC from supportedValuesOf
+- [Phase 01-mvp-completion Plan 06]: Native <select> HTML element used in LogViewer toolbar — Radix Select renders two role=combobox elements in jsdom; native select has exactly one as expected by tests
+- [Phase 01-mvp-completion Plan 06]: afterEach(cleanup) explicitly added to test/setup.ts — React Testing Library v16 auto-cleanup requires vitest globals:true which is not configured
+- [Phase 01-mvp-completion Plan 06]: Global EventSource stub added to test/setup.ts — jsdom lacks EventSource; component tests using useLogStream would throw without it
+- [Phase 01-mvp-completion Plan 07]: Used radix-ui Popover directly (not shadcn CLI) for popover.tsx - consistent with existing dialog.tsx and select.tsx pattern
+- [Phase 01-mvp-completion Plan 07]: TimezoneCombobox is unexported component in settings.tsx - no other page needs it in Phase 1
 
 ### Pending Todos
 
@@ -80,12 +87,12 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 1: StatePoller must skip stacks in transitional states (DEPLOYING, UPDATING, BACKING_UP, RESTORING, MIGRATING) — use optimistic locking on DB writes
-- Phase 1: dockerode log stream must be destroyed on SSE client disconnect — mandatory request.raw.on('close', stream.destroy) wiring
+- Phase 1: dockerode log stream on SSE client disconnect — RESOLVED in P06: request.raw.on('close', () => streams.forEach(s => s.destroy())) wired in /api/stacks/:id/logs route
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
 
 ## Session Continuity
 
-Last session: 2026-03-11T14:29:57.638Z
-Stopped at: Completed 01-mvp-completion-01-04-PLAN.md
+Last session: 2026-03-11T15:00:00.000Z
+Stopped at: Completed 01-mvp-completion-01-07-PLAN.md
 Resume file: None

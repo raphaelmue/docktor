@@ -39,8 +39,8 @@ Plans:
 - [ ] 01-03-PLAN.md — StatePoller job: Docker event stream + 60s reconciliation + app wiring
 - [ ] 01-04-PLAN.md — Shared settings validation schemas + cmdk/Command component install
 - [ ] 01-05-PLAN.md — State SSE route + useContainerEvents + dashboard/detail live updates
-- [ ] 01-06-PLAN.md — Log SSE route + LogViewer component + Logs tab
-- [ ] 01-07-PLAN.md — Settings page UI + sidebar nav + router registration
+- [x] 01-06-PLAN.md — Log SSE route + LogViewer component + Logs tab
+- [x] 01-07-PLAN.md — Settings page UI + sidebar nav + router registration
 
 ### Phase 2: Observability
 **Goal**: Users are passively informed when compose files change externally and when newer container images are available
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. MVP Completion | 3/7 | In Progress|  |
+| 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 0/? | Not started | - |
 | 3. Notifications | 0/? | Not started | - |
 | 4. Backup & Restore | 0/? | Not started | - |
