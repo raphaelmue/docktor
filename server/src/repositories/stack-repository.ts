@@ -174,4 +174,30 @@ export class StackRepository {
     async delete(id: string) {
         await prisma.stack.delete({where: {id}});
     }
+
+    async findByComposeProject(composeProject: string) {
+        return prisma.stack.findUnique({
+            where: {id: composeProject},
+            include: {services: true},
+        });
+    }
+
+    async updateServiceState(data: {
+        stackId: string;
+        serviceName: string;
+        containerId: string;
+        containerState: string;
+        healthStatus: string | null;
+    }) {
+        await prisma.service.updateMany({
+            where: {stackId: data.stackId, serviceName: data.serviceName},
+            data: {
+                containerId: data.containerId,
+                containerState: data.containerState,
+                healthStatus: data.healthStatus,
+            },
+        });
+    }
 }
+
+export const stackRepository = new StackRepository();

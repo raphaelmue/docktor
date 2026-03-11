@@ -9,7 +9,7 @@ export interface ContainerStateEvent {
     stackStatus: string
 }
 
-class StateBroadcaster extends EventEmitter {
+export class StateBroadcaster extends EventEmitter {
     publish(event: ContainerStateEvent): void {
         this.emit("event", event)
     }
