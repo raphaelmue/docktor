@@ -7,21 +7,21 @@
 
 ### Container Observability
 
-- [ ] **OBS-01**: Container state updates are event-driven: subscribe to the dockerode event stream (`docker events`) and react to `start`, `stop`, `die`, `kill`, and `health_status` events in real time
-- [ ] **OBS-02**: On each relevant Docker event, inspect the affected container via dockerode and update the stack/service status in the DB immediately
-- [ ] **OBS-03**: Event-driven updates skip stacks in Docktor-owned transitional states (DEPLOYING, UPDATING, BACKING_UP, RESTORING, MIGRATING) to avoid overwriting operational status
-- [ ] **OBS-04**: A 60s reconciliation loop performs a full state sync to catch any events missed during stream reconnects or Docker daemon restarts
-- [ ] **OBS-05**: User can stream live container logs per service via SSE (Server-Sent Events)
-- [ ] **OBS-06**: Log stream shows historical tail-N lines on connect, then live output
-- [ ] **OBS-07**: Log viewer renders ANSI escape codes (color/bold) and prefixes each line with service name
-- [ ] **OBS-08**: Client reconnects automatically when SSE connection drops
-- [ ] **OBS-09**: User can filter logs by service in the combined view
+- [x] **OBS-01**: Container state updates are event-driven: subscribe to the dockerode event stream (`docker events`) and react to `start`, `stop`, `die`, `kill`, and `health_status` events in real time
+- [x] **OBS-02**: On each relevant Docker event, inspect the affected container via dockerode and update the stack/service status in the DB immediately
+- [x] **OBS-03**: Event-driven updates skip stacks in Docktor-owned transitional states (DEPLOYING, UPDATING, BACKING_UP, RESTORING, MIGRATING) to avoid overwriting operational status
+- [x] **OBS-04**: A 60s reconciliation loop performs a full state sync to catch any events missed during stream reconnects or Docker daemon restarts
+- [x] **OBS-05**: User can stream live container logs per service via SSE (Server-Sent Events)
+- [x] **OBS-06**: Log stream shows historical tail-N lines on connect, then live output
+- [x] **OBS-07**: Log viewer renders ANSI escape codes (color/bold) and prefixes each line with service name
+- [x] **OBS-08**: Client reconnects automatically when SSE connection drops
+- [x] **OBS-09**: User can filter logs by service in the combined view
 
 ### Settings
 
-- [ ] **SET-01**: User can set instance name, base URL, and timezone via a Settings page
-- [ ] **SET-02**: Settings are persisted in the DB Settings key-value model
-- [ ] **SET-03**: Settings page validates input (valid IANA timezone, valid URL format)
+- [x] **SET-01**: User can set instance name, base URL, and timezone via a Settings page
+- [x] **SET-02**: Settings are persisted in the DB Settings key-value model
+- [x] **SET-03**: Settings page validates input (valid IANA timezone, valid URL format)
 
 ### File Watcher
 
@@ -116,18 +116,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OBS-01 | Phase 1 | Pending |
-| OBS-02 | Phase 1 | Pending |
-| OBS-03 | Phase 1 | Pending |
-| OBS-04 | Phase 1 | Pending |
-| OBS-05 | Phase 1 | Pending |
-| OBS-06 | Phase 1 | Pending |
-| OBS-07 | Phase 1 | Pending |
-| OBS-08 | Phase 1 | Pending |
-| OBS-09 | Phase 1 | Pending |
-| SET-01 | Phase 1 | Pending |
-| SET-02 | Phase 1 | Pending |
-| SET-03 | Phase 1 | Pending |
+| OBS-01 | Phase 1 | Complete |
+| OBS-02 | Phase 1 | Complete |
+| OBS-03 | Phase 1 | Complete |
+| OBS-04 | Phase 1 | Complete |
+| OBS-05 | Phase 1 | Complete |
+| OBS-06 | Phase 1 | Complete |
+| OBS-07 | Phase 1 | Complete |
+| OBS-08 | Phase 1 | Complete |
+| OBS-09 | Phase 1 | Complete |
+| SET-01 | Phase 1 | Complete |
+| SET-02 | Phase 1 | Complete |
+| SET-03 | Phase 1 | Complete |
 | FW-01 | Phase 2 | Pending |
 | FW-02 | Phase 2 | Pending |
 | FW-03 | Phase 2 | Pending |
