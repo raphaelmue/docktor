@@ -34,6 +34,10 @@ export class DockerExecutor {
         await this.composeExec(stackId, ["restart"]);
     }
 
+    async down(stackId: string): Promise<void> {
+        await this.composeExec(stackId, ["down", "-v"]);
+    }
+
     async ps(stackId: string): Promise<ContainerStatus[]> {
         try {
             const {stdout} = await this.composeExec(stackId, [

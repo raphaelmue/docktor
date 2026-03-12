@@ -85,6 +85,13 @@ export class StackService {
         const stack = await this.repo.findByIdOrThrow(id);
         this.guardTransition(stack.status as StackStatus, "DELETE");
 
+        try {
+            await this.docker.down(id);
+        } catch (err: any) {
+            // Continue with deletion even if docker down fails
+            // (e.g., containers already removed manually)
+        }
+
         await this.fs.removeDirectory(id);
         await this.repo.delete(id);
     }

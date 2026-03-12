@@ -36,6 +36,7 @@ function createMockDocker() {
         up: vi.fn(),
         stop: vi.fn(),
         restart: vi.fn(),
+        down: vi.fn(),
         ps: vi.fn(),
     };
 }
@@ -116,6 +117,21 @@ describe("StackService", () => {
 
             await service.deleteStack("my-app");
 
+            expect(docker.down).toHaveBeenCalledWith("my-app");
+            expect(fs.removeDirectory).toHaveBeenCalledWith("my-app");
+            expect(repo.delete).toHaveBeenCalledWith("my-app");
+        });
+
+        it("continues deletion even if docker down fails", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "my-app",
+                status: "STOPPED",
+            });
+            docker.down.mockRejectedValue(new Error("Docker error"));
+
+            await service.deleteStack("my-app");
+
+            expect(docker.down).toHaveBeenCalledWith("my-app");
             expect(fs.removeDirectory).toHaveBeenCalledWith("my-app");
             expect(repo.delete).toHaveBeenCalledWith("my-app");
         });
