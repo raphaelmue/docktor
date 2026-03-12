@@ -524,7 +524,7 @@ export default function StackDetailPage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="logs" className="mt-4">
+                    <TabsContent value="logs" className="mt-4 w-full max-w-full overflow-hidden">
                         <LogViewer
                             stackId={id}
                             serviceNames={stack.services.map((s) => s.serviceName)}

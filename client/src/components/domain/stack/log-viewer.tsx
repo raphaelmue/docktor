@@ -9,6 +9,28 @@ interface LogViewerProps {
     initialService?: string
 }
 
+// Generate a color for a service name (deterministic)
+function getServiceColor(serviceName: string): string {
+    const colors = [
+        "text-cyan-400",
+        "text-yellow-400",
+        "text-pink-400",
+        "text-purple-400",
+        "text-orange-400",
+        "text-lime-400",
+        "text-sky-400",
+        "text-rose-400",
+        "text-indigo-400",
+        "text-emerald-400",
+    ]
+
+    let hash = 0
+    for (let i = 0; i < serviceName.length; i++) {
+        hash = serviceName.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return colors[Math.abs(hash) % colors.length]
+}
+
 function formatLine(line: LogLineEvent, showTimestamps: boolean, showServicePrefix: boolean): string {
     let parts = ""
     if (showTimestamps && line.timestamp) {
@@ -57,7 +79,7 @@ export function LogViewer({stackId, serviceNames = [], initialService}: LogViewe
     const showServicePrefix = selectedService === "all"
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-2 w-full max-w-full overflow-hidden">
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -122,17 +144,18 @@ export function LogViewer({stackId, serviceNames = [], initialService}: LogViewe
             <div
                 data-testid="log-viewer-terminal"
                 ref={scrollRef}
-                className="bg-black rounded font-mono text-sm text-green-400 h-96 overflow-y-auto p-2"
+                className="bg-black rounded font-mono text-sm text-white h-96 overflow-auto p-2 w-full"
             >
                 {lines.length === 0 ? (
                     <span className="text-gray-500">No log output yet...</span>
                 ) : (
                     lines.map((line, i) => (
-                        <div
-                            key={i}
-                            className={lineWrap ? "break-all" : "whitespace-nowrap"}
-                        >
-                            <Ansi>{formatLine(line, showTimestamps, showServicePrefix)}</Ansi>
+                        <div key={i} className={lineWrap ? "break-all" : "whitespace-pre-wrap"}>
+                            <span className={getServiceColor(line.service)}>
+                                [{line.service}]
+                            </span>
+                            {" "}
+                            <Ansi>{line.line}</Ansi>
                         </div>
                     ))
                 )}
