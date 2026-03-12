@@ -199,7 +199,7 @@ export class StatePoller {
         const serviceName = attributes["com.docker.compose.service"]
 
         // Skip unmanaged containers (no compose labels)
-        if (!composeProject) return
+        if (!composeProject || !serviceName) return
 
         const repo = await this.getRepo()
 
@@ -217,7 +217,7 @@ export class StatePoller {
         } catch (err: any) {
             // Container no longer exists - use event action instead
             if (err.statusCode === 404) {
-                const containerState = action === "destroy" ? "exited" : action
+                const containerState = action === "destroy" ? "exited" : (action || "unknown")
                 await repo.updateServiceState({
                     stackId: stack.id,
                     serviceName,

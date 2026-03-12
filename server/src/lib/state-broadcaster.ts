@@ -7,14 +7,29 @@ export interface ContainerStateEvent {
     containerState: string
     healthStatus: string | null
     stackStatus: string
+    statusLog?: {
+        id: string
+        fromStatus: string | null
+        toStatus: string
+        message: string | null
+        createdAt: string
+    }
 }
 
+export interface StackStatusEvent {
+    type: "stack_status"
+    stackId: string
+    stackStatus: string
+}
+
+export type StateEvent = ContainerStateEvent | StackStatusEvent
+
 export class StateBroadcaster extends EventEmitter {
-    publish(event: ContainerStateEvent): void {
+    publish(event: StateEvent): void {
         this.emit("event", event)
     }
 
-    subscribe(handler: (event: ContainerStateEvent) => void): () => void {
+    subscribe(handler: (event: StateEvent) => void): () => void {
         this.on("event", handler)
         return () => this.off("event", handler)
     }
