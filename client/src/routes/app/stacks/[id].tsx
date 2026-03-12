@@ -20,8 +20,16 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {AlertTriangle, FileText, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
-import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,} from "@/components/ui/breadcrumb";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
+import {ScrollArea} from "@/components/ui/scroll-area";
 
 interface ServiceStatusBadgeProps {
     containerState: string | null;
@@ -30,7 +38,8 @@ interface ServiceStatusBadgeProps {
 
 function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgeProps) {
     if (!containerState) {
-        return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">unknown</span>;
+        return <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">unknown</span>;
     }
 
     let className: string;
@@ -60,7 +69,7 @@ function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgePr
 }
 
 export default function StackDetailPage() {
-    const {id = ""} = useParams<{id: string}>();
+    const {id = ""} = useParams<{ id: string }>();
     const navigate = useNavigate();
     const {stack, loading, error, refetch} = useStack(id);
 
@@ -90,7 +99,7 @@ export default function StackDetailPage() {
                                         <Link to="/stacks">Stacks</Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
-                                <BreadcrumbSeparator />
+                                <BreadcrumbSeparator/>
                                 <BreadcrumbItem>
                                     <BreadcrumbPage>Loading...</BreadcrumbPage>
                                 </BreadcrumbItem>
@@ -119,7 +128,7 @@ export default function StackDetailPage() {
                                         <Link to="/stacks">Stacks</Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
-                                <BreadcrumbSeparator />
+                                <BreadcrumbSeparator/>
                                 <BreadcrumbItem>
                                     <BreadcrumbPage>Error</BreadcrumbPage>
                                 </BreadcrumbItem>
@@ -205,7 +214,7 @@ export default function StackDetailPage() {
                                     <Link to="/stacks">Stacks</Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
-                            <BreadcrumbSeparator />
+                            <BreadcrumbSeparator/>
                             <BreadcrumbItem>
                                 <BreadcrumbPage>{stack.displayName}</BreadcrumbPage>
                             </BreadcrumbItem>
@@ -220,7 +229,7 @@ export default function StackDetailPage() {
                     )}
                 </div>
                 <PageActions>
-                    <StackStatusBadge status={status} />
+                    <StackStatusBadge status={status}/>
                     {canDeploy && (
                         <Button
                             size="sm"
@@ -229,7 +238,7 @@ export default function StackDetailPage() {
                                 handleAction(() => deployStack(id), "Deploy")
                             }
                         >
-                            <Play className="h-4 w-4 mr-1" />
+                            <Play className="h-4 w-4 mr-1"/>
                             Deploy
                         </Button>
                     )}
@@ -242,7 +251,7 @@ export default function StackDetailPage() {
                                 handleAction(() => stopStack(id), "Stop")
                             }
                         >
-                            <Square className="h-4 w-4 mr-1" />
+                            <Square className="h-4 w-4 mr-1"/>
                             Stop
                         </Button>
                     )}
@@ -255,7 +264,7 @@ export default function StackDetailPage() {
                                 handleAction(() => restartStack(id), "Restart")
                             }
                         >
-                            <RotateCcw className="h-4 w-4 mr-1" />
+                            <RotateCcw className="h-4 w-4 mr-1"/>
                             Restart
                         </Button>
                     )}
@@ -266,7 +275,7 @@ export default function StackDetailPage() {
                             disabled={actionLoading}
                             onClick={handleDelete}
                         >
-                            <Trash2 className="h-4 w-4 mr-1" />
+                            <Trash2 className="h-4 w-4 mr-1"/>
                             Delete
                         </Button>
                     )}
@@ -276,7 +285,7 @@ export default function StackDetailPage() {
             <PageContent>
                 {stack.configChanged && (
                     <Alert>
-                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTriangle className="h-4 w-4"/>
                         <AlertDescription>
                             Configuration has changed since last deployment.
                             Re-deploy to apply changes.
@@ -335,16 +344,16 @@ export default function StackDetailPage() {
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {svc.ports
                                                             ? JSON.parse(
-                                                                  svc.ports,
-                                                              )
-                                                                  .map(
-                                                                      (p: {
-                                                                          host: number;
-                                                                          container: number;
-                                                                      }) =>
-                                                                          `${p.host}:${p.container}`,
-                                                                  )
-                                                                  .join(", ")
+                                                                svc.ports,
+                                                            )
+                                                                .map(
+                                                                    (p: {
+                                                                        host: number;
+                                                                        container: number;
+                                                                    }) =>
+                                                                        `${p.host}:${p.container}`,
+                                                                )
+                                                                .join(", ")
                                                             : "-"}
                                                     </TableCell>
                                                     <TableCell>
@@ -357,7 +366,7 @@ export default function StackDetailPage() {
                                                                 setActiveTab("logs");
                                                             }}
                                                         >
-                                                            <FileText className="h-4 w-4" />
+                                                            <FileText className="h-4 w-4"/>
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -373,46 +382,49 @@ export default function StackDetailPage() {
                                 <CardTitle>Recent Deployments</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {stack.deployments.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No deployments yet
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Date</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead>Error</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {stack.deployments.map((dep) => (
-                                                <TableRow key={dep.id}>
-                                                    <TableCell>
-                                                        {new Date(
-                                                            dep.deployedAt,
-                                                        ).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {dep.success ? (
-                                                            <span className="text-green-600">
+                                <ScrollArea className={"h-64"}>
+                                    {stack.deployments.length === 0 ? (
+                                        <p className="text-muted-foreground">
+                                            No deployments yet
+                                        </p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Date</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead>Error</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {stack.deployments.map((dep) => (
+                                                    <TableRow key={dep.id}>
+                                                        <TableCell>
+                                                            {new Date(
+                                                                dep.deployedAt,
+                                                            ).toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {dep.success ? (
+                                                                <span className="text-green-600">
                                                                 Success
                                                             </span>
-                                                        ) : (
-                                                            <span className="text-red-600">
+                                                            ) : (
+                                                                <span className="text-red-600">
                                                                 Failed
                                                             </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                                                        {dep.errorMessage ?? "-"}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell
+                                                            className="text-sm text-muted-foreground max-w-xs truncate">
+                                                            {dep.errorMessage ?? "-"}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </ScrollArea>
                             </CardContent>
                         </Card>
 
@@ -421,39 +433,41 @@ export default function StackDetailPage() {
                                 <CardTitle>Status Log</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {stack.statusLogs.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No status changes
-                                    </p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {stack.statusLogs.map((log) => (
-                                            <div
-                                                key={log.id}
-                                                className="flex items-start gap-3 text-sm"
-                                            >
+                                <ScrollArea className={"h-64"}>
+                                    {stack.statusLogs.length === 0 ? (
+                                        <p className="text-muted-foreground">
+                                            No status changes
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {stack.statusLogs.map((log) => (
+                                                <div
+                                                    key={log.id}
+                                                    className="flex items-start gap-3 text-sm"
+                                                >
                                                 <span className="text-muted-foreground whitespace-nowrap">
                                                     {new Date(
                                                         log.createdAt,
                                                     ).toLocaleString()}
                                                 </span>
-                                                <span>
+                                                    <span>
                                                     {log.fromStatus && (
                                                         <>
                                                             {log.fromStatus} →{" "}
                                                         </>
                                                     )}
-                                                    {log.toStatus}
+                                                        {log.toStatus}
                                                 </span>
-                                                {log.message && (
-                                                    <span className="text-muted-foreground">
+                                                    {log.message && (
+                                                        <span className="text-muted-foreground">
                                                         — {log.message}
                                                     </span>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </ScrollArea>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -467,7 +481,7 @@ export default function StackDetailPage() {
                                     disabled={!composeDirty || actionLoading}
                                     onClick={handleSaveCompose}
                                 >
-                                    <Save className="h-4 w-4 mr-1" />
+                                    <Save className="h-4 w-4 mr-1"/>
                                     Save
                                 </Button>
                             </CardHeader>
@@ -493,7 +507,7 @@ export default function StackDetailPage() {
                                     disabled={!envDirty || actionLoading}
                                     onClick={handleSaveEnv}
                                 >
-                                    <Save className="h-4 w-4 mr-1" />
+                                    <Save className="h-4 w-4 mr-1"/>
                                     Save
                                 </Button>
                             </CardHeader>

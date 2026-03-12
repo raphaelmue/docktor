@@ -1,21 +1,14 @@
 import {useEffect, useState} from "react";
-import {ChevronsUpDown, Check} from "lucide-react";
+import {Check, ChevronsUpDown} from "lucide-react";
 import {toast} from "sonner";
-import {Page, PageContent, PageHeader, PageTitle, PageDescription} from "@/components/common/layout/page";
+import {Page, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 import {Card, CardContent, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Skeleton} from "@/components/ui/skeleton";
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command";
+import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,} from "@/components/ui/command";
 import {getGeneralSettings, updateGeneralSettings} from "@/lib/settings-api";
 import {ApiError} from "@/lib/api";
 import {cn} from "@/lib/utils";

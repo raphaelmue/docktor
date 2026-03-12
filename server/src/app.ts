@@ -3,11 +3,7 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
-import {
-    serializerCompiler,
-    validatorCompiler,
-    type ZodTypeProvider,
-} from "fastify-type-provider-zod";
+import {serializerCompiler, validatorCompiler, type ZodTypeProvider,} from "fastify-type-provider-zod";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import authRoutes from "./routes/auth.js";

@@ -1,4 +1,4 @@
-import {test, expect} from "./fixtures";
+import {expect, test} from "./fixtures";
 import type {Page} from "@playwright/test";
 
 const mockUser = {id: "1", name: "E2E Tester", email: "test@example.com"};

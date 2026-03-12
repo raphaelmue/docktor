@@ -1,4 +1,17 @@
-import {describe, expect, it, vi, beforeEach} from "vitest";
+import {beforeEach, describe, expect, it, vi} from "vitest";
+import {apiFetch} from "@/lib/api";
+import {
+    createStack,
+    deleteStack,
+    deployStack,
+    getComposeContent,
+    getEnvContent,
+    getStack,
+    listStacks,
+    restartStack,
+    stopStack,
+    updateStack,
+} from "../../../src/lib/stacks-api";
 
 // Mock apiFetch before importing stacks-api
 vi.mock("@/lib/api", () => ({
@@ -9,20 +22,6 @@ vi.mock("@/lib/api", () => ({
         }
     },
 }));
-
-import {apiFetch} from "@/lib/api";
-import {
-    listStacks,
-    getStack,
-    createStack,
-    updateStack,
-    deleteStack,
-    deployStack,
-    stopStack,
-    restartStack,
-    getComposeContent,
-    getEnvContent,
-} from "../../../src/lib/stacks-api";
 
 const mockApiFetch = vi.mocked(apiFetch);
 

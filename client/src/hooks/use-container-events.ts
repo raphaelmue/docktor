@@ -7,11 +7,26 @@ export interface ContainerStateEvent {
     containerState: string
     healthStatus: string | null
     stackStatus: string
+    statusLog?: {
+        id: string
+        fromStatus: string | null
+        toStatus: string
+        message: string | null
+        createdAt: string
+    }
 }
+
+export interface StackStatusEvent {
+    type: "stack_status"
+    stackId: string
+    stackStatus: string
+}
+
+export type StateEvent = ContainerStateEvent | StackStatusEvent
 
 const BASE = globalThis.location?.port === "5173" ? "http://localhost:3000" : ""
 
-export function useContainerEvents(onEvent: (event: ContainerStateEvent) => void) {
+export function useContainerEvents(onEvent: (event: StateEvent) => void) {
     const handler = useRef(onEvent)
     handler.current = onEvent
 

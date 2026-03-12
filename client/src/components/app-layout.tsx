@@ -4,7 +4,7 @@ import {AppSidebar} from "@/components/app-sidebar";
 
 export function AppLayout() {
     return (
-        <div className={"font-mono"}>
+        <div>
         <SidebarProvider>
             <AppSidebar />
             <SidebarInset>

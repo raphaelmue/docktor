@@ -1,5 +1,5 @@
-import {describe, expect, it, afterEach, vi} from "vitest";
-import {getStacksDir, getStackPath, getComposePath, getEnvPath} from "../../../src/lib/stacks-dir.js";
+import {afterEach, describe, expect, it} from "vitest";
+import {getComposePath, getEnvPath, getStackPath, getStacksDir} from "../../../src/lib/stacks-dir.js";
 import path from "node:path";
 
 describe("stacks-dir", () => {

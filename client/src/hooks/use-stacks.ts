@@ -25,19 +25,27 @@ export function useStacks() {
     }, [fetch]);
 
     useContainerEvents((event) => {
-        setStacks(prev => prev.map(stack =>
-            stack.id === event.stackId
-                ? {
-                    ...stack,
-                    status: event.stackStatus,
-                    services: stack.services.map(s =>
-                        s.serviceName === event.serviceName
-                            ? {...s, containerState: event.containerState, healthStatus: event.healthStatus}
-                            : s
-                    ),
-                }
-                : stack
-        ));
+        if (event.type === "container_state") {
+            setStacks(prev => prev.map(stack =>
+                stack.id === event.stackId
+                    ? {
+                        ...stack,
+                        status: event.stackStatus,
+                        services: stack.services.map(s =>
+                            s.serviceName === event.serviceName
+                                ? {...s, containerState: event.containerState, healthStatus: event.healthStatus}
+                                : s
+                        ),
+                    }
+                    : stack
+            ));
+        } else if (event.type === "stack_status") {
+            setStacks(prev => prev.map(stack =>
+                stack.id === event.stackId
+                    ? {...stack, status: event.stackStatus}
+                    : stack
+            ));
+        }
     });
 
     return {stacks, loading, error, refetch: fetch};

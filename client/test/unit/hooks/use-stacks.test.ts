@@ -1,12 +1,11 @@
-import {describe, expect, it, vi, beforeEach} from "vitest";
+import {beforeEach, describe, expect, it, vi} from "vitest";
 import {renderHook, waitFor} from "@testing-library/react";
 import {useStacks} from "../../../src/hooks/use-stacks";
+import {listStacks} from "@/lib/stacks-api";
 
 vi.mock("@/lib/stacks-api", () => ({
     listStacks: vi.fn(),
 }));
-
-import {listStacks} from "@/lib/stacks-api";
 
 const mockListStacks = vi.mocked(listStacks);
 

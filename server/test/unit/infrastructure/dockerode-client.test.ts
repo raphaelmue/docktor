@@ -1,4 +1,4 @@
-import {describe, expect, it, vi, beforeEach} from "vitest";
+import {beforeEach, describe, expect, it, vi} from "vitest";
 import {DockerodeClient} from "../../../../src/infrastructure/dockerode-client.js";
 
 // Mock dockerode module so constructor injection is not needed

@@ -1,5 +1,5 @@
-import {describe, expect, it, beforeAll, afterAll, beforeEach} from "vitest";
-import {startContainer, stopContainer, getApp, cleanDatabase, createTestUser} from "./setup.js";
+import {afterAll, beforeAll, beforeEach, describe, expect, it} from "vitest";
+import {cleanDatabase, createTestUser, getApp, startContainer, stopContainer} from "./setup.js";
 import type {FastifyInstance} from "fastify";
 
 describe("Stacks API", () => {

@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from "react";
 import Ansi from "ansi-to-react";
-import {useLogStream, type LogLineEvent} from "@/hooks/use-log-stream";
+import {type LogLineEvent, useLogStream} from "@/hooks/use-log-stream";
 import {Button} from "@/components/ui/button";
 
 interface LogViewerProps {

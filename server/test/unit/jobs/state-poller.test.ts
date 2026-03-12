@@ -20,6 +20,7 @@ function createMockStackRepository() {
         findByComposeProject: vi.fn(),
         findAll: vi.fn(),
         updateServiceState: vi.fn(),
+        updateStackStatus: vi.fn(),
         findServiceByContainerId: vi.fn(),
     };
 }
@@ -39,9 +40,10 @@ describe("StatePoller", () => {
     describe("handleEvent (OBS-02)", () => {
         it("calls dockerode inspectContainer for the event's container ID", async () => {
             const event = {
-                id: "container-abc",
-                status: "start",
+                Type: "container",
+                Action: "start",
                 Actor: {
+                    ID: "container-abc",
                     Attributes: {
                         "com.docker.compose.project": "my-stack",
                         "com.docker.compose.service": "web",
@@ -57,8 +59,9 @@ describe("StatePoller", () => {
             mockStackRepo.findByComposeProject.mockResolvedValue({
                 id: "my-stack",
                 status: "RUNNING",
-                services: [{name: "web"}],
+                services: [{serviceName: "web"}],
             });
+            mockStackRepo.updateStackStatus.mockResolvedValue(null);
 
             await (poller as any).handleEvent(event);
 
@@ -67,9 +70,10 @@ describe("StatePoller", () => {
 
         it("updates DB service row with containerState and healthStatus from inspect result", async () => {
             const event = {
-                id: "container-xyz",
-                status: "health_status",
+                Type: "container",
+                Action: "health_status",
                 Actor: {
+                    ID: "container-xyz",
                     Attributes: {
                         "com.docker.compose.project": "my-stack",
                         "com.docker.compose.service": "web",
@@ -85,8 +89,9 @@ describe("StatePoller", () => {
             mockStackRepo.findByComposeProject.mockResolvedValue({
                 id: "my-stack",
                 status: "RUNNING",
-                services: [{name: "web"}],
+                services: [{serviceName: "web"}],
             });
+            mockStackRepo.updateStackStatus.mockResolvedValue(null);
 
             await (poller as any).handleEvent(event);
 
@@ -104,9 +109,10 @@ describe("StatePoller", () => {
             "skips update when stack.status is '%s' (transitional state)",
             async (transitionalStatus) => {
                 const event = {
-                    id: "container-abc",
-                    status: "start",
+                    Type: "container",
+                    Action: "start",
                     Actor: {
+                        ID: "container-abc",
                         Attributes: {
                             "com.docker.compose.project": "my-stack",
                             "com.docker.compose.service": "web",
@@ -129,9 +135,10 @@ describe("StatePoller", () => {
 
         it("skips when container has no com.docker.compose.project label", async () => {
             const event = {
-                id: "container-abc",
-                status: "start",
+                Type: "container",
+                Action: "start",
                 Actor: {
+                    ID: "container-abc",
                     // No compose labels — unmanaged container
                     Attributes: {},
                 },

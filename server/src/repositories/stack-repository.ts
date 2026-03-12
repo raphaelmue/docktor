@@ -198,6 +198,42 @@ export class StackRepository {
             },
         });
     }
+
+    async updateStackStatus(stackId: string, status: StackStatus) {
+        // Get current status to check if it changed
+        const current = await prisma.stack.findUnique({
+            where: {id: stackId},
+            select: {status: true},
+        });
+
+        if (!current) return null;
+
+        const fromStatus = current.status as StackStatus;
+
+        // Only update if status actually changed
+        if (fromStatus === status) return null;
+
+        // Update status and create log entry in a transaction
+        const [, statusLog] = await prisma.$transaction([
+            prisma.stack.update({
+                where: {id: stackId},
+                data: {
+                    status,
+                    previousStatus: fromStatus,
+                },
+            }),
+            prisma.statusLog.create({
+                data: {
+                    stackId,
+                    fromStatus,
+                    toStatus: status,
+                    message: "Status detected via container events",
+                },
+            }),
+        ]);
+
+        return statusLog;
+    }
 }
 
 export const stackRepository = new StackRepository();

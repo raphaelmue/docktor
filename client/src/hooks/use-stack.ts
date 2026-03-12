@@ -26,18 +26,30 @@ export function useStack(id: string) {
 
     useContainerEvents((event) => {
         if (event.stackId !== id) return;
-        setStack(prev => {
-            if (!prev) return prev;
-            return {
-                ...prev,
-                status: event.stackStatus,
-                services: prev.services.map(s =>
-                    s.serviceName === event.serviceName
-                        ? {...s, containerState: event.containerState, healthStatus: event.healthStatus}
-                        : s
-                ),
-            };
-        });
+        if (event.type === "container_state") {
+            setStack(prev => {
+                if (!prev) return prev;
+                const updated = {
+                    ...prev,
+                    status: event.stackStatus,
+                    services: prev.services.map(s =>
+                        s.serviceName === event.serviceName
+                            ? {...s, containerState: event.containerState, healthStatus: event.healthStatus}
+                            : s
+                    ),
+                };
+                // Add new status log to the beginning of the list if present
+                if (event.statusLog) {
+                    updated.statusLogs = [event.statusLog, ...prev.statusLogs];
+                }
+                return updated;
+            });
+        } else if (event.type === "stack_status") {
+            setStack(prev => {
+                if (!prev) return prev;
+                return {...prev, status: event.stackStatus};
+            });
+        }
     });
 
     return {stack, loading, error, refetch: fetch};

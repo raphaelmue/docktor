@@ -1,18 +1,8 @@
 import {ChevronsUpDown, LogOut} from "lucide-react";
 import {signOut, useSession} from "@/lib/auth-client";
 import {Avatar, AvatarFallback} from "@/components/ui/avatar";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebar,
-} from "@/components/ui/sidebar";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,} from "@/components/ui/dropdown-menu";
+import {SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,} from "@/components/ui/sidebar";
 
 export function NavUser() {
     const {data: session} = useSession();

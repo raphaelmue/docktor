@@ -1,4 +1,4 @@
-import {describe, expect, it, vi, beforeEach} from "vitest";
+import {beforeEach, describe, expect, it, vi} from "vitest";
 import {StackService} from "../../../src/application/stack-service.js";
 import {BadRequestError, ConflictError} from "../../../src/lib/errors.js";
 

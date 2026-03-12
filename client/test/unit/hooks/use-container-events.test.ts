@@ -1,4 +1,4 @@
-import {describe, expect, it, vi, beforeEach, afterEach} from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {renderHook} from "@testing-library/react";
 import {useContainerEvents} from "../../../src/hooks/use-container-events.js";
 

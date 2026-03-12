@@ -4,8 +4,8 @@ import Dockerode from "dockerode"
 // Using a factory wrapper lets tests inject the mock without `new`.
 // In production, Dockerode is called with `new` via its normal constructor path.
 function createDockerInstance(): Dockerode {
-    const Docker = Dockerode as unknown as (opts: {socketPath: string}) => Dockerode
-    return Docker({socketPath: "/var/run/docker.sock"})
+    const Docker = Dockerode as unknown as (opts?: object) => Dockerode
+    return Docker() // Auto-detects socket path based on platform
 }
 
 export class DockerodeClient {
