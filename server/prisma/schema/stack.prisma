@@ -37,6 +37,7 @@ model Stack {
   proxyConfigs ProxyConfig[]
   backups      Backup[]
   statusLogs   StatusLog[]
+  stackEvents  StackEvent[]
   deployments  Deployment[]
 
   createdAt DateTime @default(now())
