@@ -11,7 +11,7 @@ import stackRoutes from "./routes/stacks.js";
 import settingsRoutes from "./routes/settings.js";
 import eventsRoutes from "./routes/events.js";
 import {AppError} from "./lib/errors.js";
-import {statePoller} from "./jobs/state-poller.js";
+import {startJobs, stopJobs} from "./jobs/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -68,16 +68,16 @@ export async function buildApp() {
     await app.register(settingsRoutes);
     await app.register(eventsRoutes);
 
-    // StatePoller: start/stop with server lifecycle (skipped in test environment)
+    // Jobs: start/stop with server lifecycle (skipped in test environment)
     if (process.env.NODE_ENV !== "test") {
         app.addHook("onReady", async () => {
-            await statePoller.start();
-            app.log.info("StatePoller started");
+            await startJobs();
+            app.log.info("Jobs started");
         });
 
         app.addHook("onClose", async () => {
-            statePoller.stop();
-            app.log.info("StatePoller stopped");
+            stopJobs();
+            app.log.info("Jobs stopped");
         });
     }
 
