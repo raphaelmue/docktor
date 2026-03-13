@@ -25,16 +25,16 @@
 
 ### File Watcher
 
-- [ ] **FW-01**: Background process watches `/stacks/*/docker-compose.yml` for changes using chokidar
-- [ ] **FW-02**: When a compose file changes, the stack is re-hashed (SHA256), DB metadata updated, and stack flagged as "config changed"
-- [ ] **FW-03**: A polling fallback (60s interval) re-hashes all compose files to catch events missed by inotify (e.g., NFS mounts)
+- [x] **FW-01**: Background process watches `/stacks/*/docker-compose.yml` for changes using chokidar
+- [x] **FW-02**: When a compose file changes, the stack is re-hashed (SHA256), DB metadata updated, and stack flagged as "config changed"
+- [x] **FW-03**: A polling fallback (60s interval) re-hashes all compose files to catch events missed by inotify (e.g., NFS mounts)
 
 ### Update Checker
 
-- [ ] **UPD-01**: Background job polls Docker registries to check for newer image versions (semver, date-tag, or digest comparison)
-- [ ] **UPD-02**: Update checks are rate-limit safe: results cached per image, checks staggered, not triggered on every poll cycle
+- [x] **UPD-01**: Background job polls Docker registries to check for newer image versions (semver, date-tag, or digest comparison)
+- [x] **UPD-02**: Update checks are rate-limit safe: results cached per image, checks staggered, not triggered on every poll cycle
 - [ ] **UPD-03**: Stack detail page shows an "update available" badge when newer images are found
-- [ ] **UPD-04**: User can trigger an update (pull + recreate) from the stack detail page — never automatic
+- [x] **UPD-04**: User can trigger an update (pull + recreate) from the stack detail page — never automatic
 
 ### Notifications
 
@@ -128,13 +128,13 @@
 | SET-01 | Phase 1 | Complete |
 | SET-02 | Phase 1 | Complete |
 | SET-03 | Phase 1 | Complete |
-| FW-01 | Phase 2 | Pending |
-| FW-02 | Phase 2 | Pending |
-| FW-03 | Phase 2 | Pending |
-| UPD-01 | Phase 2 | Pending |
-| UPD-02 | Phase 2 | Pending |
+| FW-01 | Phase 2 | Complete |
+| FW-02 | Phase 2 | Complete |
+| FW-03 | Phase 2 | Complete |
+| UPD-01 | Phase 2 | Complete |
+| UPD-02 | Phase 2 | Complete |
 | UPD-03 | Phase 2 | Pending |
-| UPD-04 | Phase 2 | Pending |
+| UPD-04 | Phase 2 | Complete |
 | NOTF-01 | Phase 3 | Pending |
 | NOTF-02 | Phase 3 | Pending |
 | NOTF-03 | Phase 3 | Pending |
