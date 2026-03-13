@@ -63,6 +63,10 @@ export class DockerExecutor {
         }
     }
 
+    async composePull(stackId: string): Promise<void> {
+        await this.composeExec(stackId, ["pull"])
+    }
+
     async pull(imageRef: string): Promise<void> {
         await execFileAsync("docker", ["pull", imageRef], {
             timeout: 120_000,

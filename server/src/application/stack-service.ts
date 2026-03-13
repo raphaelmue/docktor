@@ -183,6 +183,40 @@ export class StackService {
             stack.status as StackStatus,
             "Stack restarted",
         );
+        await this.repo.clearConfigChanged(id);
+    }
+
+    async updateImages(id: string) {
+        const stack = await this.repo.findByIdOrThrow(id);
+        this.guardTransition(stack.status as StackStatus, "UPDATE");
+
+        await this.repo.transitionStatus(
+            id,
+            stack.status as StackStatus,
+            "UPDATING",
+            "Image update started",
+        );
+
+        try {
+            await this.docker.composePull(id);
+            await this.docker.up(id);
+        } catch (err: any) {
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "ERROR",
+                err.stderr ?? err.message,
+            );
+            throw err;
+        }
+
+        await this.repo.transitionStatus(
+            id,
+            "UPDATING",
+            "RUNNING",
+            "Image update succeeded",
+        );
+        await this.repo.clearConfigChanged(id);
     }
 
     async getContainerStatuses(id: string) {
@@ -200,7 +234,7 @@ export class StackService {
         return this.fs.readEnv(id);
     }
 
-    private guardTransition(current: StackStatus, action: "DEPLOY" | "STOP" | "RESTART" | "DELETE") {
+    private guardTransition(current: StackStatus, action: "DEPLOY" | "STOP" | "RESTART" | "DELETE" | "UPDATE") {
         try {
             assertTransition(current, action);
         } catch (err) {

@@ -6,6 +6,8 @@ import {stackService} from "../application/index.js";
 import {prisma} from "../lib/db.js";
 import {dockerodeClient} from "../infrastructure/dockerode-client.js";
 import {processDockerLogChunk, type LogLineEvent} from "../lib/docker-log-parser.js";
+import {normalizeImageRef} from "../jobs/update-checker.js";
+import {imageUpdateCheckRepository} from "../repositories/image-update-check-repository.js";
 
 const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     app.addHook("onRequest", requireAuth);
@@ -26,8 +28,25 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     // Get stack detail
     app.get("/api/stacks/:id", {
         schema: {params: stackParamsSchema},
-    }, async (request) => {
-        return stackService.getStack(request.params.id);
+    }, async (request, reply) => {
+        const stack = await stackService.getStack(request.params.id);
+        if (!stack) {
+            return reply.status(404).send({error: "Stack not found"});
+        }
+
+        // Load update check results for this stack's service images
+        const imageRefs = stack.services.map((s) => normalizeImageRef(s.image));
+        const updateChecks = await imageUpdateCheckRepository.findByImageRefs(imageRefs);
+        const updateMap = new Map(updateChecks.map((u) => [u.imageRef, u]));
+
+        return {
+            ...stack,
+            services: stack.services.map((svc) => ({
+                ...svc,
+                updateAvailable: updateMap.get(normalizeImageRef(svc.image))?.hasUpdate ?? false,
+                latestTag: updateMap.get(normalizeImageRef(svc.image))?.latestTag ?? null,
+            })),
+        };
     });
 
     // Update stack
@@ -65,6 +84,14 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
         schema: {params: stackParamsSchema},
     }, async (request) => {
         await stackService.restartStack(request.params.id);
+        return {success: true};
+    });
+
+    // Trigger image pull + container recreate (user-initiated, never automatic)
+    app.post("/api/stacks/:id/update", {
+        schema: {params: stackParamsSchema},
+    }, async (request) => {
+        await stackService.updateImages(request.params.id);
         return {success: true};
     });
 
