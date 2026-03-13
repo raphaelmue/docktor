@@ -22,7 +22,32 @@ export interface StackStatusEvent {
     stackStatus: string
 }
 
-export type StateEvent = ContainerStateEvent | StackStatusEvent
+export interface ConfigChangedEvent {
+    type: "config_changed"
+    stackId: string
+    newHash: string
+}
+
+export interface ConfigErrorEvent {
+    type: "config_error"
+    stackId: string
+    message: string
+}
+
+export interface UpdateAvailableEvent {
+    type: "update_available"
+    stackId: string
+    imageRef: string
+    latestTag: string | null
+    hasUpdate: boolean
+}
+
+export type StateEvent =
+    | ContainerStateEvent
+    | StackStatusEvent
+    | ConfigChangedEvent
+    | ConfigErrorEvent
+    | UpdateAvailableEvent
 
 export class StateBroadcaster extends EventEmitter {
     publish(event: StateEvent): void {
