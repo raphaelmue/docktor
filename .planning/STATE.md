@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-13T10:14:51.955Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-13T10:18:15.296Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 ---
@@ -73,6 +73,7 @@ Progress: [███████░░░] 71%
 | Phase 01-mvp-completion P07 | 20 | 2 tasks | 5 files |
 | Phase 01-mvp-completion P05 | 15 | 2 tasks | 5 files |
 | Phase 02-observability P02 | 12 | 2 tasks | 6 files |
+| Phase 02-observability P03 | 6 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,9 @@ Recent decisions affecting current work:
 - [Phase 01-mvp-completion]: Added healthStatus to Service interface — SSE events include it but DB type was missing it
 - [Phase 01-mvp-completion]: ServiceStatusBadge inline in [id].tsx — too small to warrant separate file
 - [Phase 02-observability]: Used db push instead of migrate dev due to DB schema drift in dev environment — appropriate for dev without strict migration history
+- [Phase 02-observability]: FileWatcher.stop() is async to properly await chokidar watcher.close() Promise
+- [Phase 02-observability]: FileWatcherRepo uses composeFilePath/hash field names matching 02-01 test scaffold (not hostPath/lastKnownHash from plan spec)
+- [Phase 02-observability]: Jobs registry pattern: all background jobs registered in jobs/index.ts; app.ts only calls startJobs/stopJobs
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T10:14:51.949Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-13T10:18:15.288Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None
