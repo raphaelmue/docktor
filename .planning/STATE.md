@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-03-13T10:18:15.296Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-13T10:26:54.158Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 ---
@@ -74,6 +74,7 @@ Progress: [███████░░░] 71%
 | Phase 01-mvp-completion P05 | 15 | 2 tasks | 5 files |
 | Phase 02-observability P02 | 12 | 2 tasks | 6 files |
 | Phase 02-observability P03 | 6 | 2 tasks | 4 files |
+| Phase 02-observability P04 | 6 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 02-observability]: FileWatcher.stop() is async to properly await chokidar watcher.close() Promise
 - [Phase 02-observability]: FileWatcherRepo uses composeFilePath/hash field names matching 02-01 test scaffold (not hostPath/lastKnownHash from plan spec)
 - [Phase 02-observability]: Jobs registry pattern: all background jobs registered in jobs/index.ts; app.ts only calls startJobs/stopJobs
+- [Phase 02-observability]: Date tag parsing runs before semver coerce in compareVersions() — semver.coerce('2024-01-01') yields '2024.0.0' losing month/day
+- [Phase 02-observability]: getNextImageToCheck() exported as pure function matching 02-01 test scaffold; UpdateCheckerRepo interface uses test mock method names with production adapter in createProductionRepo()
+- [Phase 02-observability]: DockerExecutor singleton export added (dockerExecutor) for UpdateChecker DI; existing code continues using new DockerExecutor() per service
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T10:18:15.288Z
-Stopped at: Completed 02-03-PLAN.md
+Last session: 2026-03-13T10:26:54.151Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
