@@ -62,4 +62,48 @@ export class DockerExecutor {
             return [];
         }
     }
+
+    async pull(imageRef: string): Promise<void> {
+        await execFileAsync("docker", ["pull", imageRef], {
+            timeout: 120_000,
+        });
+    }
+
+    async manifestInspect(imageRef: string): Promise<{
+        digest: string | null
+        latestTag: string | null
+    } | null> {
+        try {
+            const {stdout} = await execFileAsync(
+                "docker",
+                ["manifest", "inspect", "--verbose", imageRef],
+                {timeout: 30_000},
+            );
+            // docker manifest inspect --verbose output:
+            // Multi-arch: returns JSON array; single-arch: returns JSON object
+            const parsed = JSON.parse(stdout);
+            const manifest = Array.isArray(parsed) ? parsed[0] : parsed;
+
+            // Extract digest from known field locations
+            const digest: string | null =
+                manifest?.Descriptor?.digest ??           // multi-arch descriptor
+                manifest?.SchemaV2Manifest?.config?.digest ??  // single-arch v2
+                manifest?.Ref ??
+                null;
+
+            return {digest, latestTag: null};
+        } catch (err: any) {
+            // "no such manifest" or "not found" = image not found in registry
+            if (
+                err.stderr?.includes("no such manifest") ||
+                err.stderr?.includes("not found")
+            ) {
+                return null;
+            }
+            // 429 rate limit or auth error — re-throw so UpdateChecker can record checkError
+            throw err;
+        }
+    }
 }
+
+export const dockerExecutor = new DockerExecutor();

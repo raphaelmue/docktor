@@ -160,11 +160,9 @@ async function createProductionRepo(): Promise<UpdateCheckerRepo> {
             const rows = await prisma.service.findMany({
                 select: {image: true},
                 distinct: ["image"],
-                where: {image: {not: null}},
             })
             return rows
-                .map((r: {image: string | null}) => r.image)
-                .filter((img: string | null): img is string => img !== null)
+                .map((r: {image: string}) => r.image)
                 .map(normalizeImageRef)
         },
 

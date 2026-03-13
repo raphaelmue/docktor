@@ -1,15 +1,15 @@
 import {statePoller} from "./state-poller.js"
 import {fileWatcher} from "./file-watcher.js"
-// updateChecker will be imported in 02-04 once implemented
+import {updateChecker} from "./update-checker.js"
 
 export async function startJobs(): Promise<void> {
     await statePoller.start()
     await fileWatcher.start()
-    // await updateChecker.start()  — added in plan 02-04
+    await updateChecker.start()
 }
 
 export function stopJobs(): void {
     statePoller.stop()
     void fileWatcher.stop()
-    // updateChecker.stop()  — added in plan 02-04
+    updateChecker.stop()
 }

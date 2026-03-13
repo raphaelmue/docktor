@@ -629,6 +629,7 @@ __metadata:
     "@testcontainers/postgresql": "npm:^11.12.0"
     "@types/dockerode": "npm:^3.3.35"
     "@types/node-cron": "npm:^3.0.11"
+    "@types/semver": "npm:^7.7.1"
     chokidar: "npm:^4.0.3"
     dockerode: "npm:^4.0.4"
     fastify: "npm:^5.2.1"
@@ -3714,6 +3715,13 @@ __metadata:
   dependencies:
     csstype: "npm:^3.2.2"
   checksum: 10c0/7d25bf41b57719452d86d2ac0570b659210402707313a36ee612666bf11275a1c69824f8c3ee1fdca077ccfe15452f6da8f1224529b917050eb2d861e52b59b7
+  languageName: node
+  linkType: hard
+
+"@types/semver@npm:^7.7.1":
+  version: 7.7.1
+  resolution: "@types/semver@npm:7.7.1"
+  checksum: 10c0/c938aef3bf79a73f0f3f6037c16e2e759ff40c54122ddf0b2583703393d8d3127130823facb880e694caa324eb6845628186aac1997ee8b31dc2d18fafe26268
   languageName: node
   linkType: hard
 
