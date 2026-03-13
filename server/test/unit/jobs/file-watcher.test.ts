@@ -12,6 +12,17 @@ vi.mock("node-cron", () => ({
     default: {schedule: vi.fn().mockReturnValue({stop: vi.fn()})},
 }));
 
+// Mock fs/promises so tests don't hit the real filesystem
+vi.mock("node:fs/promises", () => ({
+    readFile: vi.fn(),
+}));
+
+// Mock compose-parser so we can control hash/parse outcomes
+vi.mock("../../../../src/lib/compose-parser.js", () => ({
+    hashComposeContent: vi.fn(),
+    parseComposeContent: vi.fn(),
+}));
+
 function createMockFileWatcherRepo() {
     return {
         findAllStacks: vi.fn(),
@@ -31,12 +42,32 @@ describe("FileWatcher", () => {
     let fileWatcher: FileWatcher;
     let mockRepo: ReturnType<typeof createMockFileWatcherRepo>;
     let mockBroadcaster: ReturnType<typeof createMockBroadcaster>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockReadFile: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockHashContent: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockParseContent: any;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
         mockRepo = createMockFileWatcherRepo();
         mockBroadcaster = createMockBroadcaster();
         fileWatcher = new FileWatcher(mockRepo as any, mockBroadcaster as any);
+
+        const fs = await import("node:fs/promises");
+        mockReadFile = fs.readFile as ReturnType<typeof vi.fn>;
+
+        const parser = await import("../../../../src/lib/compose-parser.js");
+        mockHashContent = parser.hashComposeContent as ReturnType<typeof vi.fn>;
+        mockParseContent = parser.parseComposeContent as ReturnType<typeof vi.fn>;
+
+        // Default: file reads succeed with some content
+        mockReadFile.mockResolvedValue("services:\n  app:\n    image: nginx:latest\n");
+        // Default: hash returns a value different from "old-hash"
+        mockHashContent.mockReturnValue("new-computed-hash");
+        // Default: parse succeeds
+        mockParseContent.mockReturnValue([{serviceName: "app", image: "nginx", imageTag: "latest", ports: [], volumes: []}]);
     });
 
     describe("start() (FW-01)", () => {
@@ -59,6 +90,8 @@ describe("FileWatcher", () => {
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
             mockRepo.updateStackHash.mockResolvedValue(undefined);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
+            // hash returns "new-computed-hash" which differs from "old-hash"
+            mockHashContent.mockReturnValue("new-computed-hash");
 
             await (fileWatcher as any).handleFileChange(fakePath);
 
@@ -75,10 +108,14 @@ describe("FileWatcher", () => {
             const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
+            // hash differs so we proceed to parse
+            mockHashContent.mockReturnValue("new-computed-hash");
+            // Parse throws to simulate invalid YAML
+            mockParseContent.mockImplementation(() => {
+                throw new Error("Invalid YAML");
+            });
 
-            // Simulate invalid YAML by providing a path that can't be read in test
-            // handleFileChange should catch the parse error and create config_error event
-            await (fileWatcher as any).handleFileChange(fakePath, {forceInvalidYaml: true});
+            await (fileWatcher as any).handleFileChange(fakePath);
 
             expect(mockRepo.createStackEvent).toHaveBeenCalledWith(
                 expect.objectContaining({stackId: fakeStack.id, type: "config_error"}),
@@ -91,6 +128,7 @@ describe("FileWatcher", () => {
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
             mockRepo.updateStackHash.mockResolvedValue(undefined);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
 
             await (fileWatcher as any).handleFileChange(fakePath);
 
@@ -104,8 +142,12 @@ describe("FileWatcher", () => {
             const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockParseContent.mockImplementation(() => {
+                throw new Error("Invalid YAML");
+            });
 
-            await (fileWatcher as any).handleFileChange(fakePath, {forceInvalidYaml: true});
+            await (fileWatcher as any).handleFileChange(fakePath);
 
             expect(mockBroadcaster.publish).toHaveBeenCalledWith(
                 expect.objectContaining({type: "config_error", stackId: fakeStack.id}),
@@ -114,11 +156,12 @@ describe("FileWatcher", () => {
 
         it("does NOT create event when hash is unchanged (no false positives)", async () => {
             const fakePath = "/stacks/my-stack/docker-compose.yml";
-            // Stack hash matches the file hash — no change
             const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "same-hash"};
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            // Hash equals stored hash — no change
+            mockHashContent.mockReturnValue("same-hash");
 
-            await (fileWatcher as any).handleFileChange(fakePath, {simulatedHash: "same-hash"});
+            await (fileWatcher as any).handleFileChange(fakePath);
 
             expect(mockRepo.createStackEvent).not.toHaveBeenCalled();
             expect(mockBroadcaster.publish).not.toHaveBeenCalled();
@@ -132,25 +175,30 @@ describe("FileWatcher", () => {
                 {id: "stack-2", composeFilePath: "/stacks/s2/docker-compose.yml", hash: "old-hash-2"},
             ];
             mockRepo.findAllStacks.mockResolvedValue(stacks);
+            mockRepo.findStackByPath.mockImplementation(async (path: string) =>
+                stacks.find((s) => s.composeFilePath === path) ?? null,
+            );
             mockRepo.updateStackHash.mockResolvedValue(undefined);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
+            // Computed hash differs from stored hash
+            mockHashContent.mockReturnValue("new-hash-differs");
 
             await (fileWatcher as any).reconcile();
 
             expect(mockRepo.findAllStacks).toHaveBeenCalled();
-            // At least one stack should have its hash updated (since "old-hash-*" won't match real hash)
+            // At least one stack should have its hash updated (since hashes differ)
             expect(mockRepo.updateStackHash).toHaveBeenCalled();
         });
 
         it("does not update DB when hash matches lastKnownHash", async () => {
-            // Provide a stack with a hash that matches what reconcile computes
             const stacks = [
                 {id: "stack-1", composeFilePath: "/stacks/s1/docker-compose.yml", hash: "current-hash"},
             ];
             mockRepo.findAllStacks.mockResolvedValue(stacks);
+            // Computed hash equals stored hash — no update
+            mockHashContent.mockReturnValue("current-hash");
 
-            // When the computed hash equals the stored hash, no DB write should happen
-            await (fileWatcher as any).reconcile({simulatedHashMatches: true});
+            await (fileWatcher as any).reconcile();
 
             expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
         });
