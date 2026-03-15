@@ -24,6 +24,8 @@ export interface Service {
     containerId: string | null;
     containerState: string | null;
     healthStatus: string | null;
+    updateAvailable?: boolean;
+    latestTag?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -100,4 +102,10 @@ export function getComposeContent(id: string) {
 
 export function getEnvContent(id: string) {
     return apiFetch<{content: string}>(`/api/stacks/${id}/env`);
+}
+
+export function updateImages(id: string) {
+    return apiFetch<{success: boolean}>(`/api/stacks/${id}/update`, {
+        method: "POST",
+    });
 }

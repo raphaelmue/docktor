@@ -22,7 +22,20 @@ export interface StackStatusEvent {
     stackStatus: string
 }
 
-export type StateEvent = ContainerStateEvent | StackStatusEvent
+export interface ConfigChangedEvent {
+    type: "config_changed"
+    stackId: string
+}
+
+export interface UpdateAvailableEvent {
+    type: "update_available"
+    stackId: string
+    imageRef: string
+    latestTag: string | null
+    hasUpdate: boolean
+}
+
+export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | UpdateAvailableEvent
 
 const BASE = globalThis.location?.port === "5173" ? "http://localhost:3000" : ""
 

@@ -45,6 +45,8 @@ export function useStacks() {
                     ? {...stack, status: event.stackStatus}
                     : stack
             ));
+        } else if (event.type === "config_changed") {
+            fetch();
         }
     });
 

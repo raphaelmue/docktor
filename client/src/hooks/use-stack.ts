@@ -49,6 +49,10 @@ export function useStack(id: string) {
                 if (!prev) return prev;
                 return {...prev, status: event.stackStatus};
             });
+        } else if (event.type === "config_changed") {
+            fetch();
+        } else if (event.type === "update_available") {
+            fetch();
         }
     });
 

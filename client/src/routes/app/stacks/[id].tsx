@@ -9,6 +9,7 @@ import {
     getEnvContent,
     restartStack,
     stopStack,
+    updateImages,
     updateStack,
 } from "@/lib/stacks-api";
 import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
@@ -19,7 +20,7 @@ import {Textarea} from "@/components/ui/textarea";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {AlertTriangle, FileText, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
+import {AlertTriangle, FileText, Play, RefreshCw, RotateCcw, Save, Square, Trash2,} from "lucide-react";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -201,6 +202,7 @@ export default function StackDetailPage() {
         status,
     );
     const canRestart = ["RUNNING", "HEALTHY", "UNHEALTHY"].includes(status);
+    const canUpdate = ["RUNNING", "HEALTHY", "UNHEALTHY", "STOPPED", "ERROR"].includes(status);
     const canDelete = ["DRAFT", "STOPPED", "ERROR"].includes(status);
 
     return (
@@ -266,6 +268,19 @@ export default function StackDetailPage() {
                         >
                             <RotateCcw className="h-4 w-4 mr-1"/>
                             Restart
+                        </Button>
+                    )}
+                    {canUpdate && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={actionLoading}
+                            onClick={() =>
+                                handleAction(() => updateImages(id), "Update images")
+                            }
+                        >
+                            <RefreshCw className="h-4 w-4 mr-1"/>
+                            Update Images
                         </Button>
                     )}
                     {canDelete && (
@@ -336,7 +351,14 @@ export default function StackDetailPage() {
                                                         />
                                                     </TableCell>
                                                     <TableCell>
-                                                        {svc.image}
+                                                        <div className="flex flex-col gap-1">
+                                                            <span>{svc.image}</span>
+                                                            {svc.updateAvailable && (
+                                                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                                    update available{svc.latestTag ? ` \u2192 ${svc.latestTag}` : ""}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         {svc.imageTag ?? "latest"}
