@@ -13,7 +13,7 @@ Docktor's foundation (auth, stack CRUD, state machine, dashboard, detail page) i
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: MVP Completion** - Complete the three remaining blockers: settings persistence, container state poller, and live log streaming
-- [ ] **Phase 2: Observability** - Detect external compose file changes and surface image update availability
+- [x] **Phase 2: Observability** - Detect external compose file changes and surface image update availability (completed 2026-03-15)
 - [ ] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP
 - [ ] **Phase 4: Backup & Restore** - Enable encrypted, versioned stack backups with manual and scheduled restore
 - [ ] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 0/5 | Ready to execute | - |
+| 2. Observability | 5/5 | Complete   | 2026-03-15 |
 | 3. Notifications | 0/? | Not started | - |
 | 4. Backup & Restore | 0/? | Not started | - |
 | 5. Onboarding | 0/? | Not started | - |

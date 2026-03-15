@@ -33,7 +33,7 @@
 
 - [x] **UPD-01**: Background job polls Docker registries to check for newer image versions (semver, date-tag, or digest comparison)
 - [x] **UPD-02**: Update checks are rate-limit safe: results cached per image, checks staggered, not triggered on every poll cycle
-- [ ] **UPD-03**: Stack detail page shows an "update available" badge when newer images are found
+- [x] **UPD-03**: Stack detail page shows an "update available" badge when newer images are found
 - [x] **UPD-04**: User can trigger an update (pull + recreate) from the stack detail page — never automatic
 
 ### Notifications
@@ -133,7 +133,7 @@
 | FW-03 | Phase 2 | Complete |
 | UPD-01 | Phase 2 | Complete |
 | UPD-02 | Phase 2 | Complete |
-| UPD-03 | Phase 2 | Pending |
+| UPD-03 | Phase 2 | Complete |
 | UPD-04 | Phase 2 | Complete |
 | NOTF-01 | Phase 3 | Pending |
 | NOTF-02 | Phase 3 | Pending |
