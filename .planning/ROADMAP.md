@@ -51,7 +51,7 @@ Plans:
   2. Stack detail page shows an "update available" badge when a newer image version is found in the registry
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
-**Plans**: 5 plans
+**Plans**: 6 plans
 
 Plans:
 - [ ] 02-01-PLAN.md — Test scaffolds (Wave 0 RED state for FW-01/02/03 and UPD-01/02/04)
@@ -59,6 +59,7 @@ Plans:
 - [ ] 02-03-PLAN.md — FileWatcher job (chokidar + 60s reconcile) + jobs/index.ts registry
 - [ ] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
 - [ ] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
+- [ ] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
 
 ### Phase 3: Notifications
 **Goal**: Users receive email alerts for critical events (container errors, disk pressure, backup failures) without needing to watch the UI
@@ -114,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 5/5 | Complete   | 2026-03-15 |
+| 2. Observability | 5/6 | Gap Closure   | - |
 | 3. Notifications | 0/? | Not started | - |
 | 4. Backup & Restore | 0/? | Not started | - |
 | 5. Onboarding | 0/? | Not started | - |
