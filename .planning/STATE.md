@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-06-PLAN.md
-last_updated: "2026-03-16T14:36:48.066Z"
+stopped_at: Completed 02-07-PLAN.md
+last_updated: "2026-03-16T14:59:43.688Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 14
+  completed_plans: 14
 ---
 
 ---
@@ -77,6 +77,7 @@ Progress: [███████░░░] 71%
 | Phase 02-observability P04 | 6 | 2 tasks | 5 files |
 | Phase 02-observability P05 | 25 | 2 tasks | 9 files |
 | Phase 02-observability P06 | 2 | 2 tasks | 2 files |
+| Phase 02-observability P07 | 3 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Recent decisions affecting current work:
 - [Phase 02-observability]: GET /api/stacks/:id augments response inline with imageUpdateCheckRepository (route-level join) — keeps StackService free of cross-repo concerns
 - [Phase 02-observability]: parseComposeContent throws for missing/empty services key instead of returning [] — enables FileWatcher catch block to broadcast config_error SSE events
 - [Phase 02-observability]: FileWatcher calls replaceServices before updateStackHash — if service sync fails, hash stays stale and reconcile retries, ensuring data consistency
+- [Phase 02-observability]: Update Images button uses inline async onClick instead of handleAction — handleAction discards return value, noUpdates detection requires reading the response
+- [Phase 02-observability]: noUpdates detection: pullOutput.toLowerCase().includes('up to date') OR empty stdout — covers docker compose pull messages and edge cases
 
 ### Pending Todos
 
@@ -127,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T14:36:48.059Z
-Stopped at: Completed 02-06-PLAN.md
+Last session: 2026-03-16T14:59:43.682Z
+Stopped at: Completed 02-07-PLAN.md
 Resume file: None
