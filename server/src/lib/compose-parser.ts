@@ -50,7 +50,10 @@ export function parseComposeContent(content: string): ParsedService[] {
     const doc = parseYaml(content);
     const svcMap = doc?.services;
     if (!svcMap || typeof svcMap !== "object") {
-        return [];
+        throw new Error("Compose file missing 'services' key");
+    }
+    if (Object.keys(svcMap).length === 0) {
+        throw new Error("Compose file has empty services section");
     }
 
     return Object.entries(svcMap as Record<string, Record<string, unknown>>)
