@@ -49,15 +49,12 @@ describe("createComposeConfig", () => {
         expect(config1.hash).not.toBe(config2.hash);
     });
 
-    it("returns empty services for empty content", () => {
-        const config = createComposeConfig("");
-        expect(config.services).toEqual([]);
-        expect(config.hash).toHaveLength(64);
+    it("throws for empty content", () => {
+        expect(() => createComposeConfig("")).toThrow("Compose file missing 'services' key");
     });
 
-    it("returns empty services for YAML without services key", () => {
-        const config = createComposeConfig("version: '3'\n");
-        expect(config.services).toEqual([]);
+    it("throws for YAML without services key", () => {
+        expect(() => createComposeConfig("version: '3'\n")).toThrow("Compose file missing 'services' key");
     });
 
     it("handles image without tag", () => {

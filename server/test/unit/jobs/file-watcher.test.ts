@@ -23,11 +23,19 @@ vi.mock("../../../../src/lib/compose-parser.js", () => ({
     parseComposeContent: vi.fn(),
 }));
 
+vi.mock("../../../../src/domain/compose-config.js", () => ({
+    createComposeConfig: vi.fn().mockReturnValue({
+        hash: "mock-hash",
+        services: [{serviceName: "app", image: "nginx", imageTag: "latest", ports: [], volumes: []}],
+    }),
+}));
+
 function createMockFileWatcherRepo() {
     return {
         findAllStacks: vi.fn(),
         findStackByPath: vi.fn(),
         updateStackHash: vi.fn(),
+        replaceServices: vi.fn().mockResolvedValue(undefined),
         createStackEvent: vi.fn(),
     };
 }

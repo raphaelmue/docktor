@@ -36,12 +36,12 @@ services:
         expect(services[0].ports).toEqual([{host: 53, container: 53, protocol: "udp"}]);
     });
 
-    it("returns empty array for empty content", () => {
-        expect(parseComposeContent("")).toEqual([]);
+    it("throws for empty content", () => {
+        expect(() => parseComposeContent("")).toThrow("Compose file missing 'services' key");
     });
 
-    it("returns empty array for YAML without services key", () => {
-        expect(parseComposeContent("version: '3'\n")).toEqual([]);
+    it("throws for YAML without services key", () => {
+        expect(() => parseComposeContent("version: '3'\n")).toThrow("Compose file missing 'services' key");
     });
 
     it("handles multiple services", () => {
