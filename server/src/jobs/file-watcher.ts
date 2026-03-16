@@ -5,12 +5,14 @@ import {readFile} from "node:fs/promises"
 import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
 import {parseComposeContent, hashComposeContent} from "../lib/compose-parser.js"
+import {createComposeConfig} from "../domain/compose-config.js"
 import {getStacksDir} from "../lib/stacks-dir.js"
 
 export interface FileWatcherRepo {
     findAllStacks(): Promise<Array<{id: string; composeFilePath: string; hash: string | null}>>
     findStackByPath(composePath: string): Promise<{id: string; composeFilePath: string; hash: string | null} | null>
     updateStackHash(args: {stackId: string; hash: string}): Promise<void>
+    replaceServices(stackId: string, composeConfig: any): Promise<void>
     createStackEvent(args: {stackId: string; type: string; message?: string; payload?: string}): Promise<void>
 }
 
@@ -156,7 +158,10 @@ export class FileWatcher {
             return
         }
 
-        // Valid compose file with changed hash — update DB and broadcast
+        // Valid compose file with changed hash — sync services, update DB and broadcast
+        const composeConfig = createComposeConfig(content)
+        await repo.replaceServices(stack.id, composeConfig)
+        console.log(`[FileWatcher] Updated service metadata for ${stack.id} (${composeConfig.services.length} services)`)
         await repo.updateStackHash({stackId: stack.id, hash: newHash})
         await repo.createStackEvent({
             stackId: stack.id,
