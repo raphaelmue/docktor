@@ -105,7 +105,7 @@ export function getEnvContent(id: string) {
 }
 
 export function updateImages(id: string) {
-    return apiFetch<{success: boolean}>(`/api/stacks/${id}/update`, {
+    return apiFetch<{success: boolean; noUpdates: boolean}>(`/api/stacks/${id}/update`, {
         method: "POST",
     });
 }

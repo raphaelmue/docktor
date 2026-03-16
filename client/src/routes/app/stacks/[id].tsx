@@ -280,9 +280,23 @@ export default function StackDetailPage() {
                             size="sm"
                             variant="outline"
                             disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => updateImages(id), "Update images")
-                            }
+                            onClick={async () => {
+                                setActionLoading(true);
+                                try {
+                                    const result = await updateImages(id);
+                                    await refetch();
+                                    if (result.noUpdates) {
+                                        toast.info("Images are already up to date");
+                                    } else {
+                                        toast.success("Images updated successfully");
+                                    }
+                                } catch (err: unknown) {
+                                    const msg = err instanceof Error ? err.message : "Update images failed";
+                                    toast.error(msg);
+                                } finally {
+                                    setActionLoading(false);
+                                }
+                            }}
                         >
                             <RefreshCw className="h-4 w-4 mr-1"/>
                             Update Images

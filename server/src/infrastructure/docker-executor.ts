@@ -63,8 +63,9 @@ export class DockerExecutor {
         }
     }
 
-    async composePull(stackId: string): Promise<void> {
-        await this.composeExec(stackId, ["pull"])
+    async composePull(stackId: string): Promise<string> {
+        const {stdout} = await this.composeExec(stackId, ["pull"]);
+        return stdout;
     }
 
     async pull(imageRef: string): Promise<void> {
@@ -110,7 +111,7 @@ export class DockerExecutor {
                 return null;
             }
             // 429 rate limit or auth error — re-throw so UpdateChecker can record checkError
-            console.error(`[DockerExecutor] manifestInspect failed for ${imageRef}:`, err.message);
+            console.error(`[DockerExecutor] manifestInspect failed for ${imageRef}:`, err.message, err.stderr ?? "");
             throw err;
         }
     }

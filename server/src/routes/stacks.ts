@@ -91,8 +91,8 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     app.post("/api/stacks/:id/update", {
         schema: {params: stackParamsSchema},
     }, async (request) => {
-        await stackService.updateImages(request.params.id);
-        return {success: true};
+        const result = await stackService.updateImages(request.params.id);
+        return {success: true, noUpdates: result.noUpdates};
     });
 
     // Get compose file content

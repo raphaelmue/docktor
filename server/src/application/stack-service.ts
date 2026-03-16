@@ -186,7 +186,7 @@ export class StackService {
         await this.repo.clearConfigChanged(id);
     }
 
-    async updateImages(id: string) {
+    async updateImages(id: string): Promise<{noUpdates: boolean}> {
         const stack = await this.repo.findByIdOrThrow(id);
         this.guardTransition(stack.status as StackStatus, "UPDATE");
 
@@ -197,8 +197,9 @@ export class StackService {
             "Image update started",
         );
 
+        let pullOutput = "";
         try {
-            await this.docker.composePull(id);
+            pullOutput = await this.docker.composePull(id);
             await this.docker.up(id);
         } catch (err: any) {
             await this.repo.transitionStatus(
@@ -217,6 +218,12 @@ export class StackService {
             "Image update succeeded",
         );
         await this.repo.clearConfigChanged(id);
+
+        // "up to date" appears in stdout when no new layers were pulled
+        // docker compose pull prints "Image is up to date" or "Already exists" for unchanged images
+        const noUpdates = pullOutput.toLowerCase().includes("up to date") ||
+            pullOutput.trim().length === 0;
+        return {noUpdates};
     }
 
     async getContainerStatuses(id: string) {
