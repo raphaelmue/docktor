@@ -51,7 +51,7 @@ Plans:
   2. Stack detail page shows an "update available" badge when a newer image version is found in the registry
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
-**Plans**: 6 plans
+**Plans**: 7 plans
 
 Plans:
 - [ ] 02-01-PLAN.md — Test scaffolds (Wave 0 RED state for FW-01/02/03 and UPD-01/02/04)
@@ -60,6 +60,7 @@ Plans:
 - [ ] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
 - [ ] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
 - [ ] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
+- [ ] 02-07-PLAN.md — Gap closure: test mock fixes, compose-parser throw tests, Update Images UX feedback
 
 ### Phase 3: Notifications
 **Goal**: Users receive email alerts for critical events (container errors, disk pressure, backup failures) without needing to watch the UI
