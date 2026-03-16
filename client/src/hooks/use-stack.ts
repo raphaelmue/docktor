@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useState} from "react";
+import {toast} from "sonner";
 import {getStack, type StackDetail} from "@/lib/stacks-api";
 import {useContainerEvents} from "@/hooks/use-container-events";
 
@@ -50,6 +51,7 @@ export function useStack(id: string) {
                 return {...prev, status: event.stackStatus};
             });
         } else if (event.type === "config_changed") {
+            toast.info('Configuration file changed externally');
             fetch();
         } else if (event.type === "update_available") {
             fetch();

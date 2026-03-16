@@ -84,9 +84,14 @@ export default function StackDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        getComposeContent(id).then((r) => setComposeContent(r.content));
-        getEnvContent(id).then((r) => setEnvContent(r.content));
-    }, [id]);
+        // Only reload compose/env content if user hasn't made local changes
+        if (!composeDirty) {
+            getComposeContent(id).then((r) => setComposeContent(r.content));
+        }
+        if (!envDirty) {
+            getEnvContent(id).then((r) => setEnvContent(r.content));
+        }
+    }, [id, stack?.lastKnownHash, composeDirty, envDirty]);
 
     if (loading) {
         return (

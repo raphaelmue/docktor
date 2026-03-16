@@ -5,8 +5,7 @@ import {readFile} from "node:fs/promises"
 import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
 import {parseComposeContent, hashComposeContent} from "../lib/compose-parser.js"
-
-const STACKS_ROOT = process.env.STACKS_ROOT ?? "/stacks"
+import {getStacksDir} from "../lib/stacks-dir.js"
 
 export interface FileWatcherRepo {
     findAllStacks(): Promise<Array<{id: string; composeFilePath: string; hash: string | null}>>
@@ -41,7 +40,9 @@ export class FileWatcher {
     }
 
     async start(): Promise<void> {
-        this.watcher = watch(STACKS_ROOT, {
+        const stacksRoot = getStacksDir()
+        console.log(`[FileWatcher] Starting file watcher on: ${stacksRoot}`)
+        this.watcher = watch(stacksRoot, {
             ignoreInitial: true,
             awaitWriteFinish: {stabilityThreshold: 1000, pollInterval: 100},
             depth: 2,
@@ -51,13 +52,19 @@ export class FileWatcher {
             },
         })
 
+        this.watcher.on("ready", () => {
+            console.log(`[FileWatcher] Chokidar is ready and watching`)
+        })
+
         this.watcher.on("change", (filePath) => {
+            console.log(`[FileWatcher] Chokidar detected CHANGE: ${filePath}`)
             this.handleFileChange(filePath).catch((err: unknown) => {
                 console.error("[FileWatcher] handleFileChange error:", err)
             })
         })
 
         this.watcher.on("add", (filePath) => {
+            console.log(`[FileWatcher] Chokidar detected ADD: ${filePath}`)
             this.handleFileChange(filePath).catch((err: unknown) => {
                 console.error("[FileWatcher] handleFileChange error (add):", err)
             })
@@ -88,12 +95,14 @@ export class FileWatcher {
     }
 
     async handleFileChange(filePath: string): Promise<void> {
+        console.log(`[FileWatcher] File changed: ${filePath}`)
         const repo = await this.getRepo()
         const stack = await repo.findStackByPath(filePath)
         if (!stack) {
             console.log(`[FileWatcher] No stack found for path: ${filePath}`)
             return
         }
+        console.log(`[FileWatcher] Found stack: ${stack.id}`)
 
         let content: string
         try {
@@ -115,11 +124,14 @@ export class FileWatcher {
             return
         }
 
+        console.log(`[FileWatcher] Hash changed for ${stack.id}: ${oldHash.slice(0, 8)}... -> ${newHash.slice(0, 8)}...`)
+
         // Try to parse the compose content
         try {
             parseComposeContent(content)
         } catch (err: any) {
             // Invalid YAML or no services key
+            console.log(`[FileWatcher] Config error for ${stack.id}: ${err.message}`)
             await repo.createStackEvent({
                 stackId: stack.id,
                 type: "config_error",
@@ -140,6 +152,7 @@ export class FileWatcher {
             type: "config_changed",
             payload: JSON.stringify({oldHash, newHash}),
         })
+        console.log(`[FileWatcher] Broadcasting config_changed event for ${stack.id}`)
         this.broadcaster.publish({
             type: "config_changed",
             stackId: stack.id,

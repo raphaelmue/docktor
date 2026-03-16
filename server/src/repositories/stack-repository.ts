@@ -2,6 +2,7 @@ import {prisma} from "../lib/db.js";
 import {NotFoundError} from "../lib/errors.js";
 import type {StackStatus} from "../generated/prisma/enums.js";
 import type {ComposeConfig} from "../domain/compose-config.js";
+import path from "node:path";
 
 export class StackRepository {
     async findByIdOrThrow(id: string) {
@@ -233,6 +234,83 @@ export class StackRepository {
         ]);
 
         return statusLog;
+    }
+
+    // FileWatcher interface methods
+    async findAllStacks() {
+        const stacks = await prisma.stack.findMany({
+            select: {
+                id: true,
+                hostPath: true,
+                lastKnownHash: true,
+            },
+        });
+        return stacks.map((s) => ({
+            id: s.id,
+            composeFilePath: `${s.hostPath}/docker-compose.yml`,
+            hash: s.lastKnownHash,
+        }));
+    }
+
+    async findStackByPath(composePath: string) {
+        // Extract hostPath from composePath (remove docker-compose.yml)
+        // Normalize both paths to handle cross-platform differences
+        const normalizedComposePath = path.normalize(composePath);
+        const hostPath = path.dirname(normalizedComposePath);
+
+        // Try exact match first
+        let stack = await prisma.stack.findFirst({
+            where: {hostPath},
+            select: {
+                id: true,
+                hostPath: true,
+                lastKnownHash: true,
+            },
+        });
+
+        // If not found, try case-insensitive search (Windows is case-insensitive)
+        if (!stack && process.platform === "win32") {
+            const allStacks = await prisma.stack.findMany({
+                select: {id: true, hostPath: true, lastKnownHash: true},
+            });
+            stack = allStacks.find(
+                (s) => s.hostPath.toLowerCase() === hostPath.toLowerCase()
+            ) ?? null;
+        }
+
+        if (!stack) return null;
+        return {
+            id: stack.id,
+            composeFilePath: composePath,
+            hash: stack.lastKnownHash,
+        };
+    }
+
+    async updateStackHash(args: {stackId: string; hash: string}) {
+        await prisma.stack.update({
+            where: {id: args.stackId},
+            data: {
+                lastKnownHash: args.hash,
+                lastParsedAt: new Date(),
+                configChanged: true,
+            },
+        });
+    }
+
+    async createStackEvent(args: {
+        stackId: string;
+        type: string;
+        message?: string;
+        payload?: string;
+    }) {
+        await prisma.stackEvent.create({
+            data: {
+                stackId: args.stackId,
+                type: args.type as any, // StackEventType enum
+                message: args.message ?? null,
+                payload: args.payload ?? null,
+            },
+        });
     }
 }
 
