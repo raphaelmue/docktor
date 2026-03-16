@@ -95,6 +95,10 @@ export class DockerExecutor {
                 manifest?.Ref ??
                 null;
 
+            if (!digest) {
+                console.warn(`[DockerExecutor] manifestInspect: No digest found for ${imageRef}. Manifest keys: ${Object.keys(manifest).join(', ')}`);
+            }
+
             return {digest, latestTag: null};
         } catch (err: any) {
             // "no such manifest" or "not found" = image not found in registry
@@ -102,9 +106,11 @@ export class DockerExecutor {
                 err.stderr?.includes("no such manifest") ||
                 err.stderr?.includes("not found")
             ) {
+                console.warn(`[DockerExecutor] manifestInspect: Image not found in registry: ${imageRef}. stderr: ${err.stderr}`);
                 return null;
             }
             // 429 rate limit or auth error — re-throw so UpdateChecker can record checkError
+            console.error(`[DockerExecutor] manifestInspect failed for ${imageRef}:`, err.message);
             throw err;
         }
     }

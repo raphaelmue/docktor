@@ -42,6 +42,14 @@ export class FileWatcher {
     async start(): Promise<void> {
         const stacksRoot = getStacksDir()
         console.log(`[FileWatcher] Starting file watcher on: ${stacksRoot}`)
+
+        // On Windows, fs.watch (chokidar's default) is unreliable for detecting file changes
+        // Use polling mode on Windows for reliable detection
+        const isWindows = process.platform === "win32"
+        if (isWindows) {
+            console.log(`[FileWatcher] Windows detected: enabling polling mode (interval: 1000ms)`)
+        }
+
         this.watcher = watch(stacksRoot, {
             ignoreInitial: true,
             awaitWriteFinish: {stabilityThreshold: 1000, pollInterval: 100},
@@ -50,6 +58,9 @@ export class FileWatcher {
                 if (stats?.isDirectory() ?? false) return false // MUST allow dirs for traversal
                 return !filePath.endsWith("docker-compose.yml")
             },
+            // Windows-specific: enable polling for reliable file change detection
+            usePolling: isWindows,
+            interval: isWindows ? 1000 : undefined, // Poll every 1 second on Windows
         })
 
         this.watcher.on("ready", () => {

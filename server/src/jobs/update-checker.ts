@@ -262,11 +262,12 @@ export class UpdateChecker {
         try {
             const result = await this.docker.manifestInspect(imageRef)
             if (!result) {
+                console.warn(`[UpdateChecker] manifestInspect returned null for ${imageRef} - image not found in registry or invalid imageRef`)
                 await repo.upsertImageUpdateCheck({
                     imageRef,
                     lastCheckedAt: new Date(),
                     hasUpdate: false,
-                    checkError: "manifest inspect returned null",
+                    checkError: `Image not found in registry: ${imageRef}`,
                 })
                 return
             }
