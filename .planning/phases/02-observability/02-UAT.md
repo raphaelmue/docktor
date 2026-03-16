@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-observability
 source:
   - 02-01-SUMMARY.md
@@ -118,49 +118,69 @@ skipped: 3
   reason: "User reported: When changing the e.g. version, this is not reflected in the UI (and also the database). Same applies e.g. for ports. If there are any changes made to the docker compose (regardless whether they are directly changing the file or via the ui), extract all information and update the stack / service."
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "FileWatcher.handleFileChange() parses docker-compose.yml for validation only but discards the result. It only updates hash and sets configChanged flag, never calling stackRepository.replaceServices() to update service metadata (image, imageTag, ports, volumes)."
+  artifacts:
+    - path: "server/src/jobs/file-watcher.ts"
+      issue: "Missing replaceServices call after parse validation (line 146)"
+  missing:
+    - "Call createComposeConfig() and repo.replaceServices() to sync database services with compose file"
+  debug_session: ".planning/debug/config-data-not-updating.md"
 
 - truth: "Introduce invalid YAML syntax in a docker-compose.yml file. FileWatcher detects the error, broadcasts a config_error SSE event. Stack shows appropriate error indication."
   status: failed
   reason: "User reported: Change has been detected, but no error message is shown, not even in the logs. Also restrictions (such as e.g. the network or the volumes must be all in the volumes/ directory) are not reflected."
   severity: major
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "parseComposeContent() returns empty array [] when services key is missing/invalid instead of throwing error. This bypasses error handling in file-watcher.ts, preventing config_error events from being broadcast."
+  artifacts:
+    - path: "server/src/lib/compose-parser.ts"
+      issue: "Silent failure on missing/invalid services key (lines 49-54)"
+  missing:
+    - "Throw descriptive errors for missing/invalid/empty services key"
+    - "Note: Network/volumes directory restrictions are user expectations without requirements"
+  debug_session: ".planning/debug/config-error-not-shown.md"
 
 - truth: "FileWatcher reconcile() can be triggered manually or runs on cron schedule. It re-hashes all stack compose files and detects any drifted hashes (simulates NFS delay scenario)."
   status: failed
   reason: "User reported: the cron schedule works, however, at least on windows, file changes are not detected instantly."
   severity: minor
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "chokidar on Windows requires usePolling:true for reliable file detection. Native fs.watch (default) has known issues on Windows detecting file modifications. Current FileWatcher config missing usePolling and interval options."
+  artifacts:
+    - path: "server/src/jobs/file-watcher.ts"
+      issue: "Missing usePolling option for Windows platform (lines 45-53)"
+  missing:
+    - "Add platform detection (process.platform === 'win32')"
+    - "Enable usePolling:true and interval:1000 for Windows"
+  debug_session: ".planning/debug/windows-file-watch.md"
 
 - truth: "When UpdateChecker detects a newer image version, blue update available → tag badge appears next to affected service in stack detail page without page refresh. Badge shows the newer version number."
   status: failed
   reason: "User reported: The update checker is running, but it is not detecting new versions. The latestTag latestDigest and currentDigest are null and the error says: manifest inspect returned null."
   severity: blocker
   test: 11
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "manifestInspect() returns null when Docker CLI fails with 'no such manifest' or 'not found' errors. Actual imageRef values and error messages not visible due to insufficient logging. Need diagnostic info to identify which images are invalid/inaccessible."
+  artifacts:
+    - path: "server/src/infrastructure/docker-executor.ts"
+      issue: "Insufficient logging for manifestInspect failures (lines 76-110)"
+    - path: "server/src/jobs/update-checker.ts"
+      issue: "Generic error message doesn't show which imageRef failed (line 269)"
+  missing:
+    - "Add diagnostic logging to show failing imageRef and Docker stderr"
+    - "Improve error message to show specific imageRef"
+  debug_session: ".planning/debug/manifest-inspect-null.md"
 
 - truth: "Click Update Images button in stack detail PageActions. Stack transitions RUNNING→UPDATING. Docker compose pull executes for all services, then containers recreate via docker compose up -d. Stack returns to RUNNING. Update badges clear."
   status: failed
   reason: "User reported: yes this is working. However the usability is quite bad. When nothing was done because the image was is already up-to-date, it should say that. Also it would be better to upgrade a service if a new version was found and then the ui lets you choose to which version should be upgraded. Then the docker-compose is adjusted automatically. The 'update images' is rather a pull and deploy."
   severity: major
   test: 12
-  root_cause: ""
+  root_cause: "Feature works but missing UX enhancements: (1) No feedback when images already up-to-date, (2) No version selection UI for upgrading to specific versions, (3) Doesn't update compose file with new version tags automatically. Current behavior is pull+deploy, not true version upgrade."
   artifacts: []
-  missing: []
+  missing:
+    - "Add feedback message when pull finds no updates"
+    - "Add version selection UI for choosing upgrade target"
+    - "Implement compose file modification to persist version changes"
   debug_session: ""
 
 - truth: "With stack detail page open, modify the compose file on disk. Within seconds, config_changed SSE event triggers refetch, and UI updates to show yellow config changed state without manual refresh."
@@ -168,7 +188,10 @@ skipped: 3
   reason: "User reported: SSE is working. Only the file watcher is not working at least on windows. When changing the file it is only reflected when the cron job detects it."
   severity: major
   test: 15
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Same as test 6 - chokidar requires usePolling:true on Windows. Native fs.watch unreliable. SSE infrastructure works correctly, only file detection is broken."
+  artifacts:
+    - path: "server/src/jobs/file-watcher.ts"
+      issue: "Missing usePolling option for Windows"
+  missing:
+    - "Enable Windows polling mode (same fix as test 6)"
+  debug_session: ".planning/debug/windows-file-watch.md"
