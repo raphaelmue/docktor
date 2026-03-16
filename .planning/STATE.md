@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-05-PLAN.md — awaiting human-verify checkpoint
-last_updated: "2026-03-15T11:09:43.455Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-03-16T14:36:48.066Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 13
+  completed_plans: 13
 ---
 
 ---
@@ -76,6 +76,7 @@ Progress: [███████░░░] 71%
 | Phase 02-observability P03 | 6 | 2 tasks | 4 files |
 | Phase 02-observability P04 | 6 | 2 tasks | 5 files |
 | Phase 02-observability P05 | 25 | 2 tasks | 9 files |
+| Phase 02-observability P06 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 02-observability]: DockerExecutor singleton export added (dockerExecutor) for UpdateChecker DI; existing code continues using new DockerExecutor() per service
 - [Phase 02-observability]: clearConfigChanged() added to restartStack() success path — restart applies current config intent, clearing the flag is correct
 - [Phase 02-observability]: GET /api/stacks/:id augments response inline with imageUpdateCheckRepository (route-level join) — keeps StackService free of cross-repo concerns
+- [Phase 02-observability]: parseComposeContent throws for missing/empty services key instead of returning [] — enables FileWatcher catch block to broadcast config_error SSE events
+- [Phase 02-observability]: FileWatcher calls replaceServices before updateStackHash — if service sync fails, hash stays stale and reconcile retries, ensuring data consistency
 
 ### Pending Todos
 
@@ -124,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T11:09:00.944Z
-Stopped at: Completed 02-05-PLAN.md — awaiting human-verify checkpoint
+Last session: 2026-03-16T14:36:48.059Z
+Stopped at: Completed 02-06-PLAN.md
 Resume file: None
