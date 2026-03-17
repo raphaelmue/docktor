@@ -39,11 +39,11 @@
 ### Notifications
 
 - [ ] **NOTF-01**: User can configure SMTP settings (host, port, username, password, from address, recipient) in Settings
-- [ ] **NOTF-02**: SMTP password is stored AES-encrypted in the DB
-- [ ] **NOTF-03**: Notification sent when a stack enters ERROR or UNHEALTHY state (includes stack name, state, timestamp, last log lines)
-- [ ] **NOTF-04**: Notification sent when disk space drops below 10% or 2 GB
+- [x] **NOTF-02**: SMTP password is stored AES-encrypted in the DB
+- [x] **NOTF-03**: Notification sent when a stack enters ERROR or UNHEALTHY state (includes stack name, state, timestamp, last log lines)
+- [x] **NOTF-04**: Notification sent when disk space drops below 10% or 2 GB
 - [ ] **NOTF-05**: Notification sent when a backup fails
-- [ ] **NOTF-06**: Each notification trigger can be individually enabled/disabled in Settings
+- [x] **NOTF-06**: Each notification trigger can be individually enabled/disabled in Settings
 
 ### Backup & Restore
 
@@ -136,11 +136,11 @@
 | UPD-03 | Phase 2 | Complete |
 | UPD-04 | Phase 2 | Complete |
 | NOTF-01 | Phase 3 | Pending |
-| NOTF-02 | Phase 3 | Pending |
-| NOTF-03 | Phase 3 | Pending |
-| NOTF-04 | Phase 3 | Pending |
+| NOTF-02 | Phase 3 | Complete |
+| NOTF-03 | Phase 3 | Complete |
+| NOTF-04 | Phase 3 | Complete |
 | NOTF-05 | Phase 3 | Pending |
-| NOTF-06 | Phase 3 | Pending |
+| NOTF-06 | Phase 3 | Complete |
 | BCK-01 | Phase 4 | Pending |
 | BCK-02 | Phase 4 | Pending |
 | BCK-03 | Phase 4 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 3 plans ready — 4 plans across 4 waves
-last_updated: "2026-03-17T13:30:00.000Z"
-last_activity: 2026-03-17 — Phase 3 plans created and verified
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-17T20:57:52.451Z"
+last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 ---
@@ -78,6 +78,7 @@ Progress: [███████░░░] 71%
 | Phase 02-observability P05 | 25 | 2 tasks | 9 files |
 | Phase 02-observability P06 | 2 | 2 tasks | 2 files |
 | Phase 02-observability P07 | 3 | 2 tasks | 8 files |
+| Phase 03-notifications P01 | 12 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ Recent decisions affecting current work:
 - [Phase 02-observability]: FileWatcher calls replaceServices before updateStackHash — if service sync fails, hash stays stale and reconcile retries, ensuring data consistency
 - [Phase 02-observability]: Update Images button uses inline async onClick instead of handleAction — handleAction discards return value, noUpdates detection requires reading the response
 - [Phase 02-observability]: noUpdates detection: pullOutput.toLowerCase().includes('up to date') OR empty stdout — covers docker compose pull messages and edge cases
+- [Phase 03-notifications]: AES-256-GCM storage format: iv(12 bytes) + tag(16 bytes) + ciphertext, all hex-encoded as single string
+- [Phase 03-notifications]: getKey() validates both presence and exact 32-byte length of ENCRYPTION_KEY env var
 
 ### Pending Todos
 
@@ -130,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T12:51:56.255Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/phases/03-notifications/03-UI-SPEC.md
+Last session: 2026-03-17T20:57:52.448Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
