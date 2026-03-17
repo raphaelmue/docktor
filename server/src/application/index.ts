@@ -12,7 +12,8 @@ const fs = new StackFilesystem();
 const docker = new DockerExecutor();
 
 export const stackService = new StackService(repo, fs, docker);
-export const settingsService = new SettingsService(new SettingsRepository());
+export const settingsRepository = new SettingsRepository();
+export const settingsService = new SettingsService(settingsRepository);
 export const notificationService = new NotificationService(
     new NotificationRepository(),
     settingsService,
