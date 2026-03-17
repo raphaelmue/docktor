@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-17T21:04:58.327Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-17T21:09:00.001Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 ---
@@ -80,6 +80,7 @@ Progress: [███████░░░] 71%
 | Phase 02-observability P07 | 3 | 2 tasks | 8 files |
 | Phase 03-notifications P01 | 12 | 2 tasks | 7 files |
 | Phase 03-notifications P02 | 10 | 2 tasks | 10 files |
+| Phase 03-notifications P03 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 03-notifications]: NotificationService.notify() delegates to this.settings.getSmtpConfig() — matches test scaffold mock expectations and separates config retrieval
 - [Phase 03-notifications]: getSmtpConfig() added to SettingsService with decrypt support — SMTP config retrieval is a settings concern; NotificationSettings interface enables DI flexibility
 - [Phase 03-notifications]: vi.hoisted() + vi.mock() used for ESM nodemailer mocking in vitest — vi.doMock cannot intercept already-loaded ESM modules
+- [Phase 03-notifications]: NotificationWatcher constructor takes two positional args (notificationService, broadcaster) matching test scaffold — no stackRepo needed as displayName falls back to stackId
+- [Phase 03-notifications]: DiskChecker uses combined settings object (getMany + findLastDiskAlert + setDiskAlertActive) and imports from ../application/index.js for production singletons
 
 ### Pending Todos
 
@@ -137,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T21:04:58.324Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-17T21:08:59.997Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
