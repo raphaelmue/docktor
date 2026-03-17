@@ -103,10 +103,8 @@ export class NotificationWatcher {
 let _watcher: NotificationWatcher | null = null
 
 async function createProductionWatcher(): Promise<NotificationWatcher> {
-    const [{notificationService}] = await Promise.all([
-        import("../application/notification-service.js"),
-    ])
-    return new NotificationWatcher(notificationService as any, stateEventBroadcaster)
+    const {notificationService} = await import("../application/index.js")
+    return new NotificationWatcher(notificationService, stateEventBroadcaster)
 }
 
 export const notificationWatcher = {

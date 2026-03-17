@@ -38,7 +38,7 @@
 
 ### Notifications
 
-- [ ] **NOTF-01**: User can configure SMTP settings (host, port, username, password, from address, recipient) in Settings
+- [x] **NOTF-01**: User can configure SMTP settings (host, port, username, password, from address, recipient) in Settings
 - [x] **NOTF-02**: SMTP password is stored AES-encrypted in the DB
 - [x] **NOTF-03**: Notification sent when a stack enters ERROR or UNHEALTHY state (includes stack name, state, timestamp, last log lines)
 - [x] **NOTF-04**: Notification sent when disk space drops below 10% or 2 GB
@@ -135,7 +135,7 @@
 | UPD-02 | Phase 2 | Complete |
 | UPD-03 | Phase 2 | Complete |
 | UPD-04 | Phase 2 | Complete |
-| NOTF-01 | Phase 3 | Pending |
+| NOTF-01 | Phase 3 | Complete |
 | NOTF-02 | Phase 3 | Complete |
 | NOTF-03 | Phase 3 | Complete |
 | NOTF-04 | Phase 3 | Complete |

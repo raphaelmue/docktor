@@ -51,9 +51,17 @@ export async function buildApp() {
         }
         // Zod validation errors (from type-provider-zod validator compiler)
         if (error.statusCode === 400 && "validation" in error) {
+            const issues: any[] = (error as any).validation ?? []
+            const fields: Record<string, string> = {}
+            for (const issue of issues) {
+                // Zod issues: { path: ["fieldName", ...], message: "..." }
+                const field = Array.isArray(issue.path) ? issue.path[0] : issue.instancePath?.replace(/^\//, "")
+                if (field) fields[String(field)] = issue.message
+            }
             return reply.status(400).send({
                 error: "Validation error",
-                details: (error as any).validation,
+                fields: Object.keys(fields).length > 0 ? fields : undefined,
+                details: issues,
             });
         }
         if (error.name === "ZodError") {

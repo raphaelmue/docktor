@@ -4,6 +4,7 @@ import {apiFetch} from "./api"
 export interface SmtpSettings {
     host: string
     port: number
+    encryption: "none" | "starttls" | "ssl"
     username: string
     hasPassword: boolean
     from: string
@@ -13,9 +14,14 @@ export interface SmtpSettings {
 export interface SmtpSettingsInput {
     host: string
     port: number
+    encryption: "none" | "starttls" | "ssl"
     username: string
     password: string
     from: string
+    recipient?: string
+}
+
+export interface SmtpTestInput extends SmtpSettingsInput {
     recipient: string
 }
 
@@ -50,7 +56,7 @@ export async function saveSmtpSettings(data: SmtpSettingsInput): Promise<{succes
     })
 }
 
-export async function testSmtp(data: SmtpSettingsInput): Promise<{success: boolean}> {
+export async function testSmtp(data: SmtpTestInput): Promise<{success: boolean}> {
     return apiFetch("/api/settings/smtp/test", {
         method: "POST",
         body: JSON.stringify(data),

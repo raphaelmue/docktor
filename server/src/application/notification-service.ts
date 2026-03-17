@@ -5,6 +5,7 @@ import type {NotificationRepository} from "../repositories/notification-reposito
 export interface SmtpConfig {
     host: string
     port: number
+    encryption: "none" | "starttls" | "ssl"
     username: string
     password: string
     from: string
@@ -71,7 +72,8 @@ export class NotificationService {
         return nodemailer.createTransport({
             host: config.host,
             port: config.port,
-            secure: config.port === 465,
+            secure: config.encryption === "ssl",
+            requireTLS: config.encryption === "starttls",
             auth: config.username ? {user: config.username, pass: config.password} : undefined,
         })
     }

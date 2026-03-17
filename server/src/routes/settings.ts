@@ -11,22 +11,33 @@ const updateGeneralSettingsSchema = z.object({
     timezone: z.string().optional(),
 })
 
+// Accepts plain email (user@example.com) or display name format (Name <user@example.com>)
+const emailOrDisplayName = z
+    .string()
+    .min(1)
+    .refine(
+        (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || /^.+<[^\s@]+@[^\s@]+\.[^\s@]+>$/.test(val),
+        "Must be a valid email or 'Name <email>' format",
+    )
+
 const smtpConfigSchema = z.object({
     host: z.string().min(1, "SMTP host is required"),
     port: z.number().int().min(1).max(65535, "Port must be between 1 and 65535"),
+    encryption: z.enum(["none", "starttls", "ssl"]).default("starttls"),
     username: z.string().optional().default(""),
     password: z.string().optional().default(""),
-    from: z.string().email("From address must be a valid email"),
-    recipient: z.string().email("Recipient must be a valid email"),
+    from: emailOrDisplayName,
+    recipient: z.string().email("Recipient must be a valid email").optional().default(""),
 })
 
 const smtpTestSchema = z.object({
     host: z.string().min(1, "SMTP host is required"),
     port: z.number().int().min(1).max(65535, "Port must be between 1 and 65535"),
+    encryption: z.enum(["none", "starttls", "ssl"]).default("starttls"),
     username: z.string().optional().default(""),
     password: z.string().min(1, "Password is required for test"),
-    from: z.string().email("From address must be a valid email"),
-    recipient: z.string().email("Recipient must be a valid email"),
+    from: emailOrDisplayName,
+    recipient: z.string().email("Recipient email is required for test"),
 })
 
 const notificationTriggersSchema = z.object({
@@ -53,11 +64,12 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
 
     // GET /api/settings/smtp — Returns SMTP config with password masked
     app.get("/api/settings/smtp", async () => {
-        const keys = ["smtp.host", "smtp.port", "smtp.username", "smtp.password", "smtp.from", "smtp.recipient"]
+        const keys = ["smtp.host", "smtp.port", "smtp.encryption", "smtp.username", "smtp.password", "smtp.from", "smtp.recipient"]
         const values = await settingsRepository.getMany(keys)
         return {
             host: values["smtp.host"] ?? "",
             port: Number(values["smtp.port"] ?? "587"),
+            encryption: (values["smtp.encryption"] ?? "starttls") as "none" | "starttls" | "ssl",
             username: values["smtp.username"] ?? "",
             hasPassword: !!values["smtp.password"],
             from: values["smtp.from"] ?? "",
@@ -70,9 +82,10 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         "/api/settings/smtp",
         {schema: {body: smtpConfigSchema}},
         async (request) => {
-            const {host, port, username, password, from, recipient} = request.body
+            const {host, port, encryption, username, password, from, recipient} = request.body
             await settingsRepository.upsert("smtp.host", host)
             await settingsRepository.upsert("smtp.port", String(port))
+            await settingsRepository.upsert("smtp.encryption", encryption)
             await settingsRepository.upsert("smtp.username", username)
             if (password) {
                 const encryptedPassword = encrypt(password)
@@ -83,7 +96,9 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
                 })
             }
             await settingsRepository.upsert("smtp.from", from)
-            await settingsRepository.upsert("smtp.recipient", recipient)
+            if (recipient) {
+                await settingsRepository.upsert("smtp.recipient", recipient)
+            }
             return {success: true}
         },
     )
@@ -93,8 +108,8 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         "/api/settings/smtp/test",
         {schema: {body: smtpTestSchema}},
         async (request) => {
-            const {host, port, username, password, from, recipient} = request.body
-            await notificationService.testSmtp({host, port, username, password, from, recipient})
+            const {host, port, encryption, username, password, from, recipient} = request.body
+            await notificationService.testSmtp({host, port, encryption, username, password, from, recipient})
             return {success: true}
         },
     )

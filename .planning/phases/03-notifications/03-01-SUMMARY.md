@@ -116,3 +116,16 @@ None - no external service configuration required.
 ---
 *Phase: 03-notifications*
 *Completed: 2026-03-17*
+
+## Self-Check: PASSED
+
+All files verified present. All commits verified in git history.
+- FOUND: notification.prisma
+- FOUND: crypto.ts
+- FOUND: crypto.test.ts
+- FOUND: notification-service.test.ts
+- FOUND: notification-watcher.test.ts
+- FOUND: disk-checker.test.ts
+- FOUND: 03-01-SUMMARY.md
+- FOUND: commit 3b684f3 (feat: schema + crypto)
+- FOUND: commit 8cb83ea (test: RED scaffolds)

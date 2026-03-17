@@ -37,7 +37,7 @@ export class SettingsService {
 
     async getSmtpConfig(): Promise<SmtpConfig | null> {
         const keys = [
-            "smtp.host", "smtp.port", "smtp.username",
+            "smtp.host", "smtp.port", "smtp.encryption", "smtp.username",
             "smtp.password", "smtp.from", "smtp.recipient",
         ]
         const values: Record<string, string> = {}
@@ -46,7 +46,7 @@ export class SettingsService {
             if (val) values[key] = val
         }
 
-        if (!values["smtp.host"] || !values["smtp.from"] || !values["smtp.recipient"]) {
+        if (!values["smtp.host"] || !values["smtp.from"]) {
             return null
         }
 
@@ -60,13 +60,16 @@ export class SettingsService {
             }
         }
 
+        const encryption = (values["smtp.encryption"] ?? "starttls") as SmtpConfig["encryption"]
+
         return {
             host: values["smtp.host"],
             port: Number(values["smtp.port"] ?? "587"),
+            encryption,
             username: values["smtp.username"] ?? "",
             password,
             from: values["smtp.from"],
-            recipient: values["smtp.recipient"],
+            recipient: values["smtp.recipient"] ?? "",
         }
     }
 

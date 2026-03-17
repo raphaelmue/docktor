@@ -50,3 +50,4 @@ tsconfig.tsbuildinfo
 
 # AI
 .claude/
+.dual-graph/

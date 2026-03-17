@@ -55,7 +55,8 @@ function App() {
                         path="/stacks/:id"
                         element={<StackDetailPage />}
                     />
-                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+                    <Route path="/settings/:tab" element={<SettingsPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>
