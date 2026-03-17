@@ -56,8 +56,9 @@ All sizes and weights match the established pattern from dashboard.tsx, settings
 | Heading | 24px | text-2xl | 600 | font-semibold | 1.2 | PageTitle ("Settings") — unchanged from existing page |
 | Card title | 16px | text-base | 600 | font-semibold | 1.25 | CardTitle inside Card components (shadcn CardTitle default) |
 | Muted / caption | 14px | text-sm | 400 | font-normal | 1.5 | `text-muted-foreground` — field descriptions, timestamps in notification log |
+| Badge / label | 12px | text-xs | 400 | font-normal | 1 | Badge components in notification log Email column and Type column |
 
-Rule: Maximum 4 sizes in use across this phase (14, 16, 24, and text-xs for Badge). Exactly 2 weights: 400 (font-normal) and 600 (font-semibold). Toggle labels and tab triggers use font-normal. CardTitle and PageTitle use font-semibold. Do not introduce new sizes or weights.
+Rule: Maximum 5 sizes declared (12, 14, 16, 24 — in practice 4 distinct sizes since 14px appears in two roles). Exactly 2 weights: 400 (font-normal) and 600 (font-semibold). Toggle labels and tab triggers use font-normal. CardTitle and PageTitle use font-semibold. Do not introduce new sizes or weights.
 
 ---
 
@@ -200,7 +201,7 @@ Field label + input pairs use `<div className="space-y-1">` wrapping `<Label>` +
 Each toggle row:
 ```
 <div className="flex items-center justify-between">
-  <div className="space-y-0.5">
+  <div className="space-y-1">
     <Label className="font-normal">Stack Error / Unhealthy</Label>
     <p className="text-sm text-muted-foreground">
       Alert when a stack enters ERROR or UNHEALTHY state
