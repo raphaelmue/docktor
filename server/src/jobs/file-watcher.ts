@@ -158,10 +158,11 @@ export class FileWatcher {
             return
         }
 
-        // Valid compose file with changed hash — sync services, update DB and broadcast
-        const composeConfig = createComposeConfig(content)
-        await repo.replaceServices(stack.id, composeConfig)
-        console.log(`[FileWatcher] Updated service metadata for ${stack.id} (${composeConfig.services.length} services)`)
+        // Valid compose file with changed hash — update hash, set configChanged flag and broadcast
+        // NOTE: We do NOT call replaceServices() here because that would update the service records
+        // to show the new image versions before deployment. The service records should reflect
+        // what's currently running, not what's in the compose file. replaceServices() is called
+        // during deployment when the stack is actually updated.
         await repo.updateStackHash({stackId: stack.id, hash: newHash})
         await repo.createStackEvent({
             stackId: stack.id,

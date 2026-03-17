@@ -56,11 +56,19 @@ export class StackService {
         if (input.composeContent !== undefined) {
             await this.fs.writeCompose(id, input.composeContent);
             const composeConfig = createComposeConfig(input.composeContent);
-            await this.repo.replaceServices(id, composeConfig);
+            // Don't update service records yet - wait until deployment
+            // This keeps service records in sync with what's actually running
             await this.repo.setConfigChanged(
                 id,
                 composeConfig.hash !== stack.lastKnownHash,
             );
+            // Update the hash so we can track changes
+            if (composeConfig.hash !== stack.lastKnownHash) {
+                await this.repo.updateStackHash({
+                    stackId: id,
+                    hash: composeConfig.hash,
+                });
+            }
         }
 
         if (input.envContent !== undefined) {
@@ -128,6 +136,8 @@ export class StackService {
         });
 
         if (success) {
+            // Update service records to match the deployed compose file
+            await this.repo.replaceServices(id, composeConfig);
             await this.repo.transitionStatus(
                 id,
                 "DEPLOYING",
@@ -211,6 +221,11 @@ export class StackService {
             throw err;
         }
 
+        // After successful update, sync service records with the compose file
+        const composeContent = await this.fs.readCompose(id);
+        const composeConfig = createComposeConfig(composeContent);
+        await this.repo.replaceServices(id, composeConfig);
+
         await this.repo.transitionStatus(
             id,
             "UPDATING",
@@ -219,10 +234,22 @@ export class StackService {
         );
         await this.repo.clearConfigChanged(id);
 
-        // "up to date" appears in stdout when no new layers were pulled
-        // docker compose pull prints "Image is up to date" or "Already exists" for unchanged images
-        const noUpdates = pullOutput.toLowerCase().includes("up to date") ||
-            pullOutput.trim().length === 0;
+        // Detect if images were actually updated by checking pull output
+        // Docker compose pull outputs:
+        // - When pulling new image: "Pulling...", "Pull complete", "Downloaded newer image"
+        // - When already up-to-date: "Image is up to date", "Already exists" for all layers
+        // - Empty output usually means no images defined or all are up-to-date
+        const output = pullOutput.toLowerCase();
+        const hasDownloadActivity =
+            output.includes("downloading") ||
+            output.includes("extracting") ||
+            output.includes("pull complete") ||
+            output.includes("downloaded newer image");
+        const noUpdates = !hasDownloadActivity && (
+            output.includes("up to date") ||
+            output.includes("already exists") ||
+            output.trim().length === 0
+        );
         return {noUpdates};
     }
 

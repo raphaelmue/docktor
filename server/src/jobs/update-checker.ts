@@ -158,11 +158,17 @@ async function createProductionRepo(): Promise<UpdateCheckerRepo> {
     return {
         async findAllImageRefs(): Promise<string[]> {
             const rows = await prisma.service.findMany({
-                select: {image: true},
-                distinct: ["image"],
+                select: {image: true, imageTag: true},
+                distinct: ["image", "imageTag"],
             })
             return rows
-                .map((r: {image: string}) => r.image)
+                .map((r: {image: string; imageTag: string | null}) => {
+                    // Reconstruct full imageRef from image + imageTag
+                    if (r.imageTag) {
+                        return `${r.image}:${r.imageTag}`
+                    }
+                    return r.image
+                })
                 .map(normalizeImageRef)
         },
 
@@ -178,9 +184,18 @@ async function createProductionRepo(): Promise<UpdateCheckerRepo> {
         },
 
         async findStacksByImageRef(imageRef: string) {
+            // Parse the imageRef to get image and tag components
+            const normalizedRef = normalizeImageRef(imageRef)
+            const colonIndex = normalizedRef.lastIndexOf(":")
+            const image = colonIndex > 0 ? normalizedRef.substring(0, colonIndex) : normalizedRef
+            const tag = colonIndex > 0 ? normalizedRef.substring(colonIndex + 1) : null
+
             // Find stacks that have at least one service using this imageRef
             const services = await prisma.service.findMany({
-                where: {image: imageRef},
+                where: {
+                    image: image,
+                    imageTag: tag,
+                },
                 select: {stackId: true},
                 distinct: ["stackId"],
             })

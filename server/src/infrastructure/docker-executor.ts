@@ -64,8 +64,9 @@ export class DockerExecutor {
     }
 
     async composePull(stackId: string): Promise<string> {
-        const {stdout} = await this.composeExec(stackId, ["pull"]);
-        return stdout;
+        const {stdout, stderr} = await this.composeExec(stackId, ["pull"]);
+        // docker compose pull writes progress to stderr, combine both for analysis
+        return stdout + "\n" + stderr;
     }
 
     async pull(imageRef: string): Promise<void> {

@@ -280,22 +280,30 @@ export default function StackDetailPage() {
                             size="sm"
                             variant="outline"
                             disabled={actionLoading}
-                            onClick={async () => {
+                            onClick={() => {
                                 setActionLoading(true);
-                                try {
-                                    const result = await updateImages(id);
-                                    await refetch();
-                                    if (result.noUpdates) {
-                                        toast.info("Images are already up to date");
-                                    } else {
-                                        toast.success("Images updated successfully");
-                                    }
-                                } catch (err: unknown) {
-                                    const msg = err instanceof Error ? err.message : "Update images failed";
-                                    toast.error(msg);
-                                } finally {
-                                    setActionLoading(false);
-                                }
+                                toast.promise(
+                                    (async () => {
+                                        try {
+                                            const result = await updateImages(id);
+                                            await refetch();
+                                            // Return result for success message handling
+                                            return result;
+                                        } finally {
+                                            setActionLoading(false);
+                                        }
+                                    })(),
+                                    {
+                                        loading: "Updating images...",
+                                        success: (result) => {
+                                            if (result.noUpdates) {
+                                                return "Images are already up to date";
+                                            }
+                                            return "Images updated successfully";
+                                        },
+                                        error: (err) => err?.message ?? "Update images failed",
+                                    },
+                                );
                             }}
                         >
                             <RefreshCw className="h-4 w-4 mr-1"/>
