@@ -1,6 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NotificationService } from "../../../src/application/notification-service.js"
 
+// Use vi.hoisted so these refs are available in the vi.mock factory (which is hoisted to top)
+const {mockVerify, mockSendMail, mockCreateTransport} = vi.hoisted(() => {
+    const mockVerify = vi.fn()
+    const mockSendMail = vi.fn()
+    const mockCreateTransport = vi.fn().mockReturnValue({
+        verify: mockVerify,
+        sendMail: mockSendMail,
+    })
+    return {mockVerify, mockSendMail, mockCreateTransport}
+})
+
+// Mock nodemailer at module level so ESM imports are intercepted correctly
+vi.mock("nodemailer", () => ({
+    default: {
+        createTransport: mockCreateTransport,
+    },
+}))
+
 function createMockRepo() {
     return {
         create: vi.fn(),
@@ -25,6 +43,13 @@ describe("NotificationService", () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
+        // Reset transport mock to default resolved state
+        mockVerify.mockResolvedValue(true)
+        mockSendMail.mockResolvedValue({ messageId: "123" })
+        mockCreateTransport.mockReturnValue({
+            verify: mockVerify,
+            sendMail: mockSendMail,
+        })
         repo = createMockRepo()
         settings = createMockSettings()
         service = new NotificationService(repo as any, settings as any)
@@ -77,13 +102,6 @@ describe("NotificationService", () => {
                 recipient: "admin@example.com",
             })
             repo.create.mockResolvedValue({ id: "notif-2" })
-            // Mock nodemailer transport
-            const mockSendMail = vi.fn().mockResolvedValue({ messageId: "123" })
-            vi.doMock("nodemailer", () => ({
-                default: {
-                    createTransport: vi.fn().mockReturnValue({ sendMail: mockSendMail }),
-                },
-            }))
 
             await service.notify({
                 type: "stack_error",
@@ -122,13 +140,7 @@ describe("NotificationService", () => {
                 recipient: "to@example.com",
             })
             repo.create.mockResolvedValue({ id: "notif-4" })
-            vi.doMock("nodemailer", () => ({
-                default: {
-                    createTransport: vi.fn().mockReturnValue({
-                        sendMail: vi.fn().mockRejectedValue(new Error("SMTP connection refused")),
-                    }),
-                },
-            }))
+            mockSendMail.mockRejectedValue(new Error("SMTP connection refused"))
 
             // Should not throw even when sendMail fails
             await expect(
@@ -157,6 +169,7 @@ describe("NotificationService", () => {
 
             // For valid config, testSmtp should not throw
             await expect(service.testSmtp(smtpConfig)).resolves.not.toThrow()
+            expect(mockVerify).toHaveBeenCalled()
         })
     })
 })

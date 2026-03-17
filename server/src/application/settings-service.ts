@@ -1,6 +1,8 @@
 import {z} from "zod"
 import {BadRequestError} from "../lib/errors.js"
+import {decrypt} from "../lib/crypto.js"
 import type {SettingsRepository} from "../repositories/settings-repository.js"
+import type {SmtpConfig} from "./notification-service.js"
 
 // Mirrors SETTING_KEYS from settings-repository — inlined to avoid loading db.ts at module level
 const SETTING_KEYS = {
@@ -31,6 +33,41 @@ export class SettingsService {
 
     async upsertSetting(key: string, value: string): Promise<void> {
         await this.repo.upsert(key, value)
+    }
+
+    async getSmtpConfig(): Promise<SmtpConfig | null> {
+        const keys = [
+            "smtp.host", "smtp.port", "smtp.username",
+            "smtp.password", "smtp.from", "smtp.recipient",
+        ]
+        const values: Record<string, string> = {}
+        for (const key of keys) {
+            const val = await this.getSetting(key)
+            if (val) values[key] = val
+        }
+
+        if (!values["smtp.host"] || !values["smtp.from"] || !values["smtp.recipient"]) {
+            return null
+        }
+
+        let password = values["smtp.password"] ?? ""
+        if (password) {
+            try {
+                password = decrypt(password)
+            } catch {
+                console.error("[SettingsService] failed to decrypt SMTP password")
+                return null
+            }
+        }
+
+        return {
+            host: values["smtp.host"],
+            port: Number(values["smtp.port"] ?? "587"),
+            username: values["smtp.username"] ?? "",
+            password,
+            from: values["smtp.from"],
+            recipient: values["smtp.recipient"],
+        }
     }
 
     async getGeneralSettings(): Promise<GeneralSettings> {
