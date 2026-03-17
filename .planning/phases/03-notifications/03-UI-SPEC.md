@@ -40,9 +40,7 @@ Declared values (multiples of 4 only). Applied via Tailwind utility classes:
 | 2xl | 48px | gap-12 | Major section breaks (not used in settings) |
 | 3xl | 64px | gap-16 | Page-level spacing (not used in this phase) |
 
-Exceptions:
-- Toggle rows in the Notification Triggers card: use `space-y-3` (12px) between each toggle item — consistent with existing Label+Input rows
-- Touch target for toggle switches: minimum 44px height via `flex items-center` at `h-11`
+Exceptions: none. All spacing in this phase uses values from the standard set above.
 
 Source: Existing settings.tsx uses `space-y-4` inside CardContent, `p-6` inside PageContent, `gap-2` for button groups — codebase inspection.
 
@@ -55,14 +53,11 @@ All sizes and weights match the established pattern from dashboard.tsx, settings
 | Role | Size | Tailwind | Weight | Tailwind | Line Height | Usage |
 |------|------|----------|--------|----------|-------------|-------|
 | Label / body | 14px | text-sm | 400 | font-normal | 1.5 | Form field labels, table cell text, toggle descriptions, notification log rows |
-| Label accent | 14px | text-sm | 500 | font-medium | 1.5 | CardTitle in sm contexts, field labels with `<Label>` component |
-| Heading | 24px | text-2xl | 700 | font-bold | 1.2 | PageTitle ("Settings") — unchanged from existing page |
+| Heading | 24px | text-2xl | 600 | font-semibold | 1.2 | PageTitle ("Settings") — unchanged from existing page |
 | Card title | 16px | text-base | 600 | font-semibold | 1.25 | CardTitle inside Card components (shadcn CardTitle default) |
 | Muted / caption | 14px | text-sm | 400 | font-normal | 1.5 | `text-muted-foreground` — field descriptions, timestamps in notification log |
-| Monospace | 14px | font-mono text-sm | 400 | font-normal | 1.5 | Not applicable to this phase |
-| Badge / tag | 12px | text-xs | 500 | font-medium | 1 | Not applicable to this phase |
 
-Rule: Maximum 4 sizes in use across this phase (12, 14, 16, 24). Maximum 3 weights (400, 500, 700). The app does not use 600 as a Tailwind utility — `font-semibold` maps to 600 and is used exclusively inside shadcn CardTitle. Do not introduce new sizes.
+Rule: Maximum 4 sizes in use across this phase (14, 16, 24, and text-xs for Badge). Exactly 2 weights: 400 (font-normal) and 600 (font-semibold). Toggle labels and tab triggers use font-normal. CardTitle and PageTitle use font-semibold. Do not introduce new sizes or weights.
 
 ---
 
@@ -79,6 +74,8 @@ All colors are CSS variables declared in src/index.css using oklch. No hardcoded
 | Destructive | --destructive | oklch(0.577 0.245 27.325) = red | oklch(0.704 0.191 22.216) | SMTP validation errors, inline field error messages |
 
 Source: src/index.css CSS variable declarations — codebase inspection.
+
+**Primary visual anchor:** The SMTP card is the primary visual anchor — it is the largest and topmost element on the Notifications tab and contains the only two accent-colored CTAs on the tab ("Save SMTP Settings" and "Send Test Email").
 
 **Accent reserved for:**
 - The single primary "Save" button on each card's CardFooter
@@ -193,7 +190,7 @@ Field label + input pairs use `<div className="space-y-1">` wrapping `<Label>` +
   <CardHeader>
     <CardTitle>Notification Triggers</CardTitle>
   </CardHeader>
-  <CardContent className="space-y-3">
+  <CardContent className="space-y-4">
     [toggle row: Stack Error / Unhealthy]
     [toggle row: Disk Space Warning]
   </CardContent>
@@ -204,14 +201,16 @@ Each toggle row:
 ```
 <div className="flex items-center justify-between">
   <div className="space-y-0.5">
-    <Label>Stack Error / Unhealthy</Label>
+    <Label className="font-normal">Stack Error / Unhealthy</Label>
     <p className="text-sm text-muted-foreground">
       Alert when a stack enters ERROR or UNHEALTHY state
     </p>
   </div>
-  <Switch checked={...} onCheckedChange={...} />
+  <Switch checked={...} onCheckedChange={...} className="h-12" />
 </div>
 ```
+
+Note: `h-12` (48px) is applied to the Switch for WCAG 2.5.5 touch target compliance (minimum 44px). This is a component-level height utility, not a spacing scale value. Toggle labels use `font-normal` (weight 400).
 
 Toggles save immediately on change (no Save button). Show `toast.success("Notification settings saved")` on success.
 
