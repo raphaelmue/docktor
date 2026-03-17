@@ -71,7 +71,13 @@ Plans:
   2. User receives an email when a stack enters ERROR or UNHEALTHY state, including stack name, state, and recent log lines
   3. User receives an email when disk space drops below 10% or 2 GB remaining
   4. User can individually enable or disable each notification trigger in Settings
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Prisma schema (Notification + StackIncident) + AES-256-GCM crypto module + RED test scaffolds
+- [ ] 03-02-PLAN.md — NotificationRepository + NotificationService + SMTP/trigger/log API routes
+- [ ] 03-03-PLAN.md — NotificationWatcher (StateBroadcaster subscriber) + DiskChecker (24h cron) + jobs registration
+- [ ] 03-04-PLAN.md — Settings page Tabs refactor + Notifications tab UI (SMTP, triggers, log)
 
 ### Phase 4: Backup & Restore
 **Goal**: Users can take encrypted, versioned backups of any stack and restore from a snapshot without manual restic CLI knowledge
@@ -117,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
-| 3. Notifications | 0/? | Not started | - |
+| 3. Notifications | 0/4 | Not started | - |
 | 4. Backup & Restore | 0/? | Not started | - |
 | 5. Onboarding | 0/? | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |
