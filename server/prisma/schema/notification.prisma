@@ -1,0 +1,30 @@
+enum NotificationType {
+  stack_error
+  stack_unhealthy
+  disk_warning
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  stackId   String?
+  stack     Stack?           @relation(fields: [stackId], references: [id], onDelete: SetNull)
+  message   String
+  emailSent Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt])
+  @@index([stackId, createdAt])
+}
+
+model StackIncident {
+  id          String    @id @default(cuid())
+  stackId     String
+  stack       Stack     @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  triggerType String
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([stackId, triggerType, resolvedAt])
+  @@index([stackId, triggerType])
+}

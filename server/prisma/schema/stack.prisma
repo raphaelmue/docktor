@@ -33,12 +33,14 @@ model Stack {
   backupRetention  String? // JSON retention policy, null = use global default
 
   // Relations
-  services     Service[]
-  proxyConfigs ProxyConfig[]
-  backups      Backup[]
-  statusLogs   StatusLog[]
-  stackEvents  StackEvent[]
-  deployments  Deployment[]
+  services      Service[]
+  proxyConfigs  ProxyConfig[]
+  backups       Backup[]
+  statusLogs    StatusLog[]
+  stackEvents   StackEvent[]
+  deployments   Deployment[]
+  notifications Notification[]
+  incidents     StackIncident[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
