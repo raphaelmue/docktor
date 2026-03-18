@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: true
 preset: "new-york / neutral / css-variables"
 created: 2026-03-18
+revised: 2026-03-18
 ---
 
 # Phase 4 — UI Design Contract
@@ -67,12 +68,14 @@ Exceptions:
 
 Pre-populated from `client/src/components/common/layout/page.tsx` and existing component classes. TailwindCSS v4 default scale applies (1rem = 16px).
 
+Collapsed to 2 weights (400 normal, 600 semibold) per design contract rules. Display uses 600 instead of the previous 700 to stay within the 2-weight limit. Heading bumped from 16px to 18px (`text-lg`) to preserve clear visual hierarchy with Body at 14px when weight contrast is limited to 400→600.
+
 | Role | Size | Weight | Line Height | Tailwind Class | Usage |
 |------|------|--------|-------------|----------------|-------|
-| Display | 24px (text-2xl) | 700 (bold) | 1.2 | `text-2xl font-bold` | Page titles (`PageTitle`) — source: `page.tsx` line 45 |
-| Heading | 16px (text-base) | 600 (semibold) | 1.2 | `text-base font-semibold` | Card titles (`CardTitle`), section headings |
+| Display | 24px (text-2xl) | 600 (semibold) | 1.2 | `text-2xl font-semibold` | Page titles (`PageTitle`) — source: `page.tsx` line 45 |
+| Heading | 18px (text-lg) | 600 (semibold) | 1.2 | `text-lg font-semibold` | Card titles (`CardTitle`), section headings |
 | Body | 14px (text-sm) | 400 (normal) | 1.5 | `text-sm` | Table cells, form labels, description text — dominant prose size |
-| Label | 12px (text-xs) | 500 (medium) | 1.4 | `text-xs font-medium` | Status badges, timestamps, metadata chips |
+| Label | 12px (text-xs) | 400 (normal) | 1.4 | `text-xs` | Status badges, timestamps, metadata chips |
 
 Muted variant: `text-muted-foreground` on any role for secondary/supporting text — established pattern in `PageDescription`.
 
@@ -204,6 +207,9 @@ Tab order: `Overview | Compose | Environment | Logs | Backups`
 The Backups tab contains three sections stacked vertically with `space-y-6`:
 
 **Section 1 — Backup Configuration card:**
+
+Primary focal point: the "Backup Now" button in the Backup Configuration card header is the primary entry point for all backup activity on this page. It must be visually prominent (right-aligned in the card header, `variant="outline"`) and remain visible at all times — disabled with a status label when a backup is in progress, never hidden.
+
 ```
 CardHeader: "Backup Configuration"
   + Button "Backup Now" (outline, right-aligned in header actions)
@@ -219,7 +225,7 @@ CardFooter: Button "Save configuration" (primary)
 
 **Section 2 — Backup History:**
 ```
-Heading "Backup History" (text-base font-semibold)
+Heading "Backup History" (text-lg font-semibold)
 Table:
   Columns: Status | Trigger | Started | Duration | Size | —
   Each row: BackupStatusBadge | MANUAL/SCHEDULED badge | date | duration | size | Link "View details"
@@ -228,7 +234,7 @@ Empty state: (see Copywriting Contract)
 
 **Section 3 — Snapshots:**
 ```
-Heading row: "Snapshots" (text-base font-semibold) + Button "Refresh" (ghost, size=sm, icon=RefreshCw)
+Heading row: "Snapshots" (text-lg font-semibold) + Button "Refresh" (ghost, size=sm, icon=RefreshCw)
 [Loading state]: Skeleton rows (3) while restic call is in flight
 [Error state]: Alert "Could not load snapshots. The backup repository may be unreachable." + Button "Retry"
 [Locked state]: Alert "A backup is in progress. Snapshot list will refresh when complete."
@@ -284,8 +290,8 @@ AlertDialog:
   AlertDialogContent (below description):
     Input (placeholder: "Enter stack name", value controlled)
   AlertDialogFooter:
-    AlertDialogCancel: "Cancel"
-    AlertDialogAction: "Restore" (destructive, disabled until typed value === stack name exactly)
+    AlertDialogCancel: "Keep stack"
+    AlertDialogAction: "Restore snapshot" (destructive, disabled until typed value === stack name exactly)
 ```
 
 ---
@@ -303,7 +309,7 @@ AlertDialog:
 ### Restore flow
 1. User clicks "Restore" on snapshot row.
 2. `RestoreConfirmDialog` opens — user reads what will happen.
-3. User types stack name exactly — "Restore" button enables.
+3. User types stack name exactly — "Restore snapshot" button enables.
 4. User confirms — `POST /api/stacks/:id/restore` with `{ snapshotId }`.
 5. Toast: "Restore started" with link to detail page.
 6. Stack transitions to RESTORING (SSE). Restore button in Snapshots section remains visible in ERROR state for retry.
@@ -327,7 +333,8 @@ All settings cards in the Backup tab use the established pattern from the Genera
 |---------|------|--------|
 | Primary CTA — trigger backup | "Backup Now" | CONTEXT.md |
 | Primary CTA — deploy | "Deploy" / "Redeploy" | CONTEXT.md (action bar refactor) |
-| Primary CTA — restore (in dialog) | "Restore" | CONTEXT.md |
+| Primary CTA — restore (in dialog) | "Restore snapshot" | checker recommendation — self-describing when read in isolation |
+| Dialog cancel — restore | "Keep stack" | checker fix — communicates what user is preserving |
 | Backup in progress button label | "Backup in progress…" | CONTEXT.md |
 | Backup started toast | "Backup started" + action "View progress" | CONTEXT.md (toast pattern) |
 | Restore started toast | "Restore started" + action "View progress" | CONTEXT.md |
