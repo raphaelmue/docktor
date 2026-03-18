@@ -132,6 +132,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
 | 3. Notifications | 3/4 | In Progress|  |
-| 4. Backup & Restore | 0/6 | Not started | - |
+| 4. Backup & Restore | 1/6 | In Progress|  |
 | 5. Onboarding | 0/? | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |

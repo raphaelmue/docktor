@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-03-18T08:45:06.560Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-18T09:11:01.166Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 24
+  completed_plans: 19
 ---
 
 ---
@@ -82,6 +82,7 @@ Progress: [███████░░░] 71%
 | Phase 03-notifications P02 | 10 | 2 tasks | 10 files |
 | Phase 03-notifications P03 | 10 | 2 tasks | 3 files |
 | Phase 03-notifications P04 | 35 | 3 tasks | 3 files |
+| Phase 04-backup-restore P01 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,9 @@ Recent decisions affecting current work:
 - [Phase 03-notifications]: NotificationWatcher constructor takes two positional args (notificationService, broadcaster) matching test scaffold — no stackRepo needed as displayName falls back to stackId
 - [Phase 03-notifications]: DiskChecker uses combined settings object (getMany + findLastDiskAlert + setDiskAlertActive) and imports from ../application/index.js for production singletons
 - [Phase 03-notifications]: Notifications Settings UI sub-components (SmtpCard, NotificationTriggersCard, NotificationLogCard) defined inline in settings.tsx — no other route needs them
+- [Phase 04-backup-restore]: RESTORE added to BackupTrigger enum to track restore operations in Backup audit trail
+- [Phase 04-backup-restore]: logLines String[] on Backup model stores restic stdout for detail page without extra table
+- [Phase 04-backup-restore]: backupSettingsSchema superRefine validates conditional required fields per repoType (local/sftp/s3)
 
 ### Pending Todos
 
@@ -142,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T08:45:06.557Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/phases/04-backup-restore/04-UI-SPEC.md
+Last session: 2026-03-18T09:11:01.162Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
