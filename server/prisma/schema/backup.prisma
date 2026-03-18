@@ -5,9 +5,10 @@ model Backup {
 
   resticSnapshotId String // restic snapshot ID
   sizeBytes        BigInt?
-  trigger          BackupTrigger // manual or scheduled
+  trigger          BackupTrigger // manual, scheduled, or restore
   status           BackupStatus
   errorMessage     String?
+  logLines         String[] // stored restic output lines for detail page
 
   startedAt   DateTime
   completedAt DateTime?
@@ -17,6 +18,7 @@ model Backup {
 enum BackupTrigger {
   MANUAL
   SCHEDULED
+  RESTORE
 }
 
 enum BackupStatus {
