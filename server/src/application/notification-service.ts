@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import {decrypt} from "../lib/crypto.js"
+import {prisma} from "../lib/db.js"
 import type {NotificationRepository} from "../repositories/notification-repository.js"
 
 export interface SmtpConfig {
@@ -9,6 +10,9 @@ export interface SmtpConfig {
     username: string
     password: string
     from: string
+}
+
+export interface SmtpTestConfig extends SmtpConfig {
     recipient: string
 }
 
@@ -45,11 +49,14 @@ export class NotificationService {
         const smtpConfig = await this.settings.getSmtpConfig()
         if (!smtpConfig) return
 
+        const users = await prisma.user.findMany({select: {email: true}})
+        if (users.length === 0) return
+
         try {
             const transport = this.createTransport(smtpConfig)
             await transport.sendMail({
                 from: smtpConfig.from,
-                to: smtpConfig.recipient,
+                to: users.map((u) => u.email).join(", "),
                 subject: event.subject,
                 text: event.message,
             })
@@ -59,9 +66,14 @@ export class NotificationService {
         }
     }
 
-    async testSmtp(config: SmtpConfig): Promise<void> {
+    async testSmtp(config: SmtpTestConfig): Promise<void> {
         const transport = this.createTransport(config)
-        await transport.verify()
+        await transport.sendMail({
+            from: config.from,
+            to: config.recipient,
+            subject: "Docktor — SMTP test",
+            text: "SMTP configuration is working correctly.",
+        })
     }
 
     async getSmtpConfig(): Promise<SmtpConfig | null> {

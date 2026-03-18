@@ -8,7 +8,6 @@ export interface SmtpSettings {
     username: string
     hasPassword: boolean
     from: string
-    recipient: string
 }
 
 export interface SmtpSettingsInput {
@@ -18,7 +17,6 @@ export interface SmtpSettingsInput {
     username: string
     password: string
     from: string
-    recipient?: string
 }
 
 export interface SmtpTestInput extends SmtpSettingsInput {

@@ -27,7 +27,6 @@ const smtpConfigSchema = z.object({
     username: z.string().optional().default(""),
     password: z.string().optional().default(""),
     from: emailOrDisplayName,
-    recipient: z.string().email("Recipient must be a valid email").optional().default(""),
 })
 
 const smtpTestSchema = z.object({
@@ -64,7 +63,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
 
     // GET /api/settings/smtp — Returns SMTP config with password masked
     app.get("/api/settings/smtp", async () => {
-        const keys = ["smtp.host", "smtp.port", "smtp.encryption", "smtp.username", "smtp.password", "smtp.from", "smtp.recipient"]
+        const keys = ["smtp.host", "smtp.port", "smtp.encryption", "smtp.username", "smtp.password", "smtp.from"]
         const values = await settingsRepository.getMany(keys)
         return {
             host: values["smtp.host"] ?? "",
@@ -73,7 +72,6 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
             username: values["smtp.username"] ?? "",
             hasPassword: !!values["smtp.password"],
             from: values["smtp.from"] ?? "",
-            recipient: values["smtp.recipient"] ?? "",
         }
     })
 
@@ -82,7 +80,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         "/api/settings/smtp",
         {schema: {body: smtpConfigSchema}},
         async (request) => {
-            const {host, port, encryption, username, password, from, recipient} = request.body
+            const {host, port, encryption, username, password, from} = request.body
             await settingsRepository.upsert("smtp.host", host)
             await settingsRepository.upsert("smtp.port", String(port))
             await settingsRepository.upsert("smtp.encryption", encryption)
@@ -96,9 +94,6 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
                 })
             }
             await settingsRepository.upsert("smtp.from", from)
-            if (recipient) {
-                await settingsRepository.upsert("smtp.recipient", recipient)
-            }
             return {success: true}
         },
     )

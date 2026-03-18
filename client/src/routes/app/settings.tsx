@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {useNavigate, useParams} from "react-router";
 import {Check, ChevronsUpDown} from "lucide-react";
 import {toast} from "sonner";
@@ -105,19 +105,16 @@ function SmtpCard() {
     const [smtpPort, setSmtpPort] = useState(587);
     const [smtpEncryption, setSmtpEncryption] = useState<"none" | "starttls" | "ssl">("starttls");
     const [smtpUsername, setSmtpUsername] = useState("");
-    // When hasExistingPassword=true and smtpPassword="", we show a placeholder.
-    // On focus we clear the placeholder so the user can type a new password.
     const [smtpPassword, setSmtpPassword] = useState("");
     const [hasExistingPassword, setHasExistingPassword] = useState(false);
-    const [passwordIsPlaceholder, setPasswordIsPlaceholder] = useState(false);
+    // true while showing the "saved password" dots — cleared as soon as user focuses the field
+    const [passwordLocked, setPasswordLocked] = useState(false);
     const [smtpFrom, setSmtpFrom] = useState("");
-    const [smtpRecipient, setSmtpRecipient] = useState("");
     const [testRecipient, setTestRecipient] = useState("");
     const [smtpLoading, setSmtpLoading] = useState(true);
     const [smtpSaving, setSmtpSaving] = useState(false);
     const [smtpTesting, setSmtpTesting] = useState(false);
     const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({});
-    const passwordRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         getSmtpSettings()
@@ -127,10 +124,9 @@ function SmtpCard() {
                 setSmtpEncryption(data.encryption);
                 setSmtpUsername(data.username);
                 setSmtpFrom(data.from);
-                setSmtpRecipient(data.recipient);
-                setTestRecipient(data.recipient);
+                setTestRecipient("");
                 setHasExistingPassword(data.hasPassword);
-                setPasswordIsPlaceholder(data.hasPassword);
+                setPasswordLocked(data.hasPassword);
                 setSmtpLoading(false);
             })
             .catch(() => {
@@ -147,13 +143,12 @@ function SmtpCard() {
                 port: smtpPort,
                 encryption: smtpEncryption,
                 username: smtpUsername,
-                password: passwordIsPlaceholder ? "" : smtpPassword,
+                password: passwordLocked ? "" : smtpPassword,
                 from: smtpFrom,
-                recipient: smtpRecipient || undefined,
             });
-            if (!passwordIsPlaceholder && smtpPassword) {
+            if (!passwordLocked && smtpPassword) {
                 setHasExistingPassword(true);
-                setPasswordIsPlaceholder(true);
+                setPasswordLocked(true);
                 setSmtpPassword("");
             }
             toast.success("SMTP settings saved");
@@ -185,7 +180,7 @@ function SmtpCard() {
                 port: smtpPort,
                 encryption: smtpEncryption,
                 username: smtpUsername,
-                password: passwordIsPlaceholder ? "" : smtpPassword,
+                password: passwordLocked ? "" : smtpPassword,
                 from: smtpFrom,
                 recipient: testRecipient,
             });
@@ -281,34 +276,21 @@ function SmtpCard() {
                                 <Label htmlFor="smtpPassword">Password</Label>
                                 <Input
                                     id="smtpPassword"
-                                    ref={passwordRef}
                                     type="password"
-                                    value={passwordIsPlaceholder ? "placeholder" : smtpPassword}
+                                    value={passwordLocked ? "locked" : smtpPassword}
                                     onFocus={() => {
-                                        if (passwordIsPlaceholder) {
-                                            setPasswordIsPlaceholder(false);
+                                        if (passwordLocked) {
+                                            setPasswordLocked(false);
                                             setSmtpPassword("");
                                         }
                                     }}
                                     onChange={(e) => {
-                                        setPasswordIsPlaceholder(false);
+                                        setPasswordLocked(false);
                                         setSmtpPassword(e.target.value);
                                     }}
-                                    placeholder={hasExistingPassword ? "" : "Enter password"}
+                                    placeholder="Enter password"
                                 />
                             </div>
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="smtpRecipient">Recipient</Label>
-                            <Input
-                                id="smtpRecipient"
-                                type="email"
-                                value={smtpRecipient}
-                                onChange={(e) => setSmtpRecipient(e.target.value)}
-                                placeholder="admin@example.com"
-                            />
-                            <p className="text-xs text-muted-foreground">Where notification emails are sent. Also used as the default test recipient.</p>
-                            {smtpErrors.recipient && <p className="text-sm text-destructive">{smtpErrors.recipient}</p>}
                         </div>
                     </>
                 )}

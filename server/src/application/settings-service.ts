@@ -38,7 +38,7 @@ export class SettingsService {
     async getSmtpConfig(): Promise<SmtpConfig | null> {
         const keys = [
             "smtp.host", "smtp.port", "smtp.encryption", "smtp.username",
-            "smtp.password", "smtp.from", "smtp.recipient",
+            "smtp.password", "smtp.from",
         ]
         const values: Record<string, string> = {}
         for (const key of keys) {
@@ -69,7 +69,6 @@ export class SettingsService {
             username: values["smtp.username"] ?? "",
             password,
             from: values["smtp.from"],
-            recipient: values["smtp.recipient"] ?? "",
         }
     }
 
