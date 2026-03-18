@@ -89,7 +89,15 @@ Plans:
   3. User can configure a per-stack backup schedule and retention policy; scheduled backups run automatically
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
+- [ ] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
+- [ ] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
+- [ ] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
+- [ ] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
+- [ ] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
 
 ### Phase 5: Onboarding
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
@@ -124,6 +132,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
 | 3. Notifications | 3/4 | In Progress|  |
-| 4. Backup & Restore | 0/? | Not started | - |
+| 4. Backup & Restore | 0/6 | Not started | - |
 | 5. Onboarding | 0/? | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |
