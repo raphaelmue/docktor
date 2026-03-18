@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-18T09:11:01.166Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-18T09:15:17.812Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 24
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 ---
@@ -83,6 +83,7 @@ Progress: [███████░░░] 71%
 | Phase 03-notifications P03 | 10 | 2 tasks | 3 files |
 | Phase 03-notifications P04 | 35 | 3 tasks | 3 files |
 | Phase 04-backup-restore P01 | 4 | 2 tasks | 6 files |
+| Phase 04-backup-restore P02 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [Phase 04-backup-restore]: RESTORE added to BackupTrigger enum to track restore operations in Backup audit trail
 - [Phase 04-backup-restore]: logLines String[] on Backup model stores restic stdout for detail page without extra table
 - [Phase 04-backup-restore]: backupSettingsSchema superRefine validates conditional required fields per repoType (local/sftp/s3)
+- [Phase 04-backup-restore]: ResticExecutor.run() uses positional args (args, env, onLine?) not ResticRunOptions object — matches test scaffold API contract
+- [Phase 04-backup-restore]: buildBackupArgs omits 'backup' subcommand from returned array — test expects stackPath at args[0]
+- [Phase 04-backup-restore]: BackupRepository.update() is unified method — test mock expects single update fn; named helpers also provided for production clarity
 
 ### Pending Todos
 
@@ -146,6 +150,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T09:11:01.162Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-18T09:15:17.809Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
