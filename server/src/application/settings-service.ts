@@ -31,6 +31,10 @@ export class SettingsService {
         return record?.value ?? null
     }
 
+    async getMany(keys: string[]): Promise<Record<string, string>> {
+        return this.repo.getMany(keys)
+    }
+
     async upsertSetting(key: string, value: string): Promise<void> {
         await this.repo.upsert(key, value)
     }

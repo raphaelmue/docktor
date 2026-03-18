@@ -17,7 +17,7 @@ export interface SmtpTestConfig extends SmtpConfig {
 }
 
 export interface NotificationEvent {
-    type: "stack_error" | "stack_unhealthy" | "disk_warning"
+    type: "stack_error" | "stack_unhealthy" | "disk_warning" | "backup_failure"
     stackId?: string | null
     subject: string
     message: string
@@ -35,7 +35,12 @@ export class NotificationService {
     ) {}
 
     async notify(event: NotificationEvent): Promise<void> {
-        const toggleKey = event.type === "disk_warning" ? "notify.diskWarning" : "notify.stackError"
+        const toggleKey =
+            event.type === "disk_warning"
+                ? "notify.diskWarning"
+                : event.type === "backup_failure"
+                    ? "notify.backupFailure"
+                    : "notify.stackError"
         const enabled = await this.settings.getSetting(toggleKey)
         if (enabled === "false") return
 

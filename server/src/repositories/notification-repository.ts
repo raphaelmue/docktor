@@ -2,7 +2,7 @@ import {prisma} from "../lib/db.js"
 
 export class NotificationRepository {
     async create(data: {
-        type: "stack_error" | "stack_unhealthy" | "disk_warning"
+        type: "stack_error" | "stack_unhealthy" | "disk_warning" | "backup_failure"
         stackId?: string | null
         message: string
         emailSent: boolean

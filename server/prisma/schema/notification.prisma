@@ -2,6 +2,7 @@ enum NotificationType {
   stack_error
   stack_unhealthy
   disk_warning
+  backup_failure
 }
 
 model Notification {
