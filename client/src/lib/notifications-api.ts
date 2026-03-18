@@ -29,6 +29,7 @@ export interface NotificationTriggers {
     diskWarning: boolean
     diskThresholdPercent: number
     diskThresholdBytes: number
+    backupFailure: boolean
 }
 
 // Notification log types

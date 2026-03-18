@@ -1,6 +1,6 @@
 import {useEffect, useState} from "react";
 import {useNavigate, useParams} from "react-router";
-import {Check, ChevronsUpDown} from "lucide-react";
+import {AlertTriangle, Check, ChevronsUpDown} from "lucide-react";
 import {toast} from "sonner";
 import {Page, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 import {Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage} from "@/components/ui/breadcrumb";
@@ -16,17 +16,24 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Switch} from "@/components/ui/switch";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {Badge} from "@/components/ui/badge";
+import {Alert, AlertDescription} from "@/components/ui/alert";
 import {getGeneralSettings, updateGeneralSettings} from "@/lib/settings-api";
 import {
     getSmtpSettings, saveSmtpSettings, testSmtp,
     getNotificationTriggers, updateNotificationTriggers,
     getNotifications, type NotificationEntry,
 } from "@/lib/notifications-api";
+import {
+    getBackupSettings, saveBackupSettings,
+    getBackupDefaults, saveBackupDefaults,
+    getResticStatus,
+    type BackupSettings, type BackupDefaults, type ResticStatus,
+} from "@/lib/backups-api";
 import {ApiError} from "@/lib/api";
 import {cn} from "@/lib/utils";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
-const VALID_TABS = ["general", "notifications"] as const;
+const VALID_TABS = ["general", "notifications", "backup"] as const;
 type Tab = typeof VALID_TABS[number];
 
 interface TimezoneComboboxProps {
@@ -322,6 +329,7 @@ function SmtpCard() {
 function NotificationTriggersCard() {
     const [stackError, setStackError] = useState(false);
     const [diskWarning, setDiskWarning] = useState(false);
+    const [backupFailure, setBackupFailure] = useState(false);
     const [triggersLoading, setTriggersLoading] = useState(true);
 
     useEffect(() => {
@@ -329,6 +337,7 @@ function NotificationTriggersCard() {
             .then((data) => {
                 setStackError(data.stackError);
                 setDiskWarning(data.diskWarning);
+                setBackupFailure(data.backupFailure);
                 setTriggersLoading(false);
             })
             .catch(() => {
@@ -336,16 +345,24 @@ function NotificationTriggersCard() {
             });
     }, []);
 
-    const handleToggle = async (key: "stackError" | "diskWarning", value: boolean) => {
-        const prev = key === "stackError" ? stackError : diskWarning;
+    const handleToggle = async (
+        key: "stackError" | "diskWarning" | "backupFailure",
+        value: boolean,
+    ) => {
+        const prev =
+            key === "stackError" ? stackError
+            : key === "diskWarning" ? diskWarning
+            : backupFailure;
         if (key === "stackError") setStackError(value);
-        else setDiskWarning(value);
+        else if (key === "diskWarning") setDiskWarning(value);
+        else setBackupFailure(value);
         try {
             await updateNotificationTriggers({[key]: value});
             toast.success("Notification settings saved");
         } catch {
             if (key === "stackError") setStackError(prev);
-            else setDiskWarning(prev);
+            else if (key === "diskWarning") setDiskWarning(prev);
+            else setBackupFailure(prev);
             toast.error("Failed to update notification settings");
         }
     };
@@ -372,6 +389,13 @@ function NotificationTriggersCard() {
                             </div>
                             <Skeleton className="h-6 w-11" />
                         </div>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <Skeleton className="h-4 w-44" />
+                                <Skeleton className="h-4 w-68" />
+                            </div>
+                            <Skeleton className="h-6 w-11" />
+                        </div>
                     </>
                 ) : (
                     <>
@@ -388,6 +412,13 @@ function NotificationTriggersCard() {
                                 <p className="text-sm text-muted-foreground">Send an alert when disk space drops below configured thresholds</p>
                             </div>
                             <Switch checked={diskWarning} onCheckedChange={(v) => handleToggle("diskWarning", v)} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <Label className="font-normal">Backup Failure</Label>
+                                <p className="text-sm text-muted-foreground">Send an alert when a scheduled or manual backup fails</p>
+                            </div>
+                            <Switch checked={backupFailure} onCheckedChange={(v) => handleToggle("backupFailure", v)} />
                         </div>
                     </>
                 )}
@@ -465,6 +496,349 @@ function NotificationLogCard() {
                     </Table>
                 )}
             </CardContent>
+        </Card>
+    );
+}
+
+function BackupRepositoryCard() {
+    const [repoType, setRepoType] = useState<"local" | "sftp" | "s3" | "">("");
+    const [repoPath, setRepoPath] = useState("");
+    const [sftpHost, setSftpHost] = useState("");
+    const [sftpUser, setSftpUser] = useState("");
+    const [sftpKey, setSftpKey] = useState("");
+    const [s3Endpoint, setS3Endpoint] = useState("");
+    const [s3Bucket, setS3Bucket] = useState("");
+    const [s3AccessKey, setS3AccessKey] = useState("");
+    const [s3SecretKey, setS3SecretKey] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [resticStatus, setResticStatus] = useState<ResticStatus | null>(null);
+    const [settings, setSettings] = useState<BackupSettings | null>(null);
+
+    useEffect(() => {
+        Promise.all([getBackupSettings(), getResticStatus()])
+            .then(([s, rs]) => {
+                setSettings(s);
+                setRepoType(s.repoType ?? "");
+                setRepoPath(s.repoPath ?? "");
+                setSftpHost(s.sftpHost ?? "");
+                setSftpUser(s.sftpUser ?? "");
+                setS3Endpoint(s.s3Endpoint ?? "");
+                setS3Bucket(s.s3Bucket ?? "");
+                setS3AccessKey(s.s3AccessKey ?? "");
+                setResticStatus(rs);
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoading(false);
+            });
+    }, []);
+
+    const handleSave = () => {
+        setSaving(true);
+        const data: Record<string, unknown> = {
+            repoType: repoType || null,
+            repoPath: repoPath || null,
+            sftpHost: sftpHost || null,
+            sftpUser: sftpUser || null,
+            sftpKey: sftpKey || null,
+            s3Endpoint: s3Endpoint || null,
+            s3Bucket: s3Bucket || null,
+            s3AccessKey: s3AccessKey || null,
+            s3SecretKey: s3SecretKey || null,
+            password: password || null,
+        };
+        toast.promise(saveBackupSettings(data).finally(() => setSaving(false)), {
+            loading: "Saving...",
+            success: "Repository settings saved",
+            error: "Failed to save",
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Backup Repository</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {loading ? (
+                    <>
+                        <div className="space-y-1">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-9 w-full" />
+                        </div>
+                        <div className="space-y-1">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-9 w-full" />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {resticStatus && !resticStatus.available && (
+                            <Alert>
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
+                                    restic is not installed on this host. Install restic &gt;= 0.17.0 to enable backups.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        <div className="space-y-1">
+                            <Label htmlFor="repoType">Repository type</Label>
+                            <Select
+                                value={repoType}
+                                onValueChange={(v) => setRepoType(v as "local" | "sftp" | "s3")}
+                            >
+                                <SelectTrigger id="repoType">
+                                    <SelectValue placeholder="Select type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="local">Local</SelectItem>
+                                    <SelectItem value="sftp">SFTP</SelectItem>
+                                    <SelectItem value="s3">S3-compatible</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {repoType === "local" && (
+                            <div className="space-y-1">
+                                <Label htmlFor="repoPath">Repository path</Label>
+                                <Input
+                                    id="repoPath"
+                                    value={repoPath}
+                                    onChange={(e) => setRepoPath(e.target.value)}
+                                    placeholder="/opt/docktor-backups"
+                                />
+                            </div>
+                        )}
+                        {repoType === "sftp" && (
+                            <>
+                                <div className="space-y-1">
+                                    <Label htmlFor="sftpHost">Host</Label>
+                                    <Input
+                                        id="sftpHost"
+                                        value={sftpHost}
+                                        onChange={(e) => setSftpHost(e.target.value)}
+                                        placeholder="backup.example.com"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="sftpUser">Username</Label>
+                                    <Input
+                                        id="sftpUser"
+                                        value={sftpUser}
+                                        onChange={(e) => setSftpUser(e.target.value)}
+                                        placeholder="backup-user"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="sftpKey">
+                                        Private key (PEM)
+                                        {settings?.hasSftpKey && (
+                                            <span className="ml-2 text-xs text-muted-foreground">(key saved)</span>
+                                        )}
+                                    </Label>
+                                    <textarea
+                                        id="sftpKey"
+                                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={sftpKey}
+                                        onChange={(e) => setSftpKey(e.target.value)}
+                                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {repoType === "s3" && (
+                            <>
+                                <div className="space-y-1">
+                                    <Label htmlFor="s3Endpoint">Endpoint URL</Label>
+                                    <Input
+                                        id="s3Endpoint"
+                                        value={s3Endpoint}
+                                        onChange={(e) => setS3Endpoint(e.target.value)}
+                                        placeholder="https://s3.amazonaws.com"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="s3Bucket">Bucket name</Label>
+                                    <Input
+                                        id="s3Bucket"
+                                        value={s3Bucket}
+                                        onChange={(e) => setS3Bucket(e.target.value)}
+                                        placeholder="my-backup-bucket"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="s3AccessKey">Access key ID</Label>
+                                    <Input
+                                        id="s3AccessKey"
+                                        value={s3AccessKey}
+                                        onChange={(e) => setS3AccessKey(e.target.value)}
+                                        placeholder="AKIAIOSFODNN7EXAMPLE"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="s3SecretKey">
+                                        Secret access key
+                                        {settings?.hasS3SecretKey && (
+                                            <span className="ml-2 text-xs text-muted-foreground">(key saved)</span>
+                                        )}
+                                    </Label>
+                                    <Input
+                                        id="s3SecretKey"
+                                        type="password"
+                                        value={s3SecretKey}
+                                        onChange={(e) => setS3SecretKey(e.target.value)}
+                                        placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                                    />
+                                </div>
+                            </>
+                        )}
+                        <div className="space-y-1">
+                            <Label htmlFor="resticPassword">
+                                Restic password
+                                {settings?.hasPassword && (
+                                    <span className="ml-2 text-xs text-muted-foreground">(password saved)</span>
+                                )}
+                            </Label>
+                            <Input
+                                id="resticPassword"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter encryption password"
+                            />
+                        </div>
+                    </>
+                )}
+            </CardContent>
+            <CardFooter className="flex items-center gap-4">
+                <Button onClick={handleSave} disabled={saving || loading}>
+                    {saving ? "Saving..." : "Save repository settings"}
+                </Button>
+                {resticStatus?.available && resticStatus.version && (
+                    <Badge variant="secondary">restic {resticStatus.version}</Badge>
+                )}
+            </CardFooter>
+        </Card>
+    );
+}
+
+function BackupDefaultsCard() {
+    const [defaultSchedule, setDefaultSchedule] = useState("");
+    const [keepDaily, setKeepDaily] = useState("7");
+    const [keepWeekly, setKeepWeekly] = useState("4");
+    const [keepMonthly, setKeepMonthly] = useState("12");
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        getBackupDefaults()
+            .then((data: BackupDefaults) => {
+                setDefaultSchedule(data.defaultSchedule ?? "");
+                if (data.defaultRetention) {
+                    setKeepDaily(String(data.defaultRetention.keepDaily));
+                    setKeepWeekly(String(data.defaultRetention.keepWeekly));
+                    setKeepMonthly(String(data.defaultRetention.keepMonthly));
+                }
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoading(false);
+            });
+    }, []);
+
+    const handleSave = () => {
+        setSaving(true);
+        const data = {
+            defaultSchedule: defaultSchedule || null,
+            defaultRetention: {
+                keepDaily: Number(keepDaily),
+                keepWeekly: Number(keepWeekly),
+                keepMonthly: Number(keepMonthly),
+            },
+        };
+        toast.promise(saveBackupDefaults(data).finally(() => setSaving(false)), {
+            loading: "Saving...",
+            success: "Default backup settings saved",
+            error: "Failed to save",
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Default Backup Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {loading ? (
+                    <>
+                        <div className="space-y-1">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-9 w-full" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            {Array.from({length: 3}).map((_, i) => (
+                                <div key={i} className="space-y-1">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-9 w-full" />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="space-y-1">
+                            <Label htmlFor="defaultSchedule">Default schedule</Label>
+                            <Input
+                                id="defaultSchedule"
+                                value={defaultSchedule}
+                                onChange={(e) => setDefaultSchedule(e.target.value)}
+                                placeholder="0 3 * * *"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                5-field cron format (minute hour day month weekday)
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="keepDaily">Keep daily</Label>
+                                <Input
+                                    id="keepDaily"
+                                    type="number"
+                                    value={keepDaily}
+                                    onChange={(e) => setKeepDaily(e.target.value)}
+                                    placeholder="7"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="keepWeekly">Keep weekly</Label>
+                                <Input
+                                    id="keepWeekly"
+                                    type="number"
+                                    value={keepWeekly}
+                                    onChange={(e) => setKeepWeekly(e.target.value)}
+                                    placeholder="4"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="keepMonthly">Keep monthly</Label>
+                                <Input
+                                    id="keepMonthly"
+                                    type="number"
+                                    value={keepMonthly}
+                                    onChange={(e) => setKeepMonthly(e.target.value)}
+                                    placeholder="12"
+                                />
+                            </div>
+                        </div>
+                    </>
+                )}
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleSave} disabled={saving || loading}>
+                    {saving ? "Saving..." : "Save defaults"}
+                </Button>
+            </CardFooter>
         </Card>
     );
 }
@@ -550,6 +924,7 @@ export default function SettingsPage() {
                     <TabsList>
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                        <TabsTrigger value="backup">Backup</TabsTrigger>
                     </TabsList>
                     <TabsContent value="general">
                         <Card>
@@ -625,6 +1000,10 @@ export default function SettingsPage() {
                             <NotificationTriggersCard />
                             <NotificationLogCard />
                         </div>
+                    </TabsContent>
+                    <TabsContent value="backup" className="space-y-6">
+                        <BackupRepositoryCard />
+                        <BackupDefaultsCard />
                     </TabsContent>
                 </Tabs>
             </PageContent>
