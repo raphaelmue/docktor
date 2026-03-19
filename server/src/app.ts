@@ -21,10 +21,13 @@ const envToLogger: Record<string, object | boolean> = {
     development: {
         transport: {
             target: "pino-pretty",
-            options: {translateTime: "HH:MM:ss Z", ignore: "pid,hostname"},
+            options: {translateTime: "HH:MM:ss Z", ignore: "pid,hostname,reqId,req,res"},
         },
+        level: "info",
     },
-    production: true,
+    production: {
+        level: "warn",
+    },
     test: false,
 };
 
@@ -33,6 +36,7 @@ export async function buildApp() {
 
     const app = Fastify({
         logger: envToLogger[env] ?? true,
+        disableRequestLogging: true,
     }).withTypeProvider<ZodTypeProvider>();
 
     app.setValidatorCompiler(validatorCompiler);
