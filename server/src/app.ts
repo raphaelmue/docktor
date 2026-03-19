@@ -11,6 +11,7 @@ import stackRoutes from "./routes/stacks.js";
 import settingsRoutes from "./routes/settings.js";
 import eventsRoutes from "./routes/events.js";
 import notificationRoutes from "./routes/notifications.js";
+import backupRoutes from "./routes/backups.js";
 import {AppError} from "./lib/errors.js";
 import {startJobs, stopJobs} from "./jobs/index.js";
 
@@ -77,6 +78,7 @@ export async function buildApp() {
     await app.register(settingsRoutes);
     await app.register(eventsRoutes);
     await app.register(notificationRoutes);
+    await app.register(backupRoutes);
 
     // Jobs: start/stop with server lifecycle (skipped in test environment)
     if (process.env.NODE_ENV !== "test") {
