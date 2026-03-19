@@ -12,6 +12,7 @@ import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
 import StackDetailPage from "@/routes/app/stacks/[id]";
 import SettingsPage from "@/routes/app/settings";
+import BackupDetailPage from "@/routes/app/stacks/backups/[backupId]";
 
 function ProtectedRoute({children}: Readonly<{children: React.ReactNode}>) {
     const {data: session, isPending} = useSession();
@@ -50,6 +51,10 @@ function App() {
                     <Route
                         path="/stacks/create"
                         element={<CreateStackPage />}
+                    />
+                    <Route
+                        path="/stacks/:id/backups/:backupId"
+                        element={<BackupDetailPage />}
                     />
                     <Route
                         path="/stacks/:id"
