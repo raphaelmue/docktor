@@ -141,10 +141,12 @@ export class BackupService {
         backupBroadcasters.set(backupRecord.id, emitter)
 
         const lines: string[] = []
+        console.log(`[BackupService] Starting backup ${backupRecord.id} for stack ${stack.id}`)
 
         try {
             const env = this.buildEnv(repoConfig)
             const onLine = (line: string): void => {
+                console.log(`[BackupService] Log line: ${line}`)
                 lines.push(line)
                 emitter.emit("line", line)
             }
@@ -156,6 +158,7 @@ export class BackupService {
 
             // Build backup args: prepend "backup" subcommand
             const backupArgs = ["backup", ...this.resticExecutor.buildBackupArgs(stack.hostPath ?? "", stack.id)]
+            console.log(`[BackupService] Running restic with args:`, backupArgs)
             await this.runWithAutoInit(backupArgs, env, onLine)
 
             // Run forget / prune
@@ -170,6 +173,7 @@ export class BackupService {
 
             // Parse snapshot id from JSON output
             const snapshotId = this.parseSnapshotId(lines)
+            console.log(`[BackupService] Backup completed. Total lines: ${lines.length}, Snapshot ID: ${snapshotId}`)
 
             await this.backupRepo.update(backupRecord.id, {
                 status: "COMPLETED",
@@ -183,6 +187,7 @@ export class BackupService {
             await this.stackRepo.update(stack.id, {status: targetStatus})
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
+            console.error(`[BackupService] Backup failed:`, err)
 
             await this.backupRepo.update(backupRecord.id, {
                 status: "FAILED",

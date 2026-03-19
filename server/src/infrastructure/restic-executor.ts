@@ -51,6 +51,7 @@ export class ResticExecutor {
         env: Record<string, string>,
         onLine?: (line: string) => void,
     ): Promise<ResticRunResult> {
+        console.log(`[ResticExecutor] Running: ${this.binary}`, args)
         return new Promise((resolve, reject) => {
             const child = spawn(this.binary, args, {
                 env: {...process.env, ...env},
@@ -61,7 +62,9 @@ export class ResticExecutor {
             let lineBuf = "";
 
             child.stdout.on("data", (chunk: Buffer) => {
-                lineBuf += chunk.toString("utf8");
+                const text = chunk.toString("utf8")
+                console.log(`[ResticExecutor] stdout chunk (${text.length} bytes)`)
+                lineBuf += text;
                 const lines = lineBuf.split("\n");
                 // Last element may be incomplete — keep it in the buffer
                 lineBuf = lines.pop() ?? "";
@@ -77,6 +80,7 @@ export class ResticExecutor {
             child.on("error", reject);
 
             child.on("close", (code) => {
+                console.log(`[ResticExecutor] Process exited with code ${code}`)
                 // Flush any partial line remaining in the buffer
                 if (lineBuf.trim()) onLine?.(lineBuf);
                 resolve({exitCode: code ?? 1, stderr: stderrBuf});
