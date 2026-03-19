@@ -1,5 +1,5 @@
 import {useEffect, useState} from "react";
-import {Link, useParams} from "react-router";
+import {Link, useNavigate, useParams} from "react-router";
 import {toast} from "sonner";
 import {useStack} from "@/hooks/use-stack";
 import {
@@ -67,14 +67,18 @@ function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgePr
 }
 
 export default function StackDetailPage() {
-    const {id = ""} = useParams<{ id: string }>();
+    const {id = "", tab} = useParams<{ id: string; tab?: string }>();
+    const navigate = useNavigate();
     const {stack, loading, error, refetch} = useStack(id);
+
+    const VALID_TABS = ["overview", "compose", "environment", "logs", "backups"] as const;
+    type Tab = typeof VALID_TABS[number];
+    const activeTab: Tab = VALID_TABS.includes(tab as Tab) ? (tab as Tab) : "overview";
 
     const [composeContent, setComposeContent] = useState("");
     const [envContent, setEnvContent] = useState("");
     const [composeDirty, setComposeDirty] = useState(false);
     const [envDirty, setEnvDirty] = useState(false);
-    const [activeTab, setActiveTab] = useState("overview");
     const [logsService, setLogsService] = useState<string | undefined>(undefined);
 
     useEffect(() => {
@@ -225,7 +229,7 @@ export default function StackDetailPage() {
                     </Alert>
                 )}
 
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <Tabs value={activeTab} onValueChange={(v) => navigate(`/stacks/${id}/${v}`)}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="compose">Compose</TabsTrigger>
@@ -303,7 +307,7 @@ export default function StackDetailPage() {
                                                             title={`View logs for ${svc.serviceName}`}
                                                             onClick={() => {
                                                                 setLogsService(svc.serviceName);
-                                                                setActiveTab("logs");
+                                                                navigate(`/stacks/${id}/logs`);
                                                             }}
                                                         >
                                                             <FileText className="h-4 w-4"/>

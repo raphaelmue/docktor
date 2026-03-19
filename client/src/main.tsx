@@ -57,7 +57,7 @@ function App() {
                         element={<BackupDetailPage />}
                     />
                     <Route
-                        path="/stacks/:id"
+                        path="/stacks/:id/:tab?"
                         element={<StackDetailPage />}
                     />
                     <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
