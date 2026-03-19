@@ -1,26 +1,21 @@
 import {useEffect, useState} from "react";
-import {Link, useNavigate, useParams} from "react-router";
+import {Link, useParams} from "react-router";
 import {toast} from "sonner";
 import {useStack} from "@/hooks/use-stack";
 import {
-    deleteStack,
-    deployStack,
     getComposeContent,
     getEnvContent,
-    restartStack,
-    stopStack,
-    updateImages,
     updateStack,
 } from "@/lib/stacks-api";
 import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
 import {LogViewer} from "@/components/domain/stack/log-viewer";
-import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Button} from "@/components/ui/button";
 import {Textarea} from "@/components/ui/textarea";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {AlertTriangle, FileText, Play, RefreshCw, RotateCcw, Save, Square, Trash2,} from "lucide-react";
+import {AlertTriangle, FileText, Save,} from "lucide-react";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -31,6 +26,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
 import {ScrollArea} from "@/components/ui/scroll-area";
+import {StackActions} from "./components/stack-actions";
+import {BackupsTab} from "./components/backups-tab";
 
 interface ServiceStatusBadgeProps {
     containerState: string | null;
@@ -71,14 +68,12 @@ function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgePr
 
 export default function StackDetailPage() {
     const {id = ""} = useParams<{ id: string }>();
-    const navigate = useNavigate();
     const {stack, loading, error, refetch} = useStack(id);
 
     const [composeContent, setComposeContent] = useState("");
     const [envContent, setEnvContent] = useState("");
     const [composeDirty, setComposeDirty] = useState(false);
     const [envDirty, setEnvDirty] = useState(false);
-    const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("overview");
     const [logsService, setLogsService] = useState<string | undefined>(undefined);
 
@@ -153,62 +148,35 @@ export default function StackDetailPage() {
         );
     }
 
-    function handleAction(action: () => Promise<unknown>, label: string) {
-        setActionLoading(true);
+    function handleSaveCompose() {
         toast.promise(
             (async () => {
-                try {
-                    await action();
-                    await refetch();
-                } finally {
-                    setActionLoading(false);
-                }
+                await updateStack(id, {composeContent});
+                setComposeDirty(false);
             })(),
             {
-                loading: `${label}...`,
-                success: `${label} completed`,
-                error: (err) => err?.message ?? `${label} failed`,
+                loading: "Saving compose...",
+                success: "Save compose completed",
+                error: (err: Error) => err?.message ?? "Save compose failed",
             },
         );
     }
 
-    function handleSaveCompose() {
-        handleAction(async () => {
-            await updateStack(id, {composeContent});
-            setComposeDirty(false);
-        }, "Save compose");
-    }
-
     function handleSaveEnv() {
-        handleAction(async () => {
-            await updateStack(id, {envContent});
-            setEnvDirty(false);
-        }, "Save environment");
-    }
-
-    function handleDelete() {
-        if (!stack || !confirm(`Delete stack "${stack.displayName}"?`)) return;
-        handleAction(async () => {
-            await deleteStack(id);
-            navigate("/stacks");
-        }, "Delete");
+        toast.promise(
+            (async () => {
+                await updateStack(id, {envContent});
+                setEnvDirty(false);
+            })(),
+            {
+                loading: "Saving environment...",
+                success: "Save environment completed",
+                error: (err: Error) => err?.message ?? "Save environment failed",
+            },
+        );
     }
 
     const status = stack.status;
-    const canDeploy = [
-        "DRAFT",
-        "STOPPED",
-        "ERROR",
-        "RUNNING",
-        "HEALTHY",
-        "UNHEALTHY",
-    ].includes(status);
-    const canStop = ["RUNNING", "HEALTHY", "UNHEALTHY", "ERROR"].includes(
-        status,
-    );
-    const canRestart = ["RUNNING", "HEALTHY", "UNHEALTHY"].includes(status);
-    const canUpdate = ["RUNNING", "HEALTHY", "UNHEALTHY", "STOPPED", "ERROR"].includes(status);
-    const canDelete = ["DRAFT", "STOPPED", "ERROR"].includes(status);
 
     return (
         <Page>
@@ -237,90 +205,12 @@ export default function StackDetailPage() {
                 </div>
                 <PageActions>
                     <StackStatusBadge status={status}/>
-                    {canDeploy && (
-                        <Button
-                            size="sm"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => deployStack(id), "Deploy")
-                            }
-                        >
-                            <Play className="h-4 w-4 mr-1"/>
-                            Deploy
-                        </Button>
-                    )}
-                    {canStop && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => stopStack(id), "Stop")
-                            }
-                        >
-                            <Square className="h-4 w-4 mr-1"/>
-                            Stop
-                        </Button>
-                    )}
-                    {canRestart && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => restartStack(id), "Restart")
-                            }
-                        >
-                            <RotateCcw className="h-4 w-4 mr-1"/>
-                            Restart
-                        </Button>
-                    )}
-                    {canUpdate && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoading}
-                            onClick={() => {
-                                setActionLoading(true);
-                                toast.promise(
-                                    (async () => {
-                                        try {
-                                            const result = await updateImages(id);
-                                            await refetch();
-                                            // Return result for success message handling
-                                            return result;
-                                        } finally {
-                                            setActionLoading(false);
-                                        }
-                                    })(),
-                                    {
-                                        loading: "Updating images...",
-                                        success: (result) => {
-                                            if (result.noUpdates) {
-                                                return "Images are already up to date";
-                                            }
-                                            return "Images updated successfully";
-                                        },
-                                        error: (err) => err?.message ?? "Update images failed",
-                                    },
-                                );
-                            }}
-                        >
-                            <RefreshCw className="h-4 w-4 mr-1"/>
-                            Update Images
-                        </Button>
-                    )}
-                    {canDelete && (
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={actionLoading}
-                            onClick={handleDelete}
-                        >
-                            <Trash2 className="h-4 w-4 mr-1"/>
-                            Delete
-                        </Button>
-                    )}
+                    <StackActions
+                        stackId={id}
+                        stackName={stack.displayName}
+                        status={status}
+                        onAction={refetch}
+                    />
                 </PageActions>
             </PageHeader>
 
@@ -341,6 +231,7 @@ export default function StackDetailPage() {
                         <TabsTrigger value="compose">Compose</TabsTrigger>
                         <TabsTrigger value="environment">Environment</TabsTrigger>
                         <TabsTrigger value="logs">Logs</TabsTrigger>
+                        <TabsTrigger value="backups">Backups</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4 mt-4">
@@ -527,7 +418,7 @@ export default function StackDetailPage() {
                                 <CardTitle>docker-compose.yml</CardTitle>
                                 <Button
                                     size="sm"
-                                    disabled={!composeDirty || actionLoading}
+                                    disabled={!composeDirty}
                                     onClick={handleSaveCompose}
                                 >
                                     <Save className="h-4 w-4 mr-1"/>
@@ -553,7 +444,7 @@ export default function StackDetailPage() {
                                 <CardTitle>.env</CardTitle>
                                 <Button
                                     size="sm"
-                                    disabled={!envDirty || actionLoading}
+                                    disabled={!envDirty}
                                     onClick={handleSaveEnv}
                                 >
                                     <Save className="h-4 w-4 mr-1"/>
@@ -578,6 +469,14 @@ export default function StackDetailPage() {
                             stackId={id}
                             serviceNames={stack.services.map((s) => s.serviceName)}
                             initialService={logsService}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="backups" className="mt-4">
+                        <BackupsTab
+                            stackId={id}
+                            stackName={stack.displayName}
+                            stackStatus={status}
                         />
                     </TabsContent>
                 </Tabs>
