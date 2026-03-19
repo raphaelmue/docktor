@@ -1,13 +1,13 @@
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {Link, useParams} from "react-router";
 
 import {getBackup, type BackupRecord} from "@/lib/backups-api";
 import {useBackupStream} from "@/hooks/use-backup-stream";
 import {BackupStatusBadge} from "@/components/domain/backup/backup-status-badge";
+import {LogOutput} from "@/components/common/log-output";
 import {Page, PageContent, PageHeader, PageTitle} from "@/components/common/layout/page";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {ScrollArea} from "@/components/ui/scroll-area";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -49,7 +49,6 @@ export default function BackupDetailPage() {
     const [backup, setBackup] = useState<BackupRecord | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
 
     const isStreaming = backup?.status === "IN_PROGRESS";
     const {lines: streamLines, status: streamStatus} = useBackupStream(
@@ -79,13 +78,6 @@ export default function BackupDetailPage() {
             cancelled = true;
         };
     }, [backupId]);
-
-    // Auto-scroll while streaming
-    useEffect(() => {
-        if (isStreaming && scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [streamLines.length, isStreaming]);
 
     const displayLines = isStreaming ? streamLines : (backup?.logLines ?? []);
     const isStillStreaming = isStreaming && streamStatus === "streaming";
@@ -228,19 +220,11 @@ export default function BackupDetailPage() {
                         <CardTitle>Output</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <ScrollArea className="h-96">
-                            <div
-                                ref={scrollRef}
-                                className="p-4 font-mono text-xs whitespace-pre-wrap"
-                                aria-live={isStillStreaming ? "polite" : "off"}
-                            >
-                                {displayLines.length === 0 ? (
-                                    <span className="text-muted-foreground">No output yet...</span>
-                                ) : (
-                                    displayLines.join("\n")
-                                )}
-                            </div>
-                        </ScrollArea>
+                        <LogOutput
+                            lines={displayLines}
+                            autoScroll={isStillStreaming}
+                            emptyMessage="No output yet..."
+                        />
                     </CardContent>
                 </Card>
 
