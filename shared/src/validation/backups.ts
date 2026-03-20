@@ -48,11 +48,11 @@ export type BackupDefaultsInput = z.infer<typeof backupDefaultsSchema>;
 // --- Stack-level backup config ---
 export const stackBackupConfigSchema = z.object({
     useGlobalSchedule: z.boolean().default(true),
-    schedule: z.string().optional(),          // cron override
+    schedule: z.string().nullable().optional(),          // cron override
     useGlobalRetention: z.boolean().default(true),
-    retention: retentionPolicySchema.optional(),
-    preHook: z.string().optional(),           // shell command
-    postHook: z.string().optional(),          // shell command
+    retention: retentionPolicySchema.nullable().optional(),
+    preHook: z.string().nullable().optional(),           // shell command
+    postHook: z.string().nullable().optional(),          // shell command
 });
 export type StackBackupConfigInput = z.infer<typeof stackBackupConfigSchema>;
 
