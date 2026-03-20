@@ -45,10 +45,10 @@ Users can deploy, monitor, and manage Docker Compose stacks through a browser UI
 - [ ] Update checker polls registries for newer images (semver/digest comparison), exposes update button
 
 **Post-MVP — Notifications:**
-- [ ] SMTP notification for stack entering ERROR or UNHEALTHY state
-- [ ] SMTP notification for disk space warnings (below 10% or 2 GB)
-- [ ] SMTP notification for backup failures
-- [ ] Per-trigger enable/disable in Settings
+- [x] SMTP notification for stack entering ERROR or UNHEALTHY state — Validated in Phase 03: Notifications
+- [x] SMTP notification for disk space warnings (below 10% or 2 GB) — Validated in Phase 03: Notifications
+- [ ] SMTP notification for backup failures — Deferred to Phase 04: Backup & Restore
+- [x] Per-trigger enable/disable in Settings — Validated in Phase 03: Notifications
 
 **Post-MVP — Backup & Restore:**
 - [ ] User can configure restic repository (local path, SFTP, S3) and password via Settings
@@ -114,4 +114,4 @@ Key architectural constraints:
 | Restic for backups | Encrypted, deduplicated, supports local/SFTP/S3 targets | — Pending |
 
 ---
-*Last updated: 2026-03-10 after initialization*
+*Last updated: 2026-03-20 after Phase 03 completion*
