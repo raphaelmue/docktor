@@ -29,18 +29,26 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
         {schema: {params: stackParamsSchema}},
         async (request, reply) => {
             const {id} = request.params
+            console.log(`[backups] POST /api/stacks/${id}/backup - initiating backup`)
             const backup = await backupService.initiateBackup(id, "MANUAL")
+            console.log(`[backups] Backup initiated with ID: ${backup.id}`)
 
             // Fire-and-forget: fetch required args and run backup asynchronously
             void (async () => {
                 try {
+                    console.log(`[backups] Fetching backup dependencies for ${backup.id}`)
                     const [backupRecord, stack, repoConfig] = await Promise.all([
                         backupRepository.findByIdOrThrow(backup.id),
                         stackRepository.findByIdOrThrow(id),
                         backupService.getBackupRepoConfig(),
                     ])
+                    console.log(`[backups] Dependencies fetched. repoConfig exists: ${!!repoConfig}`)
                     if (repoConfig) {
+                        console.log(`[backups] Starting runBackup for ${backup.id}`)
                         await backupService.runBackup(backupRecord, stack, repoConfig)
+                        console.log(`[backups] runBackup completed for ${backup.id}`)
+                    } else {
+                        console.error(`[backups] No repoConfig - backup repository not configured`)
                     }
                 } catch (err) {
                     app.log.error({err}, "[backups] fire-and-forget runBackup failed")
