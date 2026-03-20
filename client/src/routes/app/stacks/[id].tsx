@@ -182,6 +182,14 @@ export default function StackDetailPage() {
 
     const status = stack.status;
 
+    const tabLabels: Record<Tab, string> = {
+        overview: "Overview",
+        compose: "Compose",
+        environment: "Environment",
+        logs: "Logs",
+        backups: "Backups",
+    };
+
     return (
         <Page>
             <PageHeader
@@ -195,7 +203,13 @@ export default function StackDetailPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator/>
                             <BreadcrumbItem>
-                                <BreadcrumbPage>{stack.displayName}</BreadcrumbPage>
+                                <BreadcrumbLink asChild>
+                                    <Link to={`/stacks/${id}`}>{stack.displayName}</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator/>
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>{tabLabels[activeTab]}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
