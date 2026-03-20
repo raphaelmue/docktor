@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 03-notifications
 source:
   - 03-01-SUMMARY.md
@@ -119,53 +119,94 @@ skipped: 2
   reason: "User reported: the from address is not stored, as well as the password."
   severity: major
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "Missing ENCRYPTION_KEY env var caused password encryption to throw exception. The 'from' field was saved AFTER password encryption block, so when encryption failed, 'from' never got saved."
+  artifacts:
+    - path: "server/src/routes/settings.ts"
+      issue: "'from' field saved after password encryption (line 96), causing it to be skipped on encryption failure"
+  missing:
+    - "Move 'from' field save before password encryption block"
+    - "Add ENCRYPTION_KEY to .env.example with generation instructions"
+  debug_session: ".planning/debug/smtp-password-not-stored.md"
 
 - truth: "GET /api/settings/smtp returns current SMTP config with hasPassword flag (no plaintext password). PUT /api/settings/smtp saves host, port, user, password, fromEmail, fromName; password is encrypted on save. Settings persist across server restarts."
   status: failed
   reason: "User reported: GET works, I could not test PUT, only via the ui."
   severity: minor
   test: 4
+  root_cause: "Same as Test 3 - likely resolved by Test 3 fix. User couldn't test PUT directly via API, only via UI which was affected by the storage bug."
   artifacts: []
-  missing: []
+  missing:
+    - "Re-test after Test 3 fix is applied"
+  debug_session: ""
 
 - truth: "POST /api/settings/smtp/test attempts SMTP connection using saved credentials. Returns success with connection verified message, or error with detailed failure reason (auth failed, connection refused, etc)."
   status: failed
   reason: "User reported: probably not since it does not work through the ui."
   severity: major
   test: 5
+  root_cause: "Same as Test 3 - likely resolved by Test 3 fix. SMTP test endpoint depends on saved credentials which weren't being stored."
   artifacts: []
-  missing: []
+  missing:
+    - "Re-test after Test 3 fix is applied"
+  debug_session: ""
 
 - truth: "DiskChecker job runs daily at midnight (or can be triggered manually). It checks /var/lib/docker disk usage. If free space falls below configured percent OR bytes threshold, fires disk_warning notification once. Subsequent checks don't re-notify until space recovers above both thresholds."
   status: failed
   reason: "User reported: Diskchecker did not run: [server] [DiskChecker] statfs failed: Error: ENOENT: no such file or directory, statfs 'C:\\var\\lib\\docker'"
   severity: blocker
   test: 11
-  artifacts: []
-  missing: []
+  root_cause: "Hardcoded '/var/lib/docker' path doesn't exist on Windows. Docker Desktop stores data in WSL2, and Node's statfs() called from Windows cannot access those paths, causing ENOENT error."
+  artifacts:
+    - path: "server/src/jobs/disk-checker.ts"
+      issue: "Line 23 hardcoded /var/lib/docker as default monitorPath"
+  missing:
+    - "Add DOCKER_DATA_PATH env var support with platform-specific defaults (Windows: '.', Linux: '/var/lib/docker')"
+    - "Update .env.example to document new variable"
+    - "Add tests for custom path and default path behavior"
+  debug_session: ".planning/debug/diskchecker-enoent-windows.md"
 
 - truth: "After server startup, NotificationWatcher and DiskChecker jobs are running. NotificationWatcher is subscribed to StateBroadcaster. DiskChecker cron schedule is active. No crash logs or uncaught exceptions related to notification jobs."
   status: failed
   reason: "User reported: DiskChecker failed and NotificationWatcher I didnt see any logs."
   severity: major
   test: 12
-  artifacts: []
-  missing: []
+  root_cause: "DiskChecker crash from Test 11. NotificationWatcher likely running but has no startup logging to confirm subscription to StateBroadcaster."
+  artifacts:
+    - path: "server/src/jobs/notification-watcher.ts"
+      issue: "No startup logs to confirm NotificationWatcher is running and subscribed"
+  missing:
+    - "Add startup logging to NotificationWatcher to confirm subscription"
+    - "Fix DiskChecker crash (Test 11)"
+  debug_session: ""
 
 - truth: "In Notification Triggers card, disk warning thresholds show two inputs: percent (0-100) and bytes (with unit suffix like GB). Changing values and saving updates the settings. Validation prevents invalid ranges."
   status: failed
   reason: "User reported: i dont see any inputs"
   severity: major
   test: 16
-  artifacts: []
-  missing: []
+  root_cause: "UI component never implemented the threshold input fields - only rendered toggle switches. Backend API fully supports diskThresholdPercent and diskThresholdBytes."
+  artifacts:
+    - path: "client/src/routes/app/settings.tsx"
+      issue: "NotificationTriggersCard only rendered toggle switches, no threshold input fields"
+  missing:
+    - "Add percent input (1-99%) conditionally rendered when disk warning toggle enabled"
+    - "Add bytes input with unit suffix (KB/MB/GB/TB) helper functions"
+    - "Both inputs save on blur via API"
+  debug_session: ".planning/debug/disk-warning-inputs-missing.md"
 
 - truth: "With Settings > Notifications tab open, when a new notification fires (stack error, unhealthy, or disk warning), the notification log refreshes automatically and new entry appears at top of table without manual page refresh."
   status: failed
   reason: "User reported: no, the logs are only updating when manually refreshing."
   severity: major
   test: 18
-  artifacts: []
-  missing: []
+  root_cause: "NotificationService.notify() creates notifications but doesn't emit events to StateBroadcaster. NotificationLogCard fetches notifications once on mount but has no SSE subscription mechanism to detect new notifications."
+  artifacts:
+    - path: "server/src/application/notification-service.ts"
+      issue: "notify() doesn't broadcast notification_created event"
+    - path: "client/src/routes/app/settings.tsx"
+      issue: "NotificationLogCard has no SSE subscription"
+  missing:
+    - "Add notification_created event type to StateBroadcaster"
+    - "NotificationService broadcasts after creating notification"
+    - "NotificationLogCard subscribes to SSE updates via useContainerEvents"
+  debug_session: ".planning/debug/notification-log-no-auto-refresh.md"
