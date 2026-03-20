@@ -144,7 +144,8 @@ export class BackupService {
         console.log(`[BackupService] Starting backup ${backupRecord.id} for stack ${stack.id}`)
 
         try {
-            const env = this.buildEnv(repoConfig)
+            const env = this.buildEnv(repoConfig, stack.hostPath ?? undefined)
+            console.log(`[BackupService] Using repository: ${env.RESTIC_REPOSITORY}`)
             const onLine = (line: string): void => {
                 console.log(`[BackupService] Log line: ${line}`)
                 lines.push(line)
@@ -238,7 +239,7 @@ export class BackupService {
         try {
             // Fetch repo config to build env for restic
             const repoConfig = await this.getBackupRepoConfig()
-            const env: Record<string, string> = repoConfig ? this.buildEnv(repoConfig) : {}
+            const env: Record<string, string> = repoConfig ? this.buildEnv(repoConfig, stack.hostPath ?? undefined) : {}
 
             const onLine = (line: string): void => {
                 lines.push(line)
@@ -398,9 +399,10 @@ export class BackupService {
      * Fetches the list of restic snapshots for a stack.
      */
     async getSnapshots(stackId: string): Promise<ResticSnapshot[]> {
+        const stack = await this.stackRepo.findByIdOrThrow(stackId)
         const repoConfig = await this.getBackupRepoConfig()
         if (!repoConfig) return []
-        const env = this.resticExecutor.buildEnv(repoConfig)
+        const env = this.buildEnv(repoConfig, stack.hostPath ?? undefined)
         return this.resticExecutor.snapshots(env, stackId)
     }
 
@@ -516,25 +518,27 @@ export class BackupService {
 
     /**
      * Builds the restic env object from a BackupRepoConfig.
-     * Delegates to ResticExecutor.buildEnv when available, otherwise constructs inline.
+     * Uses stack-specific backup directory within the stack's hostPath.
      */
-    private buildEnv(repoConfig: BackupRepoConfig): Record<string, string> {
-        // Use ResticExecutor's buildEnv if available (production path)
-        if (typeof this.resticExecutor.buildEnv === "function") {
-            return this.resticExecutor.buildEnv(repoConfig)
-        }
-        // Fallback: build minimal env inline (used in tests with mocked executor)
+    private buildEnv(repoConfig: BackupRepoConfig, stackPath?: string): Record<string, string> {
         const base: Record<string, string> = {
             RESTIC_PASSWORD: repoConfig.password,
         }
-        if (repoConfig.repoType === "local") {
-            base.RESTIC_REPOSITORY = repoConfig.repoPath ?? ""
-        } else if (repoConfig.repoType === "sftp") {
-            base.RESTIC_REPOSITORY = `sftp:${repoConfig.sftpUser}@${repoConfig.sftpHost}:${repoConfig.repoPath ?? "/backups"}`
+
+        // Always use stack-local backup directory
+        if (stackPath) {
+            base.RESTIC_REPOSITORY = path.join(stackPath, "backups")
         } else {
-            base.RESTIC_REPOSITORY = `s3:${repoConfig.s3Endpoint ?? "s3.amazonaws.com"}/${repoConfig.s3Bucket ?? ""}`
-            base.AWS_ACCESS_KEY_ID = repoConfig.s3AccessKey ?? ""
-            base.AWS_SECRET_ACCESS_KEY = repoConfig.s3SecretKey ?? ""
+            // Fallback to configured repo (shouldn't happen in production)
+            if (repoConfig.repoType === "local") {
+                base.RESTIC_REPOSITORY = repoConfig.repoPath ?? ""
+            } else if (repoConfig.repoType === "sftp") {
+                base.RESTIC_REPOSITORY = `sftp:${repoConfig.sftpUser}@${repoConfig.sftpHost}:${repoConfig.repoPath ?? "/backups"}`
+            } else {
+                base.RESTIC_REPOSITORY = `s3:${repoConfig.s3Endpoint ?? "s3.amazonaws.com"}/${repoConfig.s3Bucket ?? ""}`
+                base.AWS_ACCESS_KEY_ID = repoConfig.s3AccessKey ?? ""
+                base.AWS_SECRET_ACCESS_KEY = repoConfig.s3SecretKey ?? ""
+            }
         }
         return base
     }

@@ -63,13 +63,16 @@ export class ResticExecutor {
 
             child.stdout.on("data", (chunk: Buffer) => {
                 const text = chunk.toString("utf8")
-                console.log(`[ResticExecutor] stdout chunk (${text.length} bytes)`)
+                console.log(`[ResticExecutor] stdout chunk (${text.length} bytes): ${text.substring(0, 100)}...`)
                 lineBuf += text;
                 const lines = lineBuf.split("\n");
                 // Last element may be incomplete — keep it in the buffer
                 lineBuf = lines.pop() ?? "";
                 for (const line of lines) {
-                    if (line.trim()) onLine?.(line);
+                    if (line.trim()) {
+                        console.log(`[ResticExecutor] Emitting line: ${line.substring(0, 80)}`)
+                        onLine?.(line);
+                    }
                 }
             });
 
