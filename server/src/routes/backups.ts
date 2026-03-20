@@ -312,12 +312,12 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
             })
 
             await settingsRepository.upsert("backup.repoType", repoType)
-            if (repoPath !== undefined) await settingsRepository.upsert("backup.repoPath", repoPath)
-            if (sftpHost !== undefined) await settingsRepository.upsert("backup.sftpHost", sftpHost)
-            if (sftpUser !== undefined) await settingsRepository.upsert("backup.sftpUser", sftpUser)
-            if (s3Endpoint !== undefined) await settingsRepository.upsert("backup.s3Endpoint", s3Endpoint)
-            if (s3Bucket !== undefined) await settingsRepository.upsert("backup.s3Bucket", s3Bucket)
-            if (s3AccessKey !== undefined) await settingsRepository.upsert("backup.s3AccessKey", s3AccessKey)
+            if (repoPath) await settingsRepository.upsert("backup.repoPath", repoPath)
+            if (sftpHost) await settingsRepository.upsert("backup.sftpHost", sftpHost)
+            if (sftpUser) await settingsRepository.upsert("backup.sftpUser", sftpUser)
+            if (s3Endpoint) await settingsRepository.upsert("backup.s3Endpoint", s3Endpoint)
+            if (s3Bucket) await settingsRepository.upsert("backup.s3Bucket", s3Bucket)
+            if (s3AccessKey) await settingsRepository.upsert("backup.s3AccessKey", s3AccessKey)
 
             // Encrypt sensitive fields
             if (sftpKey) {
