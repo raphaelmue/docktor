@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: MVP Completion** - Complete the three remaining blockers: settings persistence, container state poller, and live log streaming
 - [x] **Phase 2: Observability** - Detect external compose file changes and surface image update availability (completed 2026-03-15)
-- [ ] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP
+- [x] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP (completed 2026-03-20)
 - [ ] **Phase 4: Backup & Restore** - Enable encrypted, versioned stack backups with manual and scheduled restore
 - [ ] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import
 - [ ] **Phase 6: Proxy Configuration** - Configure domain and TLS for services via Nginx Proxy Manager integration
@@ -78,7 +78,7 @@ Plans:
 - [x] 03-02-PLAN.md — NotificationRepository + NotificationService + SMTP/trigger/log API routes
 - [x] 03-03-PLAN.md — NotificationWatcher (StateBroadcaster subscriber) + DiskChecker (24h cron) + jobs registration
 - [x] 03-04-PLAN.md — Settings page Tabs refactor + Notifications tab UI (SMTP, triggers, log)
-- [ ] 03-05-PLAN.md — Gap closure: UAT fixes for SMTP storage, disk checker Windows, threshold inputs, SSE refresh
+- [x] 03-05-PLAN.md — Gap closure: UAT fixes for SMTP storage, disk checker Windows, threshold inputs, SSE refresh
 
 ### Phase 4: Backup & Restore
 **Goal**: Users can take encrypted, versioned backups of any stack and restore from a snapshot without manual restic CLI knowledge
@@ -132,7 +132,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
-| 3. Notifications | 4/5 | In Progress|  |
+| 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 0/? | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |
