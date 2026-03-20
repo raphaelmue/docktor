@@ -295,8 +295,21 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
         "/api/settings/backup",
         {schema: {body: backupSettingsSchema}},
         async (request, reply) => {
+            console.log(`[backups] PUT /api/settings/backup - saving settings`)
             const {repoType, repoPath, sftpHost, sftpUser, sftpKey, s3Endpoint, s3Bucket, s3AccessKey, s3SecretKey, password} =
                 request.body
+            console.log(`[backups] Settings payload:`, {
+                repoType,
+                hasRepoPath: !!repoPath,
+                hasSftpHost: !!sftpHost,
+                hasSftpUser: !!sftpUser,
+                hasSftpKey: !!sftpKey,
+                hasS3Endpoint: !!s3Endpoint,
+                hasS3Bucket: !!s3Bucket,
+                hasS3AccessKey: !!s3AccessKey,
+                hasS3SecretKey: !!s3SecretKey,
+                hasPassword: !!password,
+            })
 
             await settingsRepository.upsert("backup.repoType", repoType)
             if (repoPath !== undefined) await settingsRepository.upsert("backup.repoPath", repoPath)
@@ -332,6 +345,7 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
                 })
             }
 
+            console.log(`[backups] Settings saved successfully`)
             return reply.status(200).send({success: true})
         },
     )

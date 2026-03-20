@@ -6,15 +6,15 @@ export type BackupRepoType = z.infer<typeof backupRepoTypeSchema>;
 
 export const backupSettingsSchema = z.object({
     repoType: backupRepoTypeSchema,
-    repoPath: z.string().optional(),        // local
-    sftpHost: z.string().optional(),         // sftp
-    sftpUser: z.string().optional(),         // sftp
-    sftpKey: z.string().optional(),          // sftp (private key PEM)
-    s3Endpoint: z.string().optional(),       // s3
-    s3Bucket: z.string().optional(),         // s3
-    s3AccessKey: z.string().optional(),      // s3
-    s3SecretKey: z.string().optional(),      // s3 (encrypted)
-    password: z.string().min(1, "Restic password is required"),  // always required, AES-encrypted
+    repoPath: z.string().nullable().optional(),        // local
+    sftpHost: z.string().nullable().optional(),         // sftp
+    sftpUser: z.string().nullable().optional(),         // sftp
+    sftpKey: z.string().nullable().optional(),          // sftp (private key PEM)
+    s3Endpoint: z.string().nullable().optional(),       // s3
+    s3Bucket: z.string().nullable().optional(),         // s3
+    s3AccessKey: z.string().nullable().optional(),      // s3
+    s3SecretKey: z.string().nullable().optional(),      // s3 (encrypted)
+    password: z.string().nullable().optional(),  // optional when updating (only encrypt/save when user enters a new password)
 }).superRefine((data, ctx) => {
     if (data.repoType === "local" && !data.repoPath?.trim()) {
         ctx.addIssue({code: z.ZodIssueCode.custom, message: "Repository path is required", path: ["repoPath"]});
