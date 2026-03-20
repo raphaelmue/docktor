@@ -42,12 +42,18 @@ export interface UpdateAvailableEvent {
     hasUpdate: boolean
 }
 
+export interface NotificationCreatedEvent {
+    type: "notification_created"
+    notificationId: string
+}
+
 export type StateEvent =
     | ContainerStateEvent
     | StackStatusEvent
     | ConfigChangedEvent
     | ConfigErrorEvent
     | UpdateAvailableEvent
+    | NotificationCreatedEvent
 
 export class StateBroadcaster extends EventEmitter {
     publish(event: StateEvent): void {

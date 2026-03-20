@@ -9,6 +9,7 @@ import {NotificationService} from "./notification-service.js";
 import {BackupRepository} from "../repositories/backup-repository.js";
 import {ResticExecutor} from "../infrastructure/restic-executor.js";
 import {BackupService} from "./backup-service.js";
+import {stateEventBroadcaster} from "../lib/state-broadcaster.js";
 import type {BackupStackRepo} from "./backup-service.js";
 import type {StackStatus} from "../generated/prisma/enums.js";
 
@@ -22,6 +23,7 @@ export const settingsService = new SettingsService(settingsRepository);
 export const notificationService = new NotificationService(
     new NotificationRepository(),
     settingsService,
+    stateEventBroadcaster,
 );
 
 // Adapter: StackRepository -> BackupStackRepo interface

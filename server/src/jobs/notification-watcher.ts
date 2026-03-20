@@ -24,9 +24,11 @@ export class NotificationWatcher {
         this.unsubscribe = this.broadcaster.subscribe((event: StateEvent) => {
             void this.handleStateEvent(event)
         })
+        console.log("[NotificationWatcher] Started - subscribed to StateBroadcaster")
     }
 
     stop(): void {
+        console.log("[NotificationWatcher] Stopped")
         this.unsubscribe?.()
         this.unsubscribe = null
 

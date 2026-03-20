@@ -106,7 +106,9 @@ async function createProductionChecker(): Promise<DiskChecker> {
         setDiskAlertActive: (active: boolean) => notificationRepository.setDiskAlertActive(active),
     }
 
-    return new DiskChecker(notificationService, combinedSettings)
+    const monitorPath = process.env.DOCKER_DATA_PATH ?? (process.platform === "win32" ? "." : "/var/lib/docker")
+
+    return new DiskChecker(notificationService, combinedSettings, monitorPath)
 }
 
 export const diskChecker = {

@@ -35,7 +35,12 @@ export interface UpdateAvailableEvent {
     hasUpdate: boolean
 }
 
-export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | UpdateAvailableEvent
+export interface NotificationCreatedEvent {
+    type: "notification_created"
+    notificationId: string
+}
+
+export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | UpdateAvailableEvent | NotificationCreatedEvent
 
 const BASE = globalThis.location?.port === "5173" ? "http://localhost:3000" : ""
 

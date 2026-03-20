@@ -114,4 +114,27 @@ describe("DiskChecker", () => {
         expect(mockStatfs).not.toHaveBeenCalled()
         expect(notificationService.notify).not.toHaveBeenCalled()
     })
+
+    it("accepts custom monitor path via constructor", async () => {
+        const customChecker = new DiskChecker(
+            notificationService as any,
+            settings as any,
+            "/custom/path"
+        )
+        mockStatfs.mockResolvedValue(makeStatfs(50) as any)
+        settings.findLastDiskAlert.mockResolvedValue(null)
+
+        await customChecker.check()
+
+        expect(mockStatfs).toHaveBeenCalledWith("/custom/path")
+    })
+
+    it("defaults to /var/lib/docker when no path provided", async () => {
+        mockStatfs.mockResolvedValue(makeStatfs(50) as any)
+        settings.findLastDiskAlert.mockResolvedValue(null)
+
+        await checker.check()
+
+        expect(mockStatfs).toHaveBeenCalledWith("/var/lib/docker")
+    })
 })

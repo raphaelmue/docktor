@@ -2,20 +2,30 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NotificationService } from "../../../src/application/notification-service.js"
 
 // Use vi.hoisted so these refs are available in the vi.mock factory (which is hoisted to top)
-const {mockVerify, mockSendMail, mockCreateTransport} = vi.hoisted(() => {
+const {mockVerify, mockSendMail, mockCreateTransport, mockPrismaUserFindMany} = vi.hoisted(() => {
     const mockVerify = vi.fn()
     const mockSendMail = vi.fn()
     const mockCreateTransport = vi.fn().mockReturnValue({
         verify: mockVerify,
         sendMail: mockSendMail,
     })
-    return {mockVerify, mockSendMail, mockCreateTransport}
+    const mockPrismaUserFindMany = vi.fn()
+    return {mockVerify, mockSendMail, mockCreateTransport, mockPrismaUserFindMany}
 })
 
 // Mock nodemailer at module level so ESM imports are intercepted correctly
 vi.mock("nodemailer", () => ({
     default: {
         createTransport: mockCreateTransport,
+    },
+}))
+
+// Mock prisma to avoid DATABASE_URL requirement
+vi.mock("../../../src/lib/db.js", () => ({
+    prisma: {
+        user: {
+            findMany: mockPrismaUserFindMany,
+        },
     },
 }))
 
@@ -36,10 +46,18 @@ function createMockSettings() {
     }
 }
 
+function createMockBroadcaster() {
+    return {
+        publish: vi.fn(),
+        subscribe: vi.fn(),
+    }
+}
+
 describe("NotificationService", () => {
     let service: NotificationService
     let repo: ReturnType<typeof createMockRepo>
     let settings: ReturnType<typeof createMockSettings>
+    let broadcaster: ReturnType<typeof createMockBroadcaster>
 
     beforeEach(() => {
         vi.clearAllMocks()
@@ -50,9 +68,12 @@ describe("NotificationService", () => {
             verify: mockVerify,
             sendMail: mockSendMail,
         })
+        // Default: mock one user for email sending
+        mockPrismaUserFindMany.mockResolvedValue([{ email: "user@example.com" }])
         repo = createMockRepo()
         settings = createMockSettings()
-        service = new NotificationService(repo as any, settings as any)
+        broadcaster = createMockBroadcaster()
+        service = new NotificationService(repo as any, settings as any, broadcaster as any)
     })
 
     describe("notify", () => {
@@ -157,7 +178,7 @@ describe("NotificationService", () => {
     })
 
     describe("testSmtp", () => {
-        it("calls transport.verify()", async () => {
+        it("sends test email", async () => {
             const smtpConfig = {
                 host: "smtp.example.com",
                 port: 587,
@@ -169,7 +190,12 @@ describe("NotificationService", () => {
 
             // For valid config, testSmtp should not throw
             await expect(service.testSmtp(smtpConfig)).resolves.not.toThrow()
-            expect(mockVerify).toHaveBeenCalled()
+            expect(mockSendMail).toHaveBeenCalledWith({
+                from: "noreply@example.com",
+                to: "admin@example.com",
+                subject: "Docktor — SMTP test",
+                text: "SMTP configuration is working correctly.",
+            })
         })
     })
 })

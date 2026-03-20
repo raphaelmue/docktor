@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 import {decrypt} from "../lib/crypto.js"
 import {prisma} from "../lib/db.js"
 import type {NotificationRepository} from "../repositories/notification-repository.js"
+import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 
 export interface SmtpConfig {
     host: string
@@ -32,6 +33,7 @@ export class NotificationService {
     constructor(
         private readonly repo: NotificationRepository,
         private readonly settings: NotificationSettings,
+        private readonly broadcaster: StateBroadcaster,
     ) {}
 
     async notify(event: NotificationEvent): Promise<void> {
@@ -49,6 +51,12 @@ export class NotificationService {
             stackId: event.stackId ?? null,
             message: event.message,
             emailSent: false,
+        })
+
+        // Broadcast notification creation event to all SSE clients
+        this.broadcaster.publish({
+            type: "notification_created",
+            notificationId: notification.id,
         })
 
         const smtpConfig = await this.settings.getSmtpConfig()

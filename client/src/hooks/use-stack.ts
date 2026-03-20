@@ -26,6 +26,7 @@ export function useStack(id: string) {
     }, [fetch]);
 
     useContainerEvents((event) => {
+        if (event.type === "notification_created") return;
         if (event.stackId !== id) return;
         if (event.type === "container_state") {
             setStack(prev => {

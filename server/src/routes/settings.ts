@@ -85,6 +85,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
             await settingsRepository.upsert("smtp.port", String(port))
             await settingsRepository.upsert("smtp.encryption", encryption)
             await settingsRepository.upsert("smtp.username", username)
+            await settingsRepository.upsert("smtp.from", from)
             if (password) {
                 const encryptedPassword = encrypt(password)
                 await prisma.setting.upsert({
@@ -93,7 +94,6 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
                     update: {value: encryptedPassword, encrypted: true},
                 })
             }
-            await settingsRepository.upsert("smtp.from", from)
             return {success: true}
         },
     )

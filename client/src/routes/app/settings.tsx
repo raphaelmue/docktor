@@ -31,6 +31,7 @@ import {
 } from "@/lib/backups-api";
 import {ApiError} from "@/lib/api";
 import {cn} from "@/lib/utils";
+import {useContainerEvents} from "@/hooks/use-container-events";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 const VALID_TABS = ["general", "notifications", "backup"] as const;
@@ -329,6 +330,8 @@ function SmtpCard() {
 function NotificationTriggersCard() {
     const [stackError, setStackError] = useState(false);
     const [diskWarning, setDiskWarning] = useState(false);
+    const [diskThresholdPercent, setDiskThresholdPercent] = useState(10);
+    const [diskThresholdBytes, setDiskThresholdBytes] = useState(2147483648);
     const [backupFailure, setBackupFailure] = useState(false);
     const [triggersLoading, setTriggersLoading] = useState(true);
 
@@ -337,6 +340,8 @@ function NotificationTriggersCard() {
             .then((data) => {
                 setStackError(data.stackError);
                 setDiskWarning(data.diskWarning);
+                setDiskThresholdPercent(data.diskThresholdPercent);
+                setDiskThresholdBytes(data.diskThresholdBytes);
                 setBackupFailure(data.backupFailure);
                 setTriggersLoading(false);
             })
@@ -365,6 +370,51 @@ function NotificationTriggersCard() {
             else setBackupFailure(prev);
             toast.error("Failed to update notification settings");
         }
+    };
+
+    const handleThresholdUpdate = async (
+        key: "diskThresholdPercent" | "diskThresholdBytes",
+        value: number,
+    ) => {
+        const prev = key === "diskThresholdPercent" ? diskThresholdPercent : diskThresholdBytes;
+        if (key === "diskThresholdPercent") setDiskThresholdPercent(value);
+        else setDiskThresholdBytes(value);
+        try {
+            await updateNotificationTriggers({[key]: value});
+            toast.success("Threshold updated");
+        } catch {
+            if (key === "diskThresholdPercent") setDiskThresholdPercent(prev);
+            else setDiskThresholdBytes(prev);
+            toast.error("Failed to update threshold");
+        }
+    };
+
+    const formatBytes = (bytes: number): string => {
+        if (bytes === 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        const k = 1024;
+        let i = 0;
+        let value = bytes;
+        while (value >= k && i < units.length - 1) {
+            value /= k;
+            i++;
+        }
+        return `${Math.round(value)} ${units[i]}`;
+    };
+
+    const parseBytes = (input: string): number => {
+        const match = input.match(/^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)?$/i);
+        if (!match) return 0;
+        const value = Number.parseFloat(match[1]);
+        const unit = (match[2] || "B").toUpperCase();
+        const multipliers: Record<string, number> = {
+            B: 1,
+            KB: 1024,
+            MB: 1024 ** 2,
+            GB: 1024 ** 3,
+            TB: 1024 ** 4,
+        };
+        return Math.round(value * (multipliers[unit] || 1));
     };
 
     return (
@@ -413,6 +463,46 @@ function NotificationTriggersCard() {
                             </div>
                             <Switch checked={diskWarning} onCheckedChange={(v) => handleToggle("diskWarning", v)} />
                         </div>
+                        {diskWarning && (
+                            <div className="ml-4 grid grid-cols-2 gap-4 pt-2">
+                                <div className="space-y-1">
+                                    <Label htmlFor="diskThresholdPercent">Threshold (%)</Label>
+                                    <Input
+                                        id="diskThresholdPercent"
+                                        type="number"
+                                        min={1}
+                                        max={99}
+                                        value={diskThresholdPercent}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            if (val >= 1 && val <= 99) {
+                                                setDiskThresholdPercent(val);
+                                            }
+                                        }}
+                                        onBlur={() => handleThresholdUpdate("diskThresholdPercent", diskThresholdPercent)}
+                                        placeholder="10"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Alert when free space drops below this percentage</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="diskThresholdBytes">Threshold (bytes)</Label>
+                                    <Input
+                                        id="diskThresholdBytes"
+                                        type="text"
+                                        value={formatBytes(diskThresholdBytes)}
+                                        onChange={(e) => {
+                                            const bytes = parseBytes(e.target.value);
+                                            if (bytes > 0) {
+                                                setDiskThresholdBytes(bytes);
+                                            }
+                                        }}
+                                        onBlur={() => handleThresholdUpdate("diskThresholdBytes", diskThresholdBytes)}
+                                        placeholder="2 GB"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Alert when free space drops below this amount (e.g., 2 GB)</p>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex items-center justify-between">
                             <div className="space-y-1">
                                 <Label className="font-normal">Backup Failure</Label>
@@ -431,7 +521,7 @@ function NotificationLogCard() {
     const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
     const [logLoading, setLogLoading] = useState(true);
 
-    useEffect(() => {
+    const loadNotifications = () => {
         getNotifications()
             .then((data) => {
                 setNotifications(data);
@@ -440,7 +530,18 @@ function NotificationLogCard() {
             .catch(() => {
                 setLogLoading(false);
             });
+    };
+
+    useEffect(() => {
+        loadNotifications();
     }, []);
+
+    // Subscribe to SSE events and refresh when new notifications are created
+    useContainerEvents((event) => {
+        if (event.type === "notification_created") {
+            loadNotifications();
+        }
+    });
 
     return (
         <Card>
