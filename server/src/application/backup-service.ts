@@ -1,6 +1,7 @@
 import {EventEmitter} from "node:events"
 import {spawn} from "node:child_process"
 import path from "node:path"
+import os from "node:os"
 import yaml from "yaml"
 import {decrypt} from "../lib/crypto.js"
 import {assertTransition} from "../domain/stack-status-machine.js"
@@ -386,8 +387,15 @@ export class BackupService {
                     }
                 }
 
-                if (source && path.isAbsolute(source) && !source.startsWith(stackPath)) {
-                    warnings.push(`${serviceName}: ${source}`)
+                if (source) {
+                    // Expand tilde paths (Docker Compose supports ~ expansion)
+                    const resolvedSource = source.startsWith("~")
+                        ? path.join(os.homedir(), source.slice(1))
+                        : source
+
+                    if (path.isAbsolute(resolvedSource) && !resolvedSource.startsWith(stackPath)) {
+                        warnings.push(`${serviceName}: ${source}`)
+                    }
                 }
             }
         }
