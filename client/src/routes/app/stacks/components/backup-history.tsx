@@ -42,20 +42,37 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
 
     useEffect(() => {
         let cancelled = false;
+        let pollInterval: NodeJS.Timeout | null = null;
 
-        getBackups(stackId)
-            .then((data) => {
-                if (!cancelled) setBackups(data);
-            })
-            .catch(() => {
+        async function fetchBackups() {
+            try {
+                const data = await getBackups(stackId);
+                if (!cancelled) {
+                    setBackups(data);
+
+                    // Poll every 3 seconds if there are IN_PROGRESS backups
+                    const hasInProgress = data.some((b) => b.status === "IN_PROGRESS");
+                    if (hasInProgress && !pollInterval) {
+                        pollInterval = setInterval(() => {
+                            void fetchBackups();
+                        }, 3000);
+                    } else if (!hasInProgress && pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                }
+            } catch {
                 // silently fail
-            })
-            .finally(() => {
+            } finally {
                 if (!cancelled) setLoading(false);
-            });
+            }
+        }
+
+        void fetchBackups();
 
         return () => {
             cancelled = true;
+            if (pollInterval) clearInterval(pollInterval);
         };
     }, [stackId]);
 
