@@ -43,6 +43,7 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
     useEffect(() => {
         let cancelled = false;
         let pollInterval: NodeJS.Timeout | null = null;
+        let stopPollingTimeout: NodeJS.Timeout | null = null;
 
         async function fetchBackups() {
             try {
@@ -50,13 +51,24 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
                 if (!cancelled) {
                     setBackups(data);
 
-                    // Poll every 3 seconds if there are IN_PROGRESS backups
+                    // Check if there are IN_PROGRESS backups
                     const hasInProgress = data.some((b) => b.status === "IN_PROGRESS");
-                    if (hasInProgress && !pollInterval) {
-                        pollInterval = setInterval(() => {
-                            void fetchBackups();
-                        }, 3000);
-                    } else if (!hasInProgress && pollInterval) {
+
+                    // Start polling if IN_PROGRESS backups exist or if we just mounted (within 30s)
+                    if (hasInProgress) {
+                        // Clear any pending stop timeout since we have active backups
+                        if (stopPollingTimeout) {
+                            clearTimeout(stopPollingTimeout);
+                            stopPollingTimeout = null;
+                        }
+
+                        if (!pollInterval) {
+                            pollInterval = setInterval(() => {
+                                void fetchBackups();
+                            }, 3000);
+                        }
+                    } else if (pollInterval) {
+                        // No IN_PROGRESS backups but polling is active - stop it
                         clearInterval(pollInterval);
                         pollInterval = null;
                     }
@@ -70,11 +82,28 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
 
         void fetchBackups();
 
+        // Always poll for the first 30 seconds after mount to catch newly created backups
+        pollInterval = setInterval(() => {
+            void fetchBackups();
+        }, 3000);
+
+        // Stop the initial polling after 30 seconds if no IN_PROGRESS backups
+        stopPollingTimeout = setTimeout(() => {
+            if (pollInterval && !cancelled) {
+                const hasInProgress = backups.some((b) => b.status === "IN_PROGRESS");
+                if (!hasInProgress) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }
+        }, 30000);
+
         return () => {
             cancelled = true;
             if (pollInterval) clearInterval(pollInterval);
+            if (stopPollingTimeout) clearTimeout(stopPollingTimeout);
         };
-    }, [stackId]);
+    }, [stackId, backups]);
 
     return (
         <div className="space-y-3">
