@@ -2,45 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-03-20T15:01:06.438Z"
-progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 25
-  completed_plans: 25
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Executing Phase 04
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-03-19T08:46:18.205Z"
-last_activity: 2026-03-10 — Roadmap created
+status: Ready to execute
+stopped_at: Completed 04-08-PLAN.md
+last_updated: "2026-03-31T15:22:19.154Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 24
-  completed_plans: 23
----
-
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: planning
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-03-11T15:12:05.060Z"
-last_activity: 2026-03-10 — Roadmap created
-progress:
-  total_phases: 6
-  completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
-  percent: 71
+  total_plans: 27
+  completed_plans: 26
 ---
 
 # Project State
@@ -50,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 03 — notifications
+**Current focus:** Phase 04 — backup-restore
 
 ## Current Position
 
-Phase: 03 (notifications) — COMPLETE
-Plan: 5 of 5
+Phase: 04 (backup-restore) — EXECUTING
+Plan: 2 of 8
 
 ## Performance Metrics
 
@@ -100,6 +69,7 @@ Plan: 5 of 5
 | Phase 04-backup-restore P05 | 171 | 2 tasks | 5 files |
 | Phase 04-backup-restore P04 | 2 | 1 tasks | 2 files |
 | Phase 04 P06 | 15 | 3 tasks | 9 files |
+| Phase 04-backup-restore P08 | 133 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -160,6 +130,7 @@ Recent decisions affecting current work:
 - [Phase 04-backup-restore]: BackupService.runBackup route fetches (backupRecord, stack, repoConfig) via Promise.all — actual signature differs from plan interface spec
 - [Phase 04]: Action bar uses Deploy primary + ellipsis dropdown (per 04-CONTEXT locked decision)
 - [Phase 04]: Section components co-located in routes/app/stacks/components/ (only used by stack detail page)
+- [Phase 04-backup-restore]: ResticExecutor.run() throws Error with exitCode property on non-zero exit codes for proper error handling
 
 ### Pending Todos
 
@@ -174,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T14:49:40Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-03-31T15:22:19.146Z
+Stopped at: Completed 04-08-PLAN.md
 Resume file: None

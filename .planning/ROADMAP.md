@@ -93,12 +93,12 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
-- [ ] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
-- [ ] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
-- [ ] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
-- [ ] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
-- [ ] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
+- [x] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
+- [x] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
+- [x] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
+- [x] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
+- [x] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
+- [x] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
 
 ### Phase 5: Onboarding
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
