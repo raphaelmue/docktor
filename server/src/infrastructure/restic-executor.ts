@@ -86,7 +86,16 @@ export class ResticExecutor {
                 console.log(`[ResticExecutor] Process exited with code ${code}`)
                 // Flush any partial line remaining in the buffer
                 if (lineBuf.trim()) onLine?.(lineBuf);
-                resolve({exitCode: code ?? 1, stderr: stderrBuf});
+
+                const exitCode = code ?? 1;
+                if (exitCode !== 0) {
+                    const error = new Error(`restic exited with code ${exitCode}: ${stderrBuf}`);
+                    (error as Error & {exitCode: number}).exitCode = exitCode;
+                    (error as Error & {stderr: string}).stderr = stderrBuf;
+                    reject(error);
+                } else {
+                    resolve({exitCode: 0, stderr: stderrBuf});
+                }
             });
         });
     }
@@ -132,14 +141,17 @@ export class ResticExecutor {
      */
     async snapshots(env: Record<string, string>, tag: string): Promise<ResticSnapshot[]> {
         const lines: string[] = [];
-        const {exitCode, stderr} = await this.run(
-            ["snapshots", "--tag", tag, "--json"],
-            env,
-            (l) => lines.push(l),
-        );
-
-        if (exitCode === 10) return [];
-        if (exitCode !== 0) throw new Error(`restic snapshots failed: ${stderr}`);
+        try {
+            await this.run(
+                ["snapshots", "--tag", tag, "--json"],
+                env,
+                (l) => lines.push(l),
+            );
+        } catch (err) {
+            const exitCode = (err as {exitCode?: number}).exitCode;
+            if (exitCode === 10) return []; // Repository not initialized
+            throw err;
+        }
 
         const json = lines.join("");
         return JSON.parse(json) as ResticSnapshot[];
