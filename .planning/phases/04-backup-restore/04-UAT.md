@@ -183,34 +183,43 @@ skipped: 5
 ### Gap 5: Live backup logs not streaming
 **Test:** 10 (Stream Live Backup Logs)
 **Symptom:** Backup detail page always shows "No output yet..." even when viewing an IN_PROGRESS backup
-**Root cause:** TBD (requires diagnosis)
+**Root cause:** Database schema is missing the `logLines` field. Prisma schema was updated to include `logLines String[]`, but the PostgreSQL database was never synced (no migration run). When Prisma queries return backup records, `logLines` is undefined, causing the UI to display "No output yet..."
 **Impact:** Users cannot monitor backup progress in real-time; defeats purpose of streaming logs
 **Severity:** major
+**Fix:** Run `yarn workspace @docktor/server prisma db push` to add logLines column to Backup table
+**Debug session:** C:\Users\D070307\workspace\docktor\.claude\worktrees\agent-a0dbfa4d\.planning\debug\completed-backup-logs-not-displaying.md
 
 ### Gap 6: Completed backup logs not displaying
 **Test:** 11 (View Completed Backup Logs)
 **Symptom:** Backup detail page shows "No output yet..." even for COMPLETED backups that should have stored log lines
-**Root cause:** TBD (requires diagnosis - likely related to Gap 5, may be same root cause)
+**Root cause:** Same as Gap 5 - `logLines` column missing from database. Phase 04 Plan 01 explicitly instructed "do NOT run prisma db push", resulting in schema/database mismatch.
 **Impact:** Users cannot review what happened during a backup after it completes
 **Severity:** major
+**Fix:** Run `yarn workspace @docktor/server prisma db push` to sync schema
+**Debug session:** C:\Users\D070307\workspace\docktor\.claude\worktrees\agent-a0dbfa4d\.planning\debug\completed-backup-logs-not-displaying.md
 
 ### Gap 7: Failed backup logs not displaying
 **Test:** 12 (View Failed Backup Error)
 **Symptom:** Error alert appears correctly on backup detail page, but log output section shows no logs
-**Root cause:** TBD (requires diagnosis - likely same root cause as Gaps 5 & 6, systematic log display issue)
+**Root cause:** Same as Gaps 5 & 6 - `logLines` column missing from database schema
 **Impact:** Users see that a backup failed but cannot diagnose why without logs
 **Severity:** major
+**Fix:** Run `yarn workspace @docktor/server prisma db push` to sync schema
+**Debug session:** .planning/debug/failed-backup-logs-missing.md
 
 ### Gap 8: Snapshots not listed despite successful backups
 **Test:** 13 (View Available Snapshots)
-**Symptom:** Snapshots section shows "No snapshots found" even though Backup History shows COMPLETED backups
-**Root cause:** TBD (requires diagnosis - could be API endpoint issue, restic snapshots command failure, or data mismatch)
+**Symptom:** Snapshots section shows "No snapshots found" even though Backup History shows COMPLETED backups. Server logs show "restic snapshots" failing with exit code 10.
+**Root cause:** ResticExecutor.run() never throws on non-zero exit codes - it always resolves with `{exitCode, stderr}`. BackupService.runWithAutoInit() expects run() to throw when exitCode=10 so it can auto-initialize the repository, but the catch block never executes. Result: first backup runs against uninitialized repo, restic returns exit code 10, but BackupService marks it COMPLETED anyway. Repository is never initialized, so all subsequent operations fail.
 **Impact:** Users cannot restore from backups if snapshots aren't visible; blocks entire restore workflow
 **Severity:** blocker
+**Fix:** Either modify ResticExecutor.run() to throw on non-zero exit codes, or modify runWithAutoInit() to check returned exitCode instead of catching errors
+**Debug session:** /c/Users/D070307/workspace/docktor/.planning/debug/snapshots-not-listed-despite-backups.md
 
 ### Gap 9: Scheduled backups not executing
 **Test:** 22 (Scheduled Backup Execution)
 **Symptom:** Scheduled backup doesn't trigger automatically. Server logs show "restic snapshots --tag memos --json" failing with exit code 10. No backup record appears in Backup History.
-**Root cause:** TBD (requires diagnosis - exit code 10 suggests restic command failure, possibly repository not initialized or authentication issue)
+**Root cause:** Related to Gap 8 - repository not initialized due to ResticExecutor.run() not throwing errors. BackupScheduler likely triggers but fails silently for the same reason (exit code 10 not properly handled).
 **Impact:** Automated backups don't work; users must manually trigger every backup
 **Severity:** blocker
+**Fix:** Same fix as Gap 8 - fix ResticExecutor error handling to properly throw/handle exit code 10
