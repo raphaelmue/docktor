@@ -533,7 +533,7 @@ export class BackupService {
 
         // Always use stack-local backup directory
         if (stackPath) {
-            base.RESTIC_REPOSITORY = path.join(stackPath, "backups")
+            base.RESTIC_REPOSITORY = path.resolve(stackPath, "backups")
         } else {
             // Fallback to configured repo (shouldn't happen in production)
             if (repoConfig.repoType === "local") {

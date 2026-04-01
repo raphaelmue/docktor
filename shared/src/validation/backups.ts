@@ -16,9 +16,7 @@ export const backupSettingsSchema = z.object({
     s3SecretKey: z.string().nullable().optional(),      // s3 (encrypted)
     password: z.string().nullable().optional(),  // optional when updating (only encrypt/save when user enters a new password)
 }).superRefine((data, ctx) => {
-    if (data.repoType === "local" && !data.repoPath?.trim()) {
-        ctx.addIssue({code: z.ZodIssueCode.custom, message: "Repository path is required", path: ["repoPath"]});
-    }
+    // Local backups are stored in stack-local directories; repoPath is not used
     if (data.repoType === "sftp") {
         if (!data.sftpHost?.trim()) ctx.addIssue({code: z.ZodIssueCode.custom, message: "SFTP host is required", path: ["sftpHost"]});
         if (!data.sftpUser?.trim()) ctx.addIssue({code: z.ZodIssueCode.custom, message: "SFTP username is required", path: ["sftpUser"]});

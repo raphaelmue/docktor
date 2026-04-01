@@ -701,18 +701,23 @@ function BackupRepositoryCard() {
                             </Select>
                         </div>
                         {repoType === "local" && (
-                            <div className="space-y-1">
-                                <Label htmlFor="repoPath">Repository path</Label>
-                                <Input
-                                    id="repoPath"
-                                    value={repoPath}
-                                    onChange={(e) => setRepoPath(e.target.value)}
-                                    placeholder="/opt/docktor-backups"
-                                />
-                            </div>
+                            <Alert>
+                                <AlertDescription>
+                                    Backups are stored in a <code className="text-sm">backups/</code> subdirectory within each stack's directory. No separate repository path is needed.
+                                </AlertDescription>
+                            </Alert>
                         )}
                         {repoType === "sftp" && (
                             <>
+                                <div className="space-y-1">
+                                    <Label htmlFor="repoPath">Repository path</Label>
+                                    <Input
+                                        id="repoPath"
+                                        value={repoPath}
+                                        onChange={(e) => setRepoPath(e.target.value)}
+                                        placeholder="/backups"
+                                    />
+                                </div>
                                 <div className="space-y-1">
                                     <Label htmlFor="sftpHost">Host</Label>
                                     <Input
