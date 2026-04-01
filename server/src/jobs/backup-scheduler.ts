@@ -34,6 +34,7 @@ export class BackupScheduler {
         private readonly service: BackupSchedulerService,
         private readonly stackRepo: BackupSchedulerStackRepo,
         private readonly settings: BackupSchedulerSettings,
+        private readonly backupRepo: BackupSchedulerBackupRepo,
     ) {}
 
     /**
@@ -110,9 +111,30 @@ export class BackupScheduler {
     private async runScheduledBackup(stackId: string): Promise<void> {
         try {
             const result = await this.service.initiateBackup(stackId, "SCHEDULED")
-            if (result) {
-                void this.service.runBackup(result.id)
-            }
+            if (!result) return
+
+            // Fire-and-forget: fetch required args and run backup asynchronously
+            // Pattern matches routes/backups.ts lines 36-56
+            void (async () => {
+                try {
+                    console.log(`[BackupScheduler] Fetching backup dependencies for ${result.id}`)
+                    const [backupRecord, stack, repoConfig] = await Promise.all([
+                        this.backupRepo.findByIdOrThrow(result.id),
+                        this.stackRepo.findByIdOrThrow(stackId),
+                        this.service.getBackupRepoConfig(),
+                    ])
+                    console.log(`[BackupScheduler] Dependencies fetched. repoConfig exists: ${!!repoConfig}`)
+                    if (repoConfig) {
+                        console.log(`[BackupScheduler] Starting runBackup for ${result.id}`)
+                        await this.service.runBackup(backupRecord, stack, repoConfig)
+                        console.log(`[BackupScheduler] runBackup completed for ${result.id}`)
+                    } else {
+                        console.error(`[BackupScheduler] No repoConfig - backup repository not configured`)
+                    }
+                } catch (err) {
+                    console.error(`[BackupScheduler] Scheduled backup execution failed for ${result.id}:`, err)
+                }
+            })()
         } catch (err) {
             console.error(`[BackupScheduler] Scheduled backup failed for stack ${stackId}:`, err)
         }
