@@ -148,6 +148,12 @@ Recent decisions affecting current work:
 - [Phase 04-backup-restore]: Hide repository path field for local backend in Settings UI with informational alert - field is never used for local backups
 - [Phase 04-14]: buildBackupArgs() excludes both /logs and /backups directories to prevent circular backup and log noise
 
+### Quick Tasks Completed
+
+| ID | Description | Commit | Duration |
+|----|-------------|--------|----------|
+| Q001 | Fix restic restore target path (Windows permission error) | 75b8db2 | 10 min |
+
 ### Pending Todos
 
 None yet.
