@@ -2,6 +2,11 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 import {BackupService} from "../../../src/application/backup-service.js";
 import path from "node:path";
 
+// Mock node:fs/promises
+vi.mock("node:fs/promises", () => ({
+    readFile: vi.fn().mockResolvedValue("services:\n  web:\n    image: nginx:latest\n"),
+}));
+
 function createMockResticExecutor() {
     return {
         run: vi.fn().mockResolvedValue({exitCode: 0, stderr: ""}),
@@ -26,6 +31,8 @@ function createMockStackRepository() {
         findByIdOrThrow: vi.fn(),
         update: vi.fn().mockResolvedValue(undefined),
         clearConfigChanged: vi.fn().mockResolvedValue(undefined),
+        updateStackHash: vi.fn().mockResolvedValue(undefined),
+        replaceServices: vi.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -451,6 +458,19 @@ services:
 
             // Should call clearConfigChanged to remove "Configuration has changed" warning
             expect(mockStackRepository.clearConfigChanged).toHaveBeenCalledWith("stack-1");
+        });
+
+        it("syncs database with restored compose file", async () => {
+            await service.runRestore("stack-1", snapshotId);
+
+            // Should update hash and services to match restored compose
+            expect(mockStackRepository.updateStackHash).toHaveBeenCalledWith(
+                expect.objectContaining({stackId: "stack-1", hash: expect.any(String)}),
+            );
+            expect(mockStackRepository.replaceServices).toHaveBeenCalledWith(
+                "stack-1",
+                expect.objectContaining({hash: expect.any(String), services: expect.any(Array)}),
+            );
         });
 
         it("transitions stack to ERROR on restore failure", async () => {

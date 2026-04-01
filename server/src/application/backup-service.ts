@@ -1,10 +1,12 @@
 import {EventEmitter} from "node:events"
 import {spawn} from "node:child_process"
+import {readFile} from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
 import yaml from "yaml"
 import {decrypt} from "../lib/crypto.js"
 import {assertTransition} from "../domain/stack-status-machine.js"
+import {createComposeConfig} from "../domain/compose-config.js"
 import type {StackStatus, BackupTrigger} from "../generated/prisma/enums.js"
 import type {ResticExecutor, BackupRepoConfig, RetentionPolicy, ResticSnapshot} from "../infrastructure/restic-executor.js"
 import type {BackupRepository} from "../repositories/backup-repository.js"
@@ -36,6 +38,8 @@ export interface BackupStackRepo {
     }>
     update(id: string, data: Record<string, unknown>): Promise<void>
     clearConfigChanged(id: string): Promise<void>
+    updateStackHash(args: {stackId: string; hash: string}): Promise<void>
+    replaceServices(stackId: string, composeConfig: any): Promise<void>
 }
 
 export interface BackupSettingsService {
@@ -280,6 +284,14 @@ export class BackupService {
             // Step 3: Redeploy containers with restored configuration
             console.log(`[BackupService] Redeploying stack ${stackId} after restore`)
             await this.docker.up(stackId)
+
+            // Step 4: Sync database with restored compose file to prevent "config changed" warning
+            console.log(`[BackupService] Syncing database with restored compose file`)
+            const composePath = path.join(stackPath, "docker-compose.yml")
+            const restoredContent = await readFile(composePath, "utf-8")
+            const composeConfig = createComposeConfig(restoredContent)
+            await this.stackRepo.updateStackHash({stackId, hash: composeConfig.hash})
+            await this.stackRepo.replaceServices(stackId, composeConfig)
 
             await this.backupRepo.update(backup.id, {
                 status: "COMPLETED",

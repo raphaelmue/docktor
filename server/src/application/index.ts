@@ -37,6 +37,8 @@ const backupStackRepo: BackupStackRepo = {
         })
     },
     clearConfigChanged: (id: string) => repo.clearConfigChanged(id),
+    updateStackHash: (args: {stackId: string; hash: string}) => repo.updateStackHash(args),
+    replaceServices: (stackId: string, composeConfig: any) => repo.replaceServices(stackId, composeConfig),
 }
 
 export const backupService = new BackupService(
