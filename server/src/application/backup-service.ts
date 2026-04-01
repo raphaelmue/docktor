@@ -146,6 +146,7 @@ export class BackupService {
 
         try {
             const env = this.buildEnv(repoConfig, stack.hostPath ?? undefined)
+            const stackPath = stack.hostPath ?? "."
             console.log(`[BackupService] Using repository: ${env.RESTIC_REPOSITORY}`)
             const onLine = (line: string): void => {
                 console.log(`[BackupService] Log line: ${line}`)
@@ -155,22 +156,22 @@ export class BackupService {
 
             // Run pre-hook if configured
             if (stack.backupPreHook) {
-                await this.runHook(stack.backupPreHook, stack.hostPath ?? "")
+                await this.runHook(stack.backupPreHook, stackPath)
             }
 
-            // Build backup args: prepend "backup" subcommand
-            const backupArgs = ["backup", ...this.resticExecutor.buildBackupArgs(stack.hostPath ?? "", stack.id)]
+            // Build backup args: prepend "backup" subcommand, run from stack directory
+            const backupArgs = ["backup", ...this.resticExecutor.buildBackupArgs(stackPath, stack.id)]
             console.log(`[BackupService] Running restic with args:`, backupArgs)
-            await this.runWithAutoInit(backupArgs, env, onLine)
+            await this.runWithAutoInit(backupArgs, env, onLine, stackPath)
 
             // Run forget / prune
             const retentionPolicy = this.parseRetentionPolicy(stack.backupRetention)
             const forgetArgs = this.resticExecutor.buildForgetArgs(stack.id, retentionPolicy)
-            await this.resticExecutor.run(forgetArgs, env, onLine)
+            await this.resticExecutor.run(forgetArgs, env, onLine, stackPath)
 
             // Run post-hook if configured
             if (stack.backupPostHook) {
-                await this.runHook(stack.backupPostHook, stack.hostPath ?? "")
+                await this.runHook(stack.backupPostHook, stackPath)
             }
 
             // Parse snapshot id from JSON output
@@ -241,6 +242,7 @@ export class BackupService {
             // Fetch repo config to build env for restic
             const repoConfig = await this.getBackupRepoConfig()
             const env: Record<string, string> = repoConfig ? this.buildEnv(repoConfig, stack.hostPath ?? undefined) : {}
+            const stackPath = stack.hostPath ?? "."
 
             const onLine = (line: string): void => {
                 lines.push(line)
@@ -251,9 +253,8 @@ export class BackupService {
             // Currently only restores files; user must manually restart stack
             // Requires DockerExecutor DI or StackService orchestration to avoid manual steps
 
-            // Restore snapshot to the stack directory
-            const targetPath = stack.hostPath ?? "."
-            await this.resticExecutor.run(["restore", snapshotId, "--target", targetPath], env, onLine)
+            // Restore snapshot to "." (current directory) by running from stack directory
+            await this.resticExecutor.run(["restore", snapshotId, "--target", "."], env, onLine, stackPath)
 
             await this.backupRepo.update(backup.id, {
                 status: "COMPLETED",
@@ -456,9 +457,10 @@ export class BackupService {
         args: string[],
         env: Record<string, string>,
         onLine: (line: string) => void,
+        cwd?: string,
     ): Promise<void> {
         try {
-            await this.resticExecutor.run(args, env, onLine)
+            await this.resticExecutor.run(args, env, onLine, cwd)
         } catch (err) {
             const exitCode = (err as {exitCode?: number}).exitCode
             if (exitCode === 10) {
@@ -466,8 +468,8 @@ export class BackupService {
                 const initArgs = typeof this.resticExecutor.buildInitArgs === "function"
                     ? this.resticExecutor.buildInitArgs()
                     : ["init"]
-                await this.resticExecutor.run(initArgs, env, onLine)
-                await this.resticExecutor.run(args, env, onLine)
+                await this.resticExecutor.run(initArgs, env, onLine, cwd)
+                await this.resticExecutor.run(args, env, onLine, cwd)
             } else {
                 throw err
             }

@@ -218,17 +218,17 @@ describe("ResticExecutor", () => {
     });
 
     describe("backup args", () => {
-        it("includes stack path as first positional arg", () => {
+        it("uses relative path '.' as first positional arg", () => {
             const args = executor.buildBackupArgs("/stacks/myapp", "stack-abc");
 
-            expect(args[0]).toBe("/stacks/myapp");
+            expect(args[0]).toBe(".");
         });
 
-        it("includes --exclude <stackPath>/logs", () => {
+        it("includes --exclude ./logs", () => {
             const args = executor.buildBackupArgs("/stacks/myapp", "stack-abc");
 
             expect(args).toContain("--exclude");
-            expect(args).toContain("/stacks/myapp/logs");
+            expect(args).toContain("./logs");
         });
 
         it("includes --tag <stackId>", () => {
@@ -244,11 +244,11 @@ describe("ResticExecutor", () => {
             expect(args).toContain("--json");
         });
 
-        it("includes --exclude <stackPath>/backups to prevent circular backup", () => {
+        it("includes --exclude ./backups to prevent circular backup", () => {
             const args = executor.buildBackupArgs("/stacks/myapp", "stack-abc");
 
             expect(args).toContain("--exclude");
-            expect(args).toContain("/stacks/myapp/backups");
+            expect(args).toContain("./backups");
         });
     });
 

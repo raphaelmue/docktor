@@ -45,17 +45,22 @@ export class ResticExecutor {
      * via the optional onLine callback.
      *
      * Credentials must NEVER appear on the CLI — they belong in the env object.
+     *
+     * @param cwd - Optional working directory for the restic process. Use this to run
+     *              restic from the stack directory so backups use relative paths.
      */
     async run(
         args: string[],
         env: Record<string, string>,
         onLine?: (line: string) => void,
+        cwd?: string,
     ): Promise<ResticRunResult> {
-        console.log(`[ResticExecutor] Running: ${this.binary}`, args)
+        console.log(`[ResticExecutor] Running: ${this.binary}`, args, cwd ? `(cwd: ${cwd})` : '')
         return new Promise((resolve, reject) => {
             const child = spawn(this.binary, args, {
                 env: {...process.env, ...env},
                 stdio: ["ignore", "pipe", "pipe"],
+                cwd: cwd ?? undefined,
             });
 
             let stderrBuf = "";
@@ -117,14 +122,16 @@ export class ResticExecutor {
 
     /**
      * Returns the args array to pass to restic for a backup operation.
-     * Format: [stackPath, "--exclude", "<stackPath>/logs", "--exclude", "<stackPath>/backups", "--tag", stackId, "--json"]
+     * Format: [".", "--exclude", "./logs", "--exclude", "./backups", "--tag", stackId, "--json"]
      * The caller prepends "backup" as the subcommand when needed.
+     *
+     * IMPORTANT: Caller must set cwd to stackPath when calling run() so that "." resolves correctly.
      */
     buildBackupArgs(stackPath: string, stackId: string): string[] {
         return [
-            stackPath,
-            "--exclude", `${stackPath}/logs`,
-            "--exclude", `${stackPath}/backups`,
+            ".",
+            "--exclude", "./logs",
+            "--exclude", "./backups",
             "--tag", stackId,
             "--json"
         ];
@@ -146,9 +153,13 @@ export class ResticExecutor {
         ];
     }
 
-    /** Returns ["restore", snapshotId, "--target", targetPath] */
+    /**
+     * Returns ["restore", snapshotId, "--target", "."]
+     *
+     * IMPORTANT: Caller must set cwd to stackPath when calling run() so that "." resolves correctly.
+     */
     buildRestoreArgs(snapshotId: string, targetPath: string): string[] {
-        return ["restore", snapshotId, "--target", targetPath];
+        return ["restore", snapshotId, "--target", "."];
     }
 
     /** Returns ["init"] */
