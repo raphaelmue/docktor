@@ -132,6 +132,89 @@ describe("ResticExecutor", () => {
 
             expect(lines).toContain("partial line without newline");
         });
+
+        it("emits stderr lines to onLine callback with [stderr] prefix", async () => {
+            const mockProc = createMockProcess([], 0, "error line one\nerror line two\n");
+            mockSpawn.mockReturnValue(mockProc);
+
+            const lines: string[] = [];
+            await executor.run(["backup"], {}, (line) => lines.push(line));
+
+            expect(lines).toContain("[stderr] error line one");
+            expect(lines).toContain("[stderr] error line two");
+        });
+
+        it("captures both stdout and stderr lines via onLine", async () => {
+            const mockProc = createMockProcess(["stdout line"], 0, "stderr line\n");
+            mockSpawn.mockReturnValue(mockProc);
+
+            const lines: string[] = [];
+            await executor.run(["backup"], {}, (line) => lines.push(line));
+
+            expect(lines).toContain("stdout line");
+            expect(lines).toContain("[stderr] stderr line");
+        });
+
+        it("buffers partial stderr lines until newline", async () => {
+            const mockProc = {
+                stdout: {on: vi.fn()},
+                stderr: {on: vi.fn()},
+                on: vi.fn(),
+            } as any;
+
+            mockProc.stdout.on.mockImplementation(vi.fn());
+
+            // Emit stderr in chunks without complete newlines
+            mockProc.stderr.on.mockImplementation((event: string, cb: (data: Buffer) => void) => {
+                if (event === "data") {
+                    cb(Buffer.from("partial "));
+                    cb(Buffer.from("stderr line\nnext "));
+                }
+            });
+
+            mockProc.on.mockImplementation((event: string, cb: (code: number) => void) => {
+                if (event === "close") {
+                    cb(0);
+                }
+            });
+
+            mockSpawn.mockReturnValue(mockProc);
+
+            const lines: string[] = [];
+            await executor.run(["backup"], {}, (line) => lines.push(line));
+
+            expect(lines).toContain("[stderr] partial stderr line");
+            expect(lines).toContain("[stderr] next"); // Flushed on close
+        });
+
+        it("flushes remaining stderr buffer on close", async () => {
+            const mockProc = {
+                stdout: {on: vi.fn()},
+                stderr: {on: vi.fn()},
+                on: vi.fn(),
+            } as any;
+
+            mockProc.stdout.on.mockImplementation(vi.fn());
+
+            mockProc.stderr.on.mockImplementation((event: string, cb: (data: Buffer) => void) => {
+                if (event === "data") {
+                    cb(Buffer.from("partial stderr without newline"));
+                }
+            });
+
+            mockProc.on.mockImplementation((event: string, cb: (code: number) => void) => {
+                if (event === "close") {
+                    cb(0);
+                }
+            });
+
+            mockSpawn.mockReturnValue(mockProc);
+
+            const lines: string[] = [];
+            await executor.run(["backup"], {}, (line) => lines.push(line));
+
+            expect(lines).toContain("[stderr] partial stderr without newline");
+        });
     });
 
     describe("backup args", () => {
