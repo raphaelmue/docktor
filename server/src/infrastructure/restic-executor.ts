@@ -117,11 +117,17 @@ export class ResticExecutor {
 
     /**
      * Returns the args array to pass to restic for a backup operation.
-     * Format: [stackPath, "--exclude", "<stackPath>/logs", "--tag", stackId, "--json"]
+     * Format: [stackPath, "--exclude", "<stackPath>/logs", "--exclude", "<stackPath>/backups", "--tag", stackId, "--json"]
      * The caller prepends "backup" as the subcommand when needed.
      */
     buildBackupArgs(stackPath: string, stackId: string): string[] {
-        return [stackPath, "--exclude", `${stackPath}/logs`, "--tag", stackId, "--json"];
+        return [
+            stackPath,
+            "--exclude", `${stackPath}/logs`,
+            "--exclude", `${stackPath}/backups`,
+            "--tag", stackId,
+            "--json"
+        ];
     }
 
     /** Returns ["forget", "--tag", stackId, "--keep-daily", N, "--keep-weekly", N, "--keep-monthly", N, "--prune"] */
