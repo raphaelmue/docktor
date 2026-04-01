@@ -251,8 +251,9 @@ export class BackupService {
             // Currently only restores files; user must manually restart stack
             // Requires DockerExecutor DI or StackService orchestration to avoid manual steps
 
-            // Restore snapshot to /
-            await this.resticExecutor.run(["restore", snapshotId, "--target", "/"], env, onLine)
+            // Restore snapshot to the stack directory
+            const targetPath = stack.hostPath ?? "."
+            await this.resticExecutor.run(["restore", snapshotId, "--target", targetPath], env, onLine)
 
             await this.backupRepo.update(backup.id, {
                 status: "COMPLETED",

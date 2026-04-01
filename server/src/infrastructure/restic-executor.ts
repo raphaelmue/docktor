@@ -146,9 +146,9 @@ export class ResticExecutor {
         ];
     }
 
-    /** Returns ["restore", snapshotId, "--target", "/"] */
-    buildRestoreArgs(snapshotId: string): string[] {
-        return ["restore", snapshotId, "--target", "/"];
+    /** Returns ["restore", snapshotId, "--target", targetPath] */
+    buildRestoreArgs(snapshotId: string, targetPath: string): string[] {
+        return ["restore", snapshotId, "--target", targetPath];
     }
 
     /** Returns ["init"] */
