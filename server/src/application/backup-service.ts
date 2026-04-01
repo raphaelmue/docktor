@@ -35,6 +35,7 @@ export interface BackupStackRepo {
         displayName?: string
     }>
     update(id: string, data: Record<string, unknown>): Promise<void>
+    clearConfigChanged(id: string): Promise<void>
 }
 
 export interface BackupSettingsService {
@@ -70,6 +71,7 @@ const BACKUP_SETTING_KEYS = {
 interface BackupRecord {
     id: string
     stackId: string
+    trigger: BackupTrigger
     logLines: string[]
 }
 
@@ -166,10 +168,12 @@ export class BackupService {
             console.log(`[BackupService] Running restic with args:`, backupArgs)
             await this.runWithAutoInit(backupArgs, env, onLine, stackPath)
 
-            // Run forget / prune
-            const retentionPolicy = this.parseRetentionPolicy(stack.backupRetention)
-            const forgetArgs = this.resticExecutor.buildForgetArgs(stack.id, retentionPolicy)
-            await this.resticExecutor.run(forgetArgs, env, onLine, stackPath)
+            // Run forget / prune only for scheduled backups, not manual ones
+            if (backupRecord.trigger === "SCHEDULED") {
+                const retentionPolicy = this.parseRetentionPolicy(stack.backupRetention)
+                const forgetArgs = this.resticExecutor.buildForgetArgs(stack.id, retentionPolicy)
+                await this.resticExecutor.run(forgetArgs, env, onLine, stackPath)
+            }
 
             // Run post-hook if configured
             if (stack.backupPostHook) {
@@ -284,6 +288,7 @@ export class BackupService {
             })
 
             await this.stackRepo.update(stackId, {status: "RUNNING"})
+            await this.stackRepo.clearConfigChanged(stackId)
 
             // Send restore success notification
             await this.notificationService.notify({

@@ -25,6 +25,7 @@ function createMockStackRepository() {
         findById: vi.fn(),
         findByIdOrThrow: vi.fn(),
         update: vi.fn().mockResolvedValue(undefined),
+        clearConfigChanged: vi.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -160,6 +161,7 @@ describe("BackupService", () => {
         const backupRecord = {
             id: "backup-1",
             stackId: "stack-1",
+            trigger: "MANUAL",
             logLines: [],
         };
 
@@ -182,11 +184,48 @@ describe("BackupService", () => {
             expect(mockResticExecutor.run).toHaveBeenCalled();
         });
 
-        it("runs restic forget after successful backup", async () => {
-            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+        it("runs restic forget after successful backup for scheduled backups", async () => {
+            const scheduledRecord = {
+                id: "backup-1",
+                stackId: "stack-1",
+                trigger: "SCHEDULED",
+                logLines: [],
+            };
+
+            await service.runBackup(scheduledRecord as any, stack as any, repoConfig);
 
             // Should call run twice: once for backup, once for forget
             expect(mockResticExecutor.run).toHaveBeenCalledTimes(2);
+        });
+
+        it("skips forget/prune for manual backups", async () => {
+            const manualBackupRecord = {
+                id: "backup-manual",
+                stackId: "stack-1",
+                trigger: "MANUAL",
+                logLines: [],
+            };
+
+            await service.runBackup(manualBackupRecord as any, stack as any, repoConfig);
+
+            // Should call run only once: backup only, no forget
+            expect(mockResticExecutor.run).toHaveBeenCalledTimes(1);
+            expect(mockResticExecutor.buildForgetArgs).not.toHaveBeenCalled();
+        });
+
+        it("runs forget/prune for scheduled backups", async () => {
+            const scheduledBackupRecord = {
+                id: "backup-scheduled",
+                stackId: "stack-1",
+                trigger: "SCHEDULED",
+                logLines: [],
+            };
+
+            await service.runBackup(scheduledBackupRecord as any, stack as any, repoConfig);
+
+            // Should call run twice: backup + forget
+            expect(mockResticExecutor.run).toHaveBeenCalledTimes(2);
+            expect(mockResticExecutor.buildForgetArgs).toHaveBeenCalled();
         });
 
         it("updates Backup status to COMPLETED on success", async () => {
@@ -405,6 +444,13 @@ services:
                 "stack-1",
                 expect.objectContaining({status: "RUNNING"}),
             );
+        });
+
+        it("clears configChanged flag after successful restore", async () => {
+            await service.runRestore("stack-1", snapshotId);
+
+            // Should call clearConfigChanged to remove "Configuration has changed" warning
+            expect(mockStackRepository.clearConfigChanged).toHaveBeenCalledWith("stack-1");
         });
 
         it("transitions stack to ERROR on restore failure", async () => {

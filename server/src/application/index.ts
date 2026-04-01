@@ -36,6 +36,7 @@ const backupStackRepo: BackupStackRepo = {
             data: data as {status?: StackStatus; previousStatus?: StackStatus | null},
         })
     },
+    clearConfigChanged: (id: string) => repo.clearConfigChanged(id),
 }
 
 export const backupService = new BackupService(
