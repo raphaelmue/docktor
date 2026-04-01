@@ -9,6 +9,7 @@ import type {StackStatus, BackupTrigger} from "../generated/prisma/enums.js"
 import type {ResticExecutor, BackupRepoConfig, RetentionPolicy, ResticSnapshot} from "../infrastructure/restic-executor.js"
 import type {BackupRepository} from "../repositories/backup-repository.js"
 import type {NotificationService} from "./notification-service.js"
+import type {DockerExecutor} from "../infrastructure/docker-executor.js"
 
 // ─── Module-level broadcaster map ────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export class BackupService {
         private readonly settings: BackupSettingsService,
         private readonly notificationService: NotificationService,
         private readonly filesystem: BackupFilesystem,
+        private readonly docker: DockerExecutor,
     ) {}
 
     // ── Public API ─────────────────────────────────────────────────────────────
@@ -216,6 +218,7 @@ export class BackupService {
     /**
      * Orchestrates a restore: stop → restic restore → redeploy.
      * Transitions stack to RESTORING, runs the sequence, then to RUNNING (or ERROR).
+     * Logs restore events to notification system.
      */
     async runRestore(stackId: string, snapshotId: string): Promise<{id: string}> {
         const stack = await this.stackRepo.findByIdOrThrow(stackId)
@@ -238,6 +241,14 @@ export class BackupService {
 
         const lines: string[] = []
 
+        // Send restore start notification
+        await this.notificationService.notify({
+            type: "backup_failure", // Reuse backup_failure type for restore events
+            stackId,
+            subject: `Restore started: ${stack.displayName ?? stackId}`,
+            message: `Restore started for stack "${stack.displayName ?? stackId}" from snapshot ${snapshotId}`,
+        })
+
         try {
             // Fetch repo config to build env for restic
             const repoConfig = await this.getBackupRepoConfig()
@@ -249,12 +260,22 @@ export class BackupService {
                 emitter.emit("line", line)
             }
 
-            // TODO: Wrap restore with docker compose down/up
-            // Currently only restores files; user must manually restart stack
-            // Requires DockerExecutor DI or StackService orchestration to avoid manual steps
+            // Step 1: Stop containers before restoring files
+            console.log(`[BackupService] Stopping stack ${stackId} before restore`)
+            try {
+                await this.docker.stop(stackId)
+            } catch (err) {
+                console.warn(`[BackupService] Stop failed (stack may already be stopped):`, err)
+                // Continue anyway — stack might already be stopped
+            }
 
-            // Restore snapshot to "." (current directory) by running from stack directory
+            // Step 2: Restore snapshot to "." (current directory) by running from stack directory
+            console.log(`[BackupService] Restoring snapshot ${snapshotId} to ${stackPath}`)
             await this.resticExecutor.run(["restore", snapshotId, "--target", "."], env, onLine, stackPath)
+
+            // Step 3: Redeploy containers with restored configuration
+            console.log(`[BackupService] Redeploying stack ${stackId} after restore`)
+            await this.docker.up(stackId)
 
             await this.backupRepo.update(backup.id, {
                 status: "COMPLETED",
@@ -262,10 +283,18 @@ export class BackupService {
                 logLines: lines,
             })
 
-            const targetStatus = stack.previousStatus ?? "RUNNING"
-            await this.stackRepo.update(stackId, {status: targetStatus})
+            await this.stackRepo.update(stackId, {status: "RUNNING"})
+
+            // Send restore success notification
+            await this.notificationService.notify({
+                type: "backup_failure", // Reuse backup_failure type
+                stackId,
+                subject: `Restore completed: ${stack.displayName ?? stackId}`,
+                message: `Restore completed successfully for stack "${stack.displayName ?? stackId}" from snapshot ${snapshotId}`,
+            })
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
+            console.error(`[BackupService] Restore failed:`, err)
 
             await this.backupRepo.update(backup.id, {
                 status: "FAILED",
@@ -282,6 +311,14 @@ export class BackupService {
                 subject: `Restore failed: ${stack.displayName ?? stackId}`,
                 message: `Restore failed for stack "${stack.displayName ?? stackId}". Snapshot: ${snapshotId}. Error: ${errorMessage}`,
             })
+
+            // Attempt to restart containers even if restore failed partially
+            try {
+                console.log(`[BackupService] Attempting to restart stack ${stackId} after restore failure`)
+                await this.docker.up(stackId)
+            } catch (restartErr) {
+                console.error(`[BackupService] Failed to restart stack after restore failure:`, restartErr)
+            }
         } finally {
             emitter.emit("done")
             backupBroadcasters.delete(backup.id)

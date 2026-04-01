@@ -49,6 +49,14 @@ function createMockStackFilesystem() {
     };
 }
 
+function createMockDockerExecutor() {
+    return {
+        up: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockResolvedValue(undefined),
+        restart: vi.fn().mockResolvedValue(undefined),
+    };
+}
+
 describe("BackupService", () => {
     let service: BackupService;
     let mockResticExecutor: ReturnType<typeof createMockResticExecutor>;
@@ -57,6 +65,7 @@ describe("BackupService", () => {
     let mockSettingsService: ReturnType<typeof createMockSettingsService>;
     let mockNotificationService: ReturnType<typeof createMockNotificationService>;
     let mockStackFilesystem: ReturnType<typeof createMockStackFilesystem>;
+    let mockDockerExecutor: ReturnType<typeof createMockDockerExecutor>;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -66,6 +75,7 @@ describe("BackupService", () => {
         mockSettingsService = createMockSettingsService();
         mockNotificationService = createMockNotificationService();
         mockStackFilesystem = createMockStackFilesystem();
+        mockDockerExecutor = createMockDockerExecutor();
 
         service = new BackupService(
             mockResticExecutor as any,
@@ -74,6 +84,7 @@ describe("BackupService", () => {
             mockSettingsService as any,
             mockNotificationService as any,
             mockStackFilesystem as any,
+            mockDockerExecutor as any,
         );
 
         // Default: stack exists and is running
@@ -370,27 +381,26 @@ services:
         it("stops the stack before restoring", async () => {
             await service.runRestore("stack-1", snapshotId);
 
-            // Should call docker compose stop before restore
-            expect(mockResticExecutor.run).toHaveBeenCalledWith(
-                expect.not.arrayContaining(["restore"]),
-                expect.any(Object),
-                expect.any(Function),
-            );
+            // Should call docker.stop before restore
+            expect(mockDockerExecutor.stop).toHaveBeenCalledWith("stack-1");
         });
 
-        it("calls resticExecutor.run with restore args and --target /", async () => {
+        it("calls resticExecutor.run with restore args and --target .", async () => {
             await service.runRestore("stack-1", snapshotId);
 
             expect(mockResticExecutor.run).toHaveBeenCalledWith(
-                expect.arrayContaining(["restore", snapshotId, "--target", "/"]),
+                expect.arrayContaining(["restore", snapshotId, "--target", "."]),
                 expect.any(Object),
                 expect.any(Function),
+                ".", // cwd parameter
             );
         });
 
         it("redeploys stack after successful restore", async () => {
             await service.runRestore("stack-1", snapshotId);
 
+            // Should call docker.up after restore
+            expect(mockDockerExecutor.up).toHaveBeenCalledWith("stack-1");
             expect(mockStackRepository.update).toHaveBeenCalledWith(
                 "stack-1",
                 expect.objectContaining({status: "RUNNING"}),

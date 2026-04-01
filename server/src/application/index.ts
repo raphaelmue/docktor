@@ -45,6 +45,7 @@ export const backupService = new BackupService(
     settingsService,
     notificationService,
     fs,
+    docker,
 );
 
 export {getBackupBroadcaster} from "./backup-service.js";
