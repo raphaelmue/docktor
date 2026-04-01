@@ -153,6 +153,7 @@ Recent decisions affecting current work:
 | ID | Description | Commit | Duration |
 |----|-------------|--------|----------|
 | Q001 | Fix restic restore target path (Windows permission error) | 75b8db2 | 10 min |
+| Q002 | Fix restic to use relative paths for backup/restore | c0302fa | 20 min |
 
 ### Pending Todos
 
