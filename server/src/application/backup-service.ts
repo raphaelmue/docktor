@@ -247,14 +247,12 @@ export class BackupService {
                 emitter.emit("line", line)
             }
 
-            // Stop the stack before restoring (docker compose down equivalent)
-            await this.resticExecutor.run(["--no-op-stop"], env, onLine)
+            // TODO: Wrap restore with docker compose down/up
+            // Currently only restores files; user must manually restart stack
+            // Requires DockerExecutor DI or StackService orchestration to avoid manual steps
 
             // Restore snapshot to /
             await this.resticExecutor.run(["restore", snapshotId, "--target", "/"], env, onLine)
-
-            // Redeploy the stack
-            await this.resticExecutor.run(["--no-op-redeploy"], env, onLine)
 
             await this.backupRepo.update(backup.id, {
                 status: "COMPLETED",
