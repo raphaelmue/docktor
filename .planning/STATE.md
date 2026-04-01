@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 04-10-PLAN.md
-last_updated: "2026-04-01T09:15:03.811Z"
+stopped_at: Completed 04-12-PLAN.md
+last_updated: "2026-04-01T13:48:28.458Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 30
+  completed_plans: 30
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 04 (backup-restore) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Plan: 5 of 8
 | Phase 04 P07 | 6 | 2 tasks | 0 files |
 | Phase 04 P11 | 3 | 3 tasks | 1 files |
 | Phase 04 P10 | 7 | 3 tasks | 2 files |
+| Phase 04 P12 | 161 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,10 @@ Recent decisions affecting current work:
 - [Phase 04]: Prisma 7 requires --config flag when config is not in default location
 - [Phase 04-11]: Fire-and-forget pattern for scheduled backup execution matches routes/backups.ts pattern
 - [Phase 04-backup-restore]: ResticExecutor emits stderr lines to onLine callback with [stderr] prefix for UI diagnosis
+- [Phase 04]: Breadcrumb preserves tab context for all non-overview tabs (not just backups)
+- [Phase 04]: ScrollArea limited to h-96 (384px) for backup history table
+- [Phase 04]: Snapshots sorted by time descending using Date.getTime() comparison
+- [Phase 04]: Invalid restic commands removed entirely; TODO added for docker compose orchestration
 
 ### Pending Todos
 
@@ -151,6 +156,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T09:15:03.802Z
-Stopped at: Completed 04-10-PLAN.md
+Last session: 2026-04-01T13:48:28.445Z
+Stopped at: Completed 04-12-PLAN.md
 Resume file: None
