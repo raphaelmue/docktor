@@ -105,7 +105,7 @@ Plans:
 - [x] 04-11-PLAN.md — Gap closure: BackupScheduler crash fix + repository wiring
 - [x] 04-12-PLAN.md — Gap closure: stackPath undefined handling
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
-- [ ] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
+- [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 ### Phase 5: Onboarding
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
 **Depends on**: Phase 1, Phase 2, Phase 4
