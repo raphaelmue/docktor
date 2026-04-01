@@ -243,6 +243,13 @@ describe("ResticExecutor", () => {
 
             expect(args).toContain("--json");
         });
+
+        it("includes --exclude <stackPath>/backups to prevent circular backup", () => {
+            const args = executor.buildBackupArgs("/stacks/myapp", "stack-abc");
+
+            expect(args).toContain("--exclude");
+            expect(args).toContain("/stacks/myapp/backups");
+        });
     });
 
     describe("forget args", () => {
