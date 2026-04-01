@@ -148,11 +148,18 @@ let _scheduler: BackupScheduler | null = null
 async function createProductionScheduler(): Promise<BackupScheduler> {
     const {backupService, settingsService} = await import("../application/index.js")
     const {stackRepository} = await import("../repositories/stack-repository.js")
+    const {backupRepository} = await import("../repositories/backup-repository.js")
 
     return new BackupScheduler(
         backupService,
-        {findAllWithSchedule: () => stackRepository.findAll()},
+        {
+            findAllWithSchedule: () => stackRepository.findAll(),
+            findByIdOrThrow: (id: string) => stackRepository.findByIdOrThrow(id),
+        },
         settingsService,
+        {
+            findByIdOrThrow: (id: string) => backupRepository.findByIdOrThrow(id),
+        },
     )
 }
 
