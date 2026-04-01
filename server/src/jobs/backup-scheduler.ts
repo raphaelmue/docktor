@@ -4,11 +4,21 @@ import cron from "node-cron"
 
 export interface BackupSchedulerService {
     initiateBackup(stackId: string, trigger: "MANUAL" | "SCHEDULED"): Promise<{id: string} | undefined>
-    runBackup(...args: unknown[]): Promise<void>
+    runBackup(
+        backupRecord: {id: string; stackId: string; logLines: string[]},
+        stack: {id: string; hostPath?: string; status: string; previousStatus: string | null; backupPreHook: string | null; backupPostHook: string | null; backupSchedule: string | null; backupRetention: string | null},
+        repoConfig: {repoType: "local" | "sftp" | "s3"; password: string; repoPath?: string; sftpHost?: string; sftpUser?: string; sftpKey?: string; s3Endpoint?: string; s3Bucket?: string; s3AccessKey?: string; s3SecretKey?: string},
+    ): Promise<void>
+    getBackupRepoConfig(): Promise<{repoType: "local" | "sftp" | "s3"; password: string; repoPath?: string; sftpHost?: string; sftpUser?: string; sftpKey?: string; s3Endpoint?: string; s3Bucket?: string; s3AccessKey?: string; s3SecretKey?: string} | null>
 }
 
 export interface BackupSchedulerStackRepo {
     findAllWithSchedule(): Promise<Array<{id: string; backupSchedule: string | null}>>
+    findByIdOrThrow(id: string): Promise<{id: string; hostPath?: string; status: string; previousStatus: string | null; backupPreHook: string | null; backupPostHook: string | null; backupSchedule: string | null; backupRetention: string | null}>
+}
+
+export interface BackupSchedulerBackupRepo {
+    findByIdOrThrow(id: string): Promise<{id: string; stackId: string; logLines: string[]}>
 }
 
 export interface BackupSchedulerSettings {
