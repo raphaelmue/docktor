@@ -60,6 +60,7 @@ export class ResticExecutor {
 
             let stderrBuf = "";
             let lineBuf = "";
+            let stderrLineBuf = "";
 
             child.stdout.on("data", (chunk: Buffer) => {
                 const text = chunk.toString("utf8")
@@ -77,15 +78,29 @@ export class ResticExecutor {
             });
 
             child.stderr.on("data", (chunk: Buffer) => {
-                stderrBuf += chunk.toString("utf8");
+                const text = chunk.toString("utf8");
+                stderrBuf += text;  // Keep accumulating for error message
+
+                // Also emit lines to onLine callback with [stderr] prefix
+                stderrLineBuf += text;
+                const lines = stderrLineBuf.split("\n");
+                stderrLineBuf = lines.pop() ?? "";
+                for (const line of lines) {
+                    if (line.trim()) {
+                        console.log(`[ResticExecutor] Emitting stderr: ${line.substring(0, 80)}`);
+                        onLine?.(`[stderr] ${line}`);
+                    }
+                }
             });
 
             child.on("error", reject);
 
             child.on("close", (code) => {
                 console.log(`[ResticExecutor] Process exited with code ${code}`)
-                // Flush any partial line remaining in the buffer
-                if (lineBuf.trim()) onLine?.(lineBuf);
+                // Flush any partial stdout line remaining in the buffer
+                if (lineBuf.trim()) onLine?.(lineBuf.trim());
+                // Flush any partial stderr line remaining in the buffer
+                if (stderrLineBuf.trim()) onLine?.(`[stderr] ${stderrLineBuf.trim()}`);
 
                 const exitCode = code ?? 1;
                 if (exitCode !== 0) {
