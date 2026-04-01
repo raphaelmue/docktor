@@ -90,7 +90,7 @@ Plans:
   3. User can configure a per-stack backup schedule and retention policy; scheduled backups run automatically
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
-**Plans**: 6 plans
+**Plans**: 13 plans
 
 Plans:
 - [x] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
@@ -99,7 +99,13 @@ Plans:
 - [x] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
 - [x] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
 - [x] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
-
+- [x] 04-07-PLAN.md — Gap closure: logLines database column sync + backup record validation
+- [x] 04-08-PLAN.md — Gap closure: ResticExecutor throw on non-zero exit codes
+- [x] 04-10-PLAN.md — Gap closure: stderr capture in backup logs
+- [x] 04-11-PLAN.md — Gap closure: BackupScheduler crash fix + repository wiring
+- [x] 04-12-PLAN.md — Gap closure: stackPath undefined handling
+- [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
+- [ ] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 ### Phase 5: Onboarding
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
 **Depends on**: Phase 1, Phase 2, Phase 4
