@@ -33,7 +33,10 @@ export function SnapshotsSection({stackId, stackName, stackStatus}: SnapshotsSec
         setError(false);
         try {
             const data = await getSnapshots(stackId);
-            setSnapshots(data);
+            const sortedData = data.sort((a, b) =>
+                new Date(b.time).getTime() - new Date(a.time).getTime()
+            );
+            setSnapshots(sortedData);
         } catch {
             setError(true);
         } finally {

@@ -4,6 +4,7 @@ import {Link} from "react-router";
 import {getBackups, type BackupRecord} from "@/lib/backups-api";
 import {BackupStatusBadge} from "@/components/domain/backup/backup-status-badge";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
+import {ScrollArea} from "@/components/ui/scroll-area";
 
 interface BackupHistoryProps {
     readonly stackId: string;
@@ -107,7 +108,7 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
 
     return (
         <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Backup History</h2>
+            <h2 className="text-lg font-semibold">History</h2>
 
             {loading ? (
                 <p className="text-muted-foreground text-sm">Loading...</p>
@@ -119,49 +120,51 @@ export function BackupHistory({stackId}: BackupHistoryProps) {
                     </p>
                 </div>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Trigger</TableHead>
-                            <TableHead>Started</TableHead>
-                            <TableHead>Duration</TableHead>
-                            <TableHead>Size</TableHead>
-                            <TableHead></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {backups.map((backup) => (
-                            <TableRow key={backup.id}>
-                                <TableCell>
-                                    <BackupStatusBadge status={backup.status} />
-                                </TableCell>
-                                <TableCell>
-                                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                                        {TRIGGER_LABELS[backup.trigger]}
-                                    </span>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    {new Date(backup.startedAt).toLocaleString()}
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                    {formatDuration(backup.startedAt, backup.completedAt)}
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                    {formatSize(backup.sizeBytes)}
-                                </TableCell>
-                                <TableCell>
-                                    <Link
-                                        to={`/stacks/${stackId}/backups/${backup.id}`}
-                                        className="text-sm text-primary hover:underline"
-                                    >
-                                        View details
-                                    </Link>
-                                </TableCell>
+                <ScrollArea className="h-96">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Trigger</TableHead>
+                                <TableHead>Started</TableHead>
+                                <TableHead>Duration</TableHead>
+                                <TableHead>Size</TableHead>
+                                <TableHead></TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {backups.map((backup) => (
+                                <TableRow key={backup.id}>
+                                    <TableCell>
+                                        <BackupStatusBadge status={backup.status} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                                            {TRIGGER_LABELS[backup.trigger]}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        {new Date(backup.startedAt).toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                        {formatDuration(backup.startedAt, backup.completedAt)}
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                        {formatSize(backup.sizeBytes)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Link
+                                            to={`/stacks/${stackId}/backups/${backup.id}`}
+                                            className="text-sm text-primary hover:underline"
+                                        >
+                                            View details
+                                        </Link>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
             )}
         </div>
     );
