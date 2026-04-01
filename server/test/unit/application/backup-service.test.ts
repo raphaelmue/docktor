@@ -1,5 +1,6 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {BackupService} from "../../../src/application/backup-service.js";
+import path from "node:path";
 
 function createMockResticExecutor() {
     return {
@@ -435,6 +436,31 @@ services:
 
             expect(resultNull).toBeUndefined();
             expect(resultEmpty).toBeUndefined();
+        });
+    });
+
+    describe("buildEnv path construction", () => {
+        it("handles Windows absolute paths correctly", () => {
+            const repoConfig = {repoType: "local" as const, password: "test"};
+            const windowsPath = "C:\\Users\\D070307\\workspace\\docktor\\server\\dev-data\\stacks\\memos";
+
+            const env = (service as any).buildEnv(repoConfig, windowsPath);
+
+            // Should resolve to stack-local backups directory without doubling drive letter
+            const expected = path.resolve(windowsPath, "backups");
+            expect(env.RESTIC_REPOSITORY).toBe(expected);
+            expect(env.RESTIC_REPOSITORY).not.toContain("C:\\C\\");
+        });
+
+        it("handles Unix absolute paths correctly", () => {
+            const repoConfig = {repoType: "local" as const, password: "test"};
+            const unixPath = "/opt/docktor/stacks/myapp";
+
+            const env = (service as any).buildEnv(repoConfig, unixPath);
+
+            // path.resolve on Windows converts Unix paths to Windows format
+            const expected = path.resolve(unixPath, "backups");
+            expect(env.RESTIC_REPOSITORY).toBe(expected);
         });
     });
 });
