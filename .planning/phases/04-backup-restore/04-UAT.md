@@ -1,9 +1,10 @@
 ---
-status: complete
+status: re-verification
 phase: 04-backup-restore
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md]
 started: 2026-03-20T00:00:00Z
-updated: 2026-03-31T00:00:00Z
+updated: 2026-04-01T10:45:00Z
+re_verification_date: 2026-04-01T10:45:00Z
 ---
 
 ## Current Test
@@ -53,27 +54,24 @@ result: pass
 
 ### 10. Stream Live Backup Logs
 expected: Click "View" link on an IN_PROGRESS backup from Backup History. Backup detail page opens. Log output streams in real-time from restic. Auto-scrolls to bottom as new lines appear. Status badge updates when backup completes or fails.
-result: issue
-reported: "it always says: No output yet..."
-severity: major
+result: pass
+note: Re-verified 2026-04-01 - Gap 5 fix confirmed working
 
 ### 11. View Completed Backup Logs
 expected: Click "View" link on a COMPLETED backup. Backup detail page displays stored log lines from the backup. No streaming occurs (backup already finished). All restic output visible.
-result: issue
-reported: "it just shows: No output yet..."
-severity: major
+result: pass
+note: Re-verified 2026-04-01 - Gap 6 fix confirmed working
 
 ### 12. View Failed Backup Error
 expected: Click "View" link on a FAILED backup. Backup detail page shows error alert with context-specific message. Log output shows where failure occurred.
 result: issue
-reported: "I can see the error message alert, but no logs."
+reported: "still no logs, only the error message." (re-verified 2026-04-01)
 severity: major
 
 ### 13. View Available Snapshots
 expected: In Backups tab, Snapshots section lists all restic snapshots for the stack. Each snapshot shows date, paths backed up. Refresh button allows manual snapshot list refresh.
-result: issue
-reported: "It says \"No snapshots found\", although there were successful backups."
-severity: blocker
+result: pass
+note: Re-verified 2026-04-01 - Gap 8 fix confirmed working
 
 ### 14. Initiate Restore from Snapshot
 expected: In Snapshots section, click "Restore" button on any snapshot. Restore confirmation dialog opens. Dialog warns about downtime and irreversibility. Text input requires typing exact stack name to enable confirm button.
@@ -114,7 +112,7 @@ result: pass
 ### 22. Scheduled Backup Execution
 expected: Configure a per-stack backup schedule (e.g., "*/5 * * * *" for every 5 minutes). Wait for cron schedule to trigger. After scheduled time, new backup record appears in Backup History with trigger type SCHEDULED. Backup runs automatically.
 result: issue
-reported: "Backup was not triggered automatically or failed. Also did not appear in the backup history: [server] [ResticExecutor] Running: restic [ 'snapshots', '--tag', 'memos', '--json' ]\n[server] [ResticExecutor] Process exited with code 10\n[server] [ResticExecutor] Running: restic [ 'snapshots', '--tag', 'memos', '--json' ]\n[server] [ResticExecutor] Process exited with code 10"
+reported: "server crashed, when running the scheduled backup: TypeError: Cannot read properties of undefined (reading 'id') at BackupService.runBackup" (re-verified 2026-04-01)
 severity: blocker
 
 ### 23. Retention Policy Enforcement
@@ -125,8 +123,8 @@ reason: skip, there were no snapshots created to test this.
 ## Summary
 
 total: 23
-passed: 13
-issues: 5
+passed: 16
+issues: 2
 pending: 0
 skipped: 5
 
@@ -223,3 +221,26 @@ skipped: 5
 **Impact:** Automated backups don't work; users must manually trigger every backup
 **Severity:** blocker
 **Fix:** Same fix as Gap 8 - fix ResticExecutor error handling to properly throw/handle exit code 10
+**Status:** Partially fixed in Plan 04-08 (ResticExecutor now throws errors), but new Gap 11 discovered
+
+### Gap 10: Failed backup error output not captured ⚠️ NEW
+**Test:** 12 (View Failed Backup Error) - re-verified 2026-04-01
+**Symptom:** Failed backups show error alert but no diagnostic logs in the UI
+**Root cause:** ResticExecutor.run() only pipes stdout to onLine callback (lines 64-77). stderr is captured into stderrBuf (lines 79-81) but never emitted to onLine. Restic writes error messages to stderr, not stdout. When backup fails, error output never gets captured in the lines[] array that's persisted to database.
+**Impact:** Users see that a backup failed but cannot diagnose why without server logs
+**Severity:** major
+**Fix:** Emit stderr lines to onLine callback in ResticExecutor.run() - either pipe stderr chunks through onLine, or combine stdout/stderr streams
+**Files:**
+- `server/src/infrastructure/restic-executor.ts` (lines 79-81: add stderr emission to onLine)
+**Debug session:** Manual re-verification 2026-04-01
+
+### Gap 11: BackupScheduler crashes when executing scheduled backups ⚠️ NEW
+**Test:** 22 (Scheduled Backup Execution) - re-verified 2026-04-01
+**Symptom:** Server crashes with "TypeError: Cannot read properties of undefined (reading 'id') at BackupService.runBackup" when scheduled backup triggers
+**Root cause:** BackupScheduler.runScheduledBackup() calls `this.service.runBackup(result.id)` with only the backup ID (line 104), but BackupService.runBackup() expects three parameters: (backupRecord, stack, repoConfig). The route handler in routes/backups.ts correctly fetches all three (lines 42-48), but BackupScheduler doesn't.
+**Impact:** Scheduled backups crash the server; automated backups are completely broken
+**Severity:** blocker
+**Fix:** Fetch backupRecord, stack, and repoConfig in BackupScheduler.runScheduledBackup() before calling runBackup - match the pattern from routes/backups.ts lines 42-48
+**Files:**
+- `server/src/jobs/backup-scheduler.ts` (lines 100-109: runScheduledBackup method)
+**Debug session:** Manual re-verification 2026-04-01
