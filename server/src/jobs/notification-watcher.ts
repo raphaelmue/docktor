@@ -40,9 +40,9 @@ export class NotificationWatcher {
     }
 
     async handleStateEvent(event: StateEvent): Promise<void> {
-        console.log("[NotificationWatcher] Received event:", event.type, event.type === "container_state" ? `stackId=${event.stackId} status=${event.stackStatus}` : "")
+        console.log("[NotificationWatcher] Received event:", event.type, event.type === "container_state" || event.type === "stack_status" ? `stackId=${event.stackId} status=${event.stackStatus}` : "")
 
-        if (event.type !== "container_state") return
+        if (event.type !== "container_state" && event.type !== "stack_status") return
 
         const {stackId, stackStatus} = event
 
