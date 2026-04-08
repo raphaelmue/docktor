@@ -633,6 +633,7 @@ __metadata:
     "@types/semver": "npm:^7.7.1"
     chokidar: "npm:^4.0.3"
     dockerode: "npm:^4.0.4"
+    fast-glob: "npm:^3.3.3"
     fastify: "npm:^5.2.1"
     fastify-type-provider-zod: "npm:^6.1.0"
     node-cron: "npm:^3.0.3"
