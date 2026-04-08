@@ -8,11 +8,11 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import {Button} from "@/components/ui/button";
 import type {WizardStep1Input, WizardStep2Input, WizardStep3Input, WizardStep4Input} from "@docktor/shared";
 
-// Step components will be added by Plan 05-07
-// import {AccountStep} from "@/routes/setup/components/account-step";
-// import {SettingsStep} from "@/routes/setup/components/settings-step";
-// import {BackupStep} from "@/routes/setup/components/backup-step";
-// import {NotificationsStep} from "@/routes/setup/components/notifications-step";
+import {AccountStep} from "@/routes/setup/components/account-step";
+import {SettingsStep} from "@/routes/setup/components/settings-step";
+import {BackupStep} from "@/routes/setup/components/backup-step";
+import {NotificationsStep} from "@/routes/setup/components/notifications-step";
+// BrownfieldStep will be added by Plan 05-06
 // import {BrownfieldStep} from "@/routes/setup/components/brownfield-step";
 
 export default function SetupPage() {
@@ -144,42 +144,6 @@ export default function SetupPage() {
     );
   }
 
-  // Placeholder until step components are added by Plan 05-07
-  const renderCurrentStep = () => {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle>Step {currentStep}</CardTitle>
-          <CardDescription>
-            Step components will be added by Plan 05-07
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Current step: {currentStep}, Loading: {stepLoading ? "yes" : "no"}
-          </p>
-          <div className="flex gap-2 mt-4">
-            {currentStep > 1 && (
-              <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
-                Back
-              </Button>
-            )}
-            {currentStep < 5 && (
-              <Button onClick={() => handleSkip(currentStep)}>
-                Next (placeholder)
-              </Button>
-            )}
-            {currentStep === 5 && (
-              <Button onClick={handleFinish}>
-                Finish
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <h1 className="text-2xl font-bold mb-6">Setup Wizard</h1>
@@ -190,7 +154,49 @@ export default function SetupPage() {
         onStepClick={handleStepClick}
       />
 
-      {renderCurrentStep()}
+      {currentStep === 1 && (
+        <AccountStep onNext={handleStep1} loading={stepLoading} />
+      )}
+      {currentStep === 2 && (
+        <SettingsStep
+          onNext={handleStep2}
+          onBack={() => setCurrentStep(1)}
+          loading={stepLoading}
+        />
+      )}
+      {currentStep === 3 && (
+        <BackupStep
+          onNext={handleStep3}
+          onBack={() => setCurrentStep(2)}
+          onSkip={() => handleSkip(3)}
+          loading={stepLoading}
+        />
+      )}
+      {currentStep === 4 && (
+        <NotificationsStep
+          onNext={handleStep4}
+          onBack={() => setCurrentStep(3)}
+          onSkip={() => handleSkip(4)}
+          loading={stepLoading}
+        />
+      )}
+      {currentStep === 5 && (
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle>Import Existing Stacks</CardTitle>
+            <CardDescription>
+              Brownfield import will be available after Plan 05-06 is complete.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setCurrentStep(4)}>Back</Button>
+              <Button variant="ghost" onClick={() => handleSkip(5)}>Skip</Button>
+              <Button onClick={handleFinish}>Finish Setup</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
