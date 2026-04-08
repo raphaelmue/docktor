@@ -1,0 +1,119 @@
+import {apiFetch} from "./api";
+import type {
+  WizardStep1Input,
+  WizardStep2Input,
+  WizardStep3Input,
+  WizardStep4Input,
+} from "@docktor/shared";
+
+export interface SetupStatus {
+  setupComplete: boolean;
+}
+
+export interface Step1Result {
+  user: {id: string; email: string; name: string | null};
+  sessionToken: string;
+}
+
+export interface ScanResult {
+  stacks: DiscoveredStack[];
+  skippedDirectories: number;
+}
+
+export interface DiscoveredStack {
+  path: string;
+  directory: string;
+  compatibility: "green" | "yellow" | "red";
+  serviceCount: number;
+  namedVolumes: string[];
+  absolutePaths: string[];
+  inlineEnvVars: boolean;
+  unsupportedFeatures: string[];
+}
+
+export interface VolumeSelection {
+  originalPath: string;
+  newPath: string;
+  convert: boolean;
+}
+
+export interface MigrationPreview {
+  diff: string;
+  extractedEnv: string;
+}
+
+export interface MigrationResult {
+  success: boolean;
+  stackId?: string;
+  error?: string;
+  originalPath: string;
+}
+
+export function checkSetupStatus() {
+  return apiFetch<SetupStatus>("/api/setup/status");
+}
+
+export function submitStep1(input: WizardStep1Input) {
+  return apiFetch<Step1Result>("/api/setup/step1", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitStep2(input: WizardStep2Input) {
+  return apiFetch<{success: boolean}>("/api/setup/step2", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitStep3(input: WizardStep3Input) {
+  return apiFetch<{success: boolean}>("/api/setup/step3", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitStep4(input: WizardStep4Input) {
+  return apiFetch<{success: boolean}>("/api/setup/step4", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function scanDirectories(directories: string[]) {
+  return apiFetch<ScanResult>("/api/setup/scan", {
+    method: "POST",
+    body: JSON.stringify({directories}),
+  });
+}
+
+export function adoptStack(composePath: string, displayName: string) {
+  return apiFetch<{id: string}>("/api/setup/adopt", {
+    method: "POST",
+    body: JSON.stringify({composePath, displayName}),
+  });
+}
+
+export function previewMigration(
+  composePath: string,
+  volumeSelections: VolumeSelection[],
+  namedVolumeSelections: Record<string, boolean>,
+) {
+  return apiFetch<MigrationPreview>("/api/setup/migrate/preview", {
+    method: "POST",
+    body: JSON.stringify({composePath, volumeSelections, namedVolumeSelections}),
+  });
+}
+
+export function executeMigration(
+  composePath: string,
+  displayName: string,
+  volumeSelections: VolumeSelection[],
+  namedVolumeSelections: Record<string, boolean>,
+) {
+  return apiFetch<MigrationResult>("/api/setup/migrate", {
+    method: "POST",
+    body: JSON.stringify({composePath, displayName, volumeSelections, namedVolumeSelections}),
+  });
+}
