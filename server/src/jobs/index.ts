@@ -14,7 +14,7 @@ export async function startJobs(): Promise<void> {
     await fileWatcher.start()
     await updateChecker.start()
     await diskChecker.start()
-    notificationWatcher.start()
+    await notificationWatcher.start()
     await backupScheduler.start()
 }
 
