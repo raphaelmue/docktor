@@ -3,6 +3,7 @@ import {z} from "zod";
 import {prisma} from "../lib/db.js";
 import {onboardingService} from "../application/onboarding-service.js";
 import {brownfieldScanner} from "../infrastructure/brownfield-scanner.js";
+import {migrationService} from "../application/migration-service.js";
 import {
     wizardStep1Schema,
     wizardStep2Schema,
@@ -111,6 +112,60 @@ const setupRoutes: FastifyPluginAsyncZod = async (app) => {
             const {composePath, displayName} = request.body;
             const content = await fs.readFile(composePath, "utf-8");
             const result = await onboardingService.adoptInPlace(composePath, displayName, content);
+            return result;
+        },
+    );
+
+    // Preview migration changes
+    app.post(
+        "/api/setup/migrate/preview",
+        {
+            schema: {
+                body: z.object({
+                    composePath: z.string(),
+                    volumeSelections: z.array(z.object({
+                        originalPath: z.string(),
+                        newPath: z.string(),
+                        convert: z.boolean(),
+                    })),
+                    namedVolumeSelections: z.record(z.string(), z.boolean()),
+                }),
+            },
+        },
+        async (request) => {
+            const {composePath, volumeSelections, namedVolumeSelections} = request.body;
+            const namedVolMap = new Map(Object.entries(namedVolumeSelections) as [string, boolean][]);
+            const result = await migrationService.previewMigration(composePath, volumeSelections, namedVolMap);
+            return result;
+        },
+    );
+
+    // Execute migration
+    app.post(
+        "/api/setup/migrate",
+        {
+            schema: {
+                body: z.object({
+                    composePath: z.string(),
+                    displayName: z.string().min(1),
+                    volumeSelections: z.array(z.object({
+                        originalPath: z.string(),
+                        newPath: z.string(),
+                        convert: z.boolean(),
+                    })),
+                    namedVolumeSelections: z.record(z.string(), z.boolean()),
+                }),
+            },
+        },
+        async (request) => {
+            const {composePath, displayName, volumeSelections, namedVolumeSelections} = request.body;
+            const namedVolMap = new Map(Object.entries(namedVolumeSelections) as [string, boolean][]);
+            const result = await migrationService.migrate({
+                composePath,
+                displayName,
+                volumeSelections,
+                namedVolumeSelections: namedVolMap,
+            });
             return result;
         },
     );
