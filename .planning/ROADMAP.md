@@ -85,7 +85,7 @@ Plans:
 **Depends on**: Phase 1
 **Requirements**: BCK-01, BCK-02, BCK-03, BCK-04, BCK-05, BCK-06, BCK-07, BCK-08, BCK-09, BCK-10, BCK-11
 **Success Criteria** (what must be TRUE):
-  1. User can configure a restic repository (local path, SFTP, or S3) and password in Settings; password is stored encrypted
+  1. User can configure a restic repository (local path, SFTP, or S3-compatible) and password in Settings; password is stored encrypted
   2. User can trigger a manual backup for any stack and see streaming progress output in the UI
   3. User can configure a per-stack backup schedule and retention policy; scheduled backups run automatically
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
@@ -106,6 +106,7 @@ Plans:
 - [x] 04-12-PLAN.md — Gap closure: stackPath undefined handling
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
+
 ### Phase 5: Onboarding
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
 **Depends on**: Phase 1, Phase 2, Phase 4
@@ -116,7 +117,15 @@ Plans:
   3. User can scan the host filesystem for existing docker-compose.yml files and see a compatibility assessment for each
   4. User can adopt a discovered stack in-place with zero downtime, and it immediately appears in the dashboard with live status
   5. User can run the full migration wizard to move a stack into Docktor's directory structure, with automatic rollback on failure
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds (Wave 0)
+- [ ] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure
+- [ ] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect
+- [ ] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService
+- [ ] 05-05-PLAN.md — Wizard UI (steps 1-4) + stepper + route registration
+- [ ] 05-06-PLAN.md — Brownfield step UI + migration wizard + adopt-in-place
 
 ### Phase 6: Proxy Configuration
 **Goal**: Users can configure domain and TLS exposure for any service directly from the stack detail page, without touching Nginx configuration manually
@@ -140,5 +149,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
-| 5. Onboarding | 0/? | Not started | - |
+| 5. Onboarding | 0/6 | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |
