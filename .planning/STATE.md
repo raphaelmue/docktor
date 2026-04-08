@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: Phase complete — ready for verification
 stopped_at: Completed 05-06-PLAN.md
-last_updated: "2026-04-08T15:27:44.804Z"
+last_updated: "2026-04-08T15:28:17.599Z"
 progress:
   total_phases: 6
   completed_phases: 5
@@ -161,6 +161,7 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Server unit tests use expect(true).toBe(false) for RED state; E2E tests use test.skip()
 - [Phase 05-03]: OnboardingService uses constructor DI for better-auth, settings, crypto, stack repo
 - [Phase 05-05]: Custom WizardStepper component built instead of third-party to avoid registry safety gate
+- [Phase 05-06]: Fire-and-forget migration pattern with toast notifications — modal closes immediately after user confirms, migration runs in background
 
 ### Quick Tasks Completed
 

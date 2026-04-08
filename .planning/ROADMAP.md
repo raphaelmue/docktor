@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Observability** - Detect external compose file changes and surface image update availability (completed 2026-03-15)
 - [x] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP (completed 2026-03-20)
 - [ ] **Phase 4: Backup & Restore** - Enable encrypted, versioned stack backups with manual and scheduled restore
-- [ ] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import
+- [x] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import (completed 2026-04-08)
 - [ ] **Phase 6: Proxy Configuration** - Configure domain and TLS for services via Nginx Proxy Manager integration
 
 ## Phase Details
@@ -125,8 +125,8 @@ Plans:
 - [x] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
 - [x] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService (Wave 3)
 - [x] 05-05-PLAN.md — Setup API client + WizardStepper + setup page shell (Wave 3)
-- [ ] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
-- [ ] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
+- [x] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
+- [x] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
 - [x] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
 
 ### Phase 6: Proxy Configuration
@@ -151,5 +151,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
-| 5. Onboarding | 6/8 | In Progress|  |
+| 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
 | 6. Proxy Configuration | 0/? | Not started | - |

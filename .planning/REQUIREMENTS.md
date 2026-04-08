@@ -73,7 +73,7 @@
 
 - [x] **BF-01**: User can trigger a scan of the host filesystem for docker-compose.yml files
 - [x] **BF-02**: Scan results show: directory path, service names, images, container state, and compatibility assessment (named volumes, inline env vars, non-standard paths)
-- [ ] **BF-03**: User can adopt a discovered stack in-place: registers it in the DB without moving files (zero downtime, zero risk)
+- [x] **BF-03**: User can adopt a discovered stack in-place: registers it in the DB without moving files (zero downtime, zero risk)
 - [x] **BF-04**: User can run a full migration wizard: stop → copy to /stacks/<id>/ → convert named volumes to bind mounts → extract env vars to .env → rewrite paths → restart
 - [x] **BF-05**: Full migration includes rollback on failure and user-initiated cleanup of old files after confirming success
 
@@ -161,7 +161,7 @@
 | WIZ-07 | Phase 5 | Complete |
 | BF-01 | Phase 5 | Complete |
 | BF-02 | Phase 5 | Complete |
-| BF-03 | Phase 5 | Pending |
+| BF-03 | Phase 5 | Complete |
 | BF-04 | Phase 5 | Complete |
 | BF-05 | Phase 5 | Complete |
 | PRXY-01 | Phase 6 | Pending |
