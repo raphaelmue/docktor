@@ -12,8 +12,7 @@ import {AccountStep} from "@/routes/setup/components/account-step";
 import {SettingsStep} from "@/routes/setup/components/settings-step";
 import {BackupStep} from "@/routes/setup/components/backup-step";
 import {NotificationsStep} from "@/routes/setup/components/notifications-step";
-// BrownfieldStep will be added by Plan 05-06
-// import {BrownfieldStep} from "@/routes/setup/components/brownfield-step";
+import {BrownfieldStep} from "@/routes/setup/components/brownfield-step";
 
 export default function SetupPage() {
   const navigate = useNavigate();
@@ -181,21 +180,11 @@ export default function SetupPage() {
         />
       )}
       {currentStep === 5 && (
-        <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle>Import Existing Stacks</CardTitle>
-            <CardDescription>
-              Brownfield import will be available after Plan 05-06 is complete.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setCurrentStep(4)}>Back</Button>
-              <Button variant="ghost" onClick={() => handleSkip(5)}>Skip</Button>
-              <Button onClick={handleFinish}>Finish Setup</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <BrownfieldStep
+          onBack={() => setCurrentStep(4)}
+          onSkip={() => handleSkip(5)}
+          onFinish={handleFinish}
+        />
       )}
     </div>
   );
