@@ -6,6 +6,7 @@ import fastifyCors from "@fastify/cors";
 import {serializerCompiler, validatorCompiler, type ZodTypeProvider,} from "fastify-type-provider-zod";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import setupRoutes from "./routes/setup.js";
 import authRoutes from "./routes/auth.js";
 import stackRoutes from "./routes/stacks.js";
 import settingsRoutes from "./routes/settings.js";
@@ -14,6 +15,7 @@ import notificationRoutes from "./routes/notifications.js";
 import backupRoutes from "./routes/backups.js";
 import {AppError} from "./lib/errors.js";
 import {startJobs, stopJobs} from "./jobs/index.js";
+import {prisma} from "./lib/db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +51,29 @@ export async function buildApp() {
 
     await app.register(fastifyCookie);
 
+    // First-run detection: redirect to setup wizard if no users exist
+    app.addHook("onRequest", async (request, reply) => {
+        // Skip for setup routes, auth routes, and static assets
+        if (
+            request.url.startsWith("/api/setup") ||
+            request.url.startsWith("/api/auth/") ||
+            request.url === "/setup" ||
+            !request.url.startsWith("/api/")
+        ) {
+            return;
+        }
+
+        // Check if any users exist
+        const userCount = await prisma.user.count();
+
+        if (userCount === 0) {
+            return reply.status(503).send({
+                error: "Setup required",
+                redirectTo: "/setup",
+            });
+        }
+    });
+
     // Global error handler for AppError subclasses
     app.setErrorHandler((error: FastifyError | AppError, _request, reply) => {
         if (error instanceof AppError) {
@@ -77,6 +102,7 @@ export async function buildApp() {
     });
 
     // API routes
+    await app.register(setupRoutes);
     await app.register(authRoutes);
     await app.register(stackRoutes);
     await app.register(settingsRoutes);
