@@ -120,7 +120,7 @@ Plans:
 **Plans**: 8 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
+- [x] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
 - [ ] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure (Wave 2)
 - [ ] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
 - [ ] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService (Wave 3)

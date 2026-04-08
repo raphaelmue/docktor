@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Phase 5 context gathered
-last_updated: "2026-04-08T11:37:18.396Z"
+status: Executing
+stopped_at: Phase 05 Plan 01 complete
+last_updated: "2026-04-08T14:52:13Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 32
-  completed_plans: 32
-  percent: 100
+  total_plans: 40
+  completed_plans: 33
+  percent: 83
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 04 — backup-restore
+**Current focus:** Phase 05 — onboarding
 
 ## Current Position
 
-Phase: 04 (backup-restore) — EXECUTING
-Plan: 8 of 8
+Phase: 05 (onboarding) — EXECUTING
+Plan: 1 of 7
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Plan: 8 of 8
 | Phase 04 P12 | 161 | 2 tasks | 4 files |
 | Phase 04 P13 | 373 | 2 tasks | 4 files |
 | Phase 04 P14 | 5 | 2 tasks | 2 files |
+| Phase 05-onboarding P01 | 5 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,9 @@ Recent decisions affecting current work:
 - [Phase 04-backup-restore]: Use path.resolve() instead of path.join() for absolute path concatenation on Windows to prevent drive letter duplication
 - [Phase 04-backup-restore]: Hide repository path field for local backend in Settings UI with informational alert - field is never used for local backups
 - [Phase 04-14]: buildBackupArgs() excludes both /logs and /backups directories to prevent circular backup and log noise
+- [Phase 05-01]: Per-step Zod schemas (wizardStep1Schema through wizardStep5Schema) for granular wizard validation
+- [Phase 05-01]: Reuse backupSettingsSchema from Phase 4 for wizard step 3 (backup config)
+- [Phase 05-01]: Server unit tests use expect(true).toBe(false) for RED state; E2E tests use test.skip()
 
 ### Quick Tasks Completed
 
@@ -170,6 +174,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T11:37:18.391Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-onboarding/05-CONTEXT.md
+Last session: 2026-04-08T14:52:13Z
+Stopped at: Phase 05 Plan 01 complete
+Resume file: .planning/phases/05-onboarding/05-01-SUMMARY.md
