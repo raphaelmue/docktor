@@ -117,15 +117,17 @@ Plans:
   3. User can scan the host filesystem for existing docker-compose.yml files and see a compatibility assessment for each
   4. User can adopt a discovered stack in-place with zero downtime, and it immediately appears in the dashboard with live status
   5. User can run the full migration wizard to move a stack into Docktor's directory structure, with automatic rollback on failure
-**Plans**: 6 plans
+**Plans**: 8 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds (Wave 0)
-- [ ] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure
-- [ ] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect
-- [ ] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService
-- [ ] 05-05-PLAN.md — Wizard UI (steps 1-4) + stepper + route registration
-- [ ] 05-06-PLAN.md — Brownfield step UI + migration wizard + adopt-in-place
+- [ ] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
+- [ ] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure (Wave 2)
+- [ ] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
+- [ ] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService (Wave 3)
+- [ ] 05-05-PLAN.md — Setup API client + WizardStepper + setup page shell (Wave 3)
+- [ ] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
+- [ ] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
+- [ ] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
 
 ### Phase 6: Proxy Configuration
 **Goal**: Users can configure domain and TLS exposure for any service directly from the stack detail page, without touching Nginx configuration manually
@@ -149,5 +151,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Observability | 7/7 | Complete   | 2026-03-16 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
-| 5. Onboarding | 0/6 | Not started | - |
+| 5. Onboarding | 0/8 | Not started | - |
 | 6. Proxy Configuration | 0/? | Not started | - |
