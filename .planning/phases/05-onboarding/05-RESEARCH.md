@@ -648,22 +648,16 @@ function generateDiff(originalCompose: string, rewrittenCompose: string): string
 
 > All claims in this research were verified via npm registry, existing codebase patterns, or official documentation. No assumptions requiring user confirmation.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Question:** Should wizard progress be persisted in Settings table (resume wizard after browser close)?
-   - What we know: User can exit wizard mid-session, CONTEXT.md mentions "Settings key names for wizard progress tracking" as Claude's discretion
-   - What's unclear: Is resume capability MVP or nice-to-have?
-   - Recommendation: Defer to MVP+1. First version: wizard is single-session only (refresh = start over). Add Settings keys for step tracking in future iteration if users request it.
+   - **Resolution:** Defer to MVP+1. First version is single-session only (refresh = start over). Wizard progress persistence can be added in a future iteration if users request it. This keeps Phase 5 scope focused on the core onboarding flow.
 
 2. **Question:** Should brownfield scan cache results in database or always run fresh?
-   - What we know: Scan results are shown in wizard Step 5 and potentially on a dedicated `/setup/scan` page
-   - What's unclear: If user navigates away from Step 5 and returns, should results persist?
-   - Recommendation: Store scan results in BrownfieldRepository (Prisma model: scannedAt timestamp, results JSON) for session duration. Expire after 1 hour or when wizard completes. Avoids re-scanning on every Step 5 visit.
+   - **Resolution:** Store scan results in memory/session state only for MVP. No database persistence for scan results. When user navigates away from Step 5 and returns, trigger a fresh scan. This avoids adding a BrownfieldRepository/Prisma model in Phase 5. Database caching can be added post-MVP if scan performance becomes an issue.
 
 3. **Question:** What happens if user closes browser during background migration?
-   - What we know: Migration runs as background job (fire-and-forget), user can navigate away
-   - What's unclear: Should migration abort on server restart, or resume?
-   - Recommendation: Track migration state in database (MigrationJob model: status, stackId, createdAt). On server restart, check for in-progress migrations and mark as FAILED with "Server restarted during migration" reason. User can retry. Resume logic is complex (requires idempotent steps) — defer to future iteration.
+   - **Resolution:** Fire-and-forget pattern with graceful degradation. Migration job completes in background regardless of browser state. Stack status will show DEPLOYING during migration and transition to RUNNING/ERROR when complete. Server restart during migration: existing DEPLOYING stacks remain in that state (user can manually restart or re-deploy). Resume/recovery logic is deferred to future iteration.
 
 ## Environment Availability
 
