@@ -13,6 +13,7 @@ import CreateStackPage from "@/routes/app/stacks/create";
 import StackDetailPage from "@/routes/app/stacks/[id]";
 import SettingsPage from "@/routes/app/settings";
 import BackupDetailPage from "@/routes/app/stacks/backups/[backupId]";
+import SetupPage from "./routes/setup";
 
 function ProtectedRoute({children}: Readonly<{children: React.ReactNode}>) {
     const {data: session, isPending} = useSession();
@@ -39,6 +40,7 @@ function App() {
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/setup" element={<SetupPage />} />
                 <Route
                     element={
                         <ProtectedRoute>
