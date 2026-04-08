@@ -83,7 +83,7 @@ export class BrownfieldScanner {
         }
 
         // Deduplicate (same file might be found from overlapping directory scans)
-        const uniqueFiles = [...new Set(foundFiles)];
+        const uniqueFiles = Array.from(new Set(foundFiles));
 
         // Parse each compose file and assess compatibility
         const stacks: DiscoveredStack[] = [];
