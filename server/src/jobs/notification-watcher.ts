@@ -40,6 +40,8 @@ export class NotificationWatcher {
     }
 
     async handleStateEvent(event: StateEvent): Promise<void> {
+        console.log("[NotificationWatcher] Received event:", event.type, event.type === "container_state" ? `stackId=${event.stackId} status=${event.stackStatus}` : "")
+
         if (event.type !== "container_state") return
 
         const {stackId, stackStatus} = event
@@ -60,12 +62,16 @@ export class NotificationWatcher {
             if (!active.has("error")) {
                 active.add("error")
                 const timestamp = new Date().toISOString()
+                console.log(`[NotificationWatcher] Creating stack_error notification for ${stackId}`)
                 await this.notificationService.notify({
                     type: "stack_error",
                     stackId,
                     subject: `Stack error: ${stackId}`,
                     message: `Stack ${stackId} entered ERROR state at ${timestamp}\n\nThis notification will not repeat until the stack recovers.`,
                 })
+                console.log(`[NotificationWatcher] stack_error notification created for ${stackId}`)
+            } else {
+                console.log(`[NotificationWatcher] Skipping duplicate error notification for ${stackId}`)
             }
             return
         }

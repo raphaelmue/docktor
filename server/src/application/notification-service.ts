@@ -37,6 +37,8 @@ export class NotificationService {
     ) {}
 
     async notify(event: NotificationEvent): Promise<void> {
+        console.log("[NotificationService] notify() called with:", {type: event.type, stackId: event.stackId, subject: event.subject})
+
         const toggleKey =
             event.type === "disk_warning"
                 ? "notify.diskWarning"
@@ -44,14 +46,20 @@ export class NotificationService {
                     ? "notify.backupFailure"
                     : "notify.stackError"
         const enabled = await this.settings.getSetting(toggleKey)
-        if (enabled === "false") return
+        console.log(`[NotificationService] Toggle ${toggleKey} = ${enabled}`)
+        if (enabled === "false") {
+            console.log(`[NotificationService] Notification disabled by toggle, skipping`)
+            return
+        }
 
+        console.log("[NotificationService] Creating notification record...")
         const notification = await this.repo.create({
             type: event.type,
             stackId: event.stackId ?? null,
             message: event.message,
             emailSent: false,
         })
+        console.log(`[NotificationService] Notification record created: ${notification.id}`)
 
         // Broadcast notification creation event to all SSE clients
         this.broadcaster.publish({
@@ -60,10 +68,16 @@ export class NotificationService {
         })
 
         const smtpConfig = await this.settings.getSmtpConfig()
-        if (!smtpConfig) return
+        if (!smtpConfig) {
+            console.log("[NotificationService] No SMTP config, skipping email")
+            return
+        }
 
         const users = await prisma.user.findMany({select: {email: true}})
-        if (users.length === 0) return
+        if (users.length === 0) {
+            console.log("[NotificationService] No users found, skipping email")
+            return
+        }
 
         try {
             const transport = this.createTransport(smtpConfig)
@@ -74,6 +88,7 @@ export class NotificationService {
                 text: event.message,
             })
             await this.repo.markEmailSent(notification.id)
+            console.log(`[NotificationService] Email sent successfully for notification ${notification.id}`)
         } catch (err) {
             console.error("[NotificationService] email send failed:", err)
         }
