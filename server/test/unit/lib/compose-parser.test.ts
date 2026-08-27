@@ -84,6 +84,19 @@ services:
         expect(services[0].image).toBe("ghcr.io/org/app");
         expect(services[0].imageTag).toBe("v1.2.3");
     });
+
+    it("throws for a sequence-valued services key", () => {
+        const content = "services:\n  - app\n  - db\n";
+        expect(() => parseComposeContent(content)).toThrow(/mapping of service names/);
+    });
+
+    it("still parses a normal mapping with one service", () => {
+        const services = parseComposeContent("services:\n  app:\n    image: alpine:3.19\n");
+
+        expect(services).toHaveLength(1);
+        expect(services[0].serviceName).toBe("app");
+        expect(services[0].image).toBe("alpine");
+    });
 });
 
 describe("hashComposeContent", () => {
