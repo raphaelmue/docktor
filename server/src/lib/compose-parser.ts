@@ -52,6 +52,9 @@ export function parseComposeContent(content: string): ParsedService[] {
     if (!svcMap || typeof svcMap !== "object") {
         throw new Error("Compose file missing 'services' key");
     }
+    if (Array.isArray(svcMap)) {
+        throw new Error("Compose file 'services' key must be a mapping of service names to service definitions, not a list");
+    }
     if (Object.keys(svcMap).length === 0) {
         throw new Error("Compose file has empty services section");
     }
