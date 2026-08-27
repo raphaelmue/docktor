@@ -39,6 +39,13 @@ found by trial and error rather than caught by documentation or tooling:
 4. Also observed: `BETTER_AUTH_SECRET` / `BETTER_AUTH_BASE_URL` are required at boot
    with no documented default or `.env.example` entry — the app crashes with an
    unhelpful stack trace (`BetterAuthError`) rather than pointing at what's missing.
+5. Also observed: user hit a false "only backend exposed, no frontend" symptom that
+   turned out to be caused by loading the wrong env file with the wrong `NODE_ENV`
+   (the SPA static-file serving in `server/src/app.ts` is gated on
+   `NODE_ENV === "production"`) — not a code bug, confirmed by reproducing the same
+   image/build with the correct env and getting the SPA `index.html` back on `GET /`.
+   Another case a documented `.env.example` (spelling out what `NODE_ENV=production`
+   controls) would have prevented.
 
 Each of these is the kind of thing a documented, known-good `.env.example` +
 `docker-compose.yml` (with inline comments explaining each variable, and either a
