@@ -7,6 +7,7 @@ Docktor's foundation (auth, stack CRUD, state machine, dashboard, detail page) i
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -22,18 +23,22 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: MVP Completion
+
 **Goal**: Users can observe real-time container status and stream live logs, with instance configuration persisted in the database
 **Depends on**: Nothing (builds on existing foundation)
 **Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, OBS-06, OBS-07, OBS-08, OBS-09, SET-01, SET-02, SET-03
 **Success Criteria** (what must be TRUE):
+
   1. Stack and service status updates automatically in the UI without a page refresh when containers start, stop, die, or change health state
   2. User can open a log viewer for any service and see the last 100 lines immediately, followed by live output as it arrives
   3. Log viewer renders colored ANSI output and prefixes each line with the service name; user can filter by service in the combined view
   4. Browser reconnects to the log stream automatically if the SSE connection drops
   5. User can set instance name, base URL, and timezone on a Settings page and have those values survive a server restart
+
 **Plans**: 7 plans
 
 Plans:
+
 - [ ] 01-01-PLAN.md — Test scaffolds (Wave 0 RED state for all 12 requirements)
 - [ ] 01-02-PLAN.md — Server foundation: DockerodeClient, StateBroadcaster, Settings backend
 - [ ] 01-03-PLAN.md — StatePoller job: Docker event stream + 60s reconciliation + app wiring
@@ -43,42 +48,60 @@ Plans:
 - [x] 01-07-PLAN.md — Settings page UI + sidebar nav + router registration
 
 ### Phase 2: Observability
+
 **Goal**: Users are passively informed when compose files change externally and when newer container images are available
 **Depends on**: Phase 1
 **Requirements**: FW-01, FW-02, FW-03, UPD-01, UPD-02, UPD-03, UPD-04
 **Success Criteria** (what must be TRUE):
+
   1. When a compose file is edited via SSH while Docktor is running, the stack's "config changed" badge appears without the user refreshing the page
   2. Stack detail page shows an "update available" badge when a newer image version is found in the registry
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
+
 **Plans**: 12 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Test scaffolds (Wave 0 RED state for FW-01/02/03 and UPD-01/02/04)
 - [ ] 02-02-PLAN.md — DB schema (StackEvent + ImageUpdateCheck) + StateBroadcaster extension + repositories
 - [ ] 02-03-PLAN.md — FileWatcher job (chokidar + 60s reconcile) + jobs/index.ts registry
-- [ ] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
-- [ ] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
 - [ ] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
 - [ ] 02-07-PLAN.md — Gap closure: test mock fixes, compose-parser throw tests, Update Images UX feedback
 - [ ] 02-08-PLAN.md — Gap closure (UAT gap 1): runtime-state-preserving service sync in FileWatcher; parser sequence guard
 - [ ] 02-09-PLAN.md — Gap closure (UAT gap 4a): currentDigest, imageRef splitting, badge lookup key
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
 - [ ] 02-10-PLAN.md — Gap closure (UAT gap 4b): RegistryClient tag listing, live latestTag comparison, tags route
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
 - [ ] 02-11-PLAN.md — Gap closure (UAT gap 5a): compose version rewrite, upgrade endpoint, rollback
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-12-PLAN.md — Gap closure (UAT gap 5b): version-selection dialog, services-tab extraction
 
 ### Phase 3: Notifications
+
 **Goal**: Users receive email alerts for critical events (container errors, disk pressure, backup failures) without needing to watch the UI
 **Depends on**: Phase 1, Phase 2
 **Requirements**: NOTF-01, NOTF-02, NOTF-03, NOTF-04, NOTF-05, NOTF-06
 **Success Criteria** (what must be TRUE):
+
   1. User can configure SMTP connection details in Settings and verify them with a test send
   2. User receives an email when a stack enters ERROR or UNHEALTHY state, including stack name, state, and recent log lines
   3. User receives an email when disk space drops below 10% or 2 GB remaining
   4. User can individually enable or disable each notification trigger in Settings
+
 **Plans**: 5 plans
 
 Plans:
+
 - [x] 03-01-PLAN.md — Prisma schema (Notification + StackIncident) + AES-256-GCM crypto module + RED test scaffolds
 - [x] 03-02-PLAN.md — NotificationRepository + NotificationService + SMTP/trigger/log API routes
 - [x] 03-03-PLAN.md — NotificationWatcher (StateBroadcaster subscriber) + DiskChecker (24h cron) + jobs registration
@@ -86,18 +109,22 @@ Plans:
 - [x] 03-05-PLAN.md — Gap closure: UAT fixes for SMTP storage, disk checker Windows, threshold inputs, SSE refresh
 
 ### Phase 4: Backup & Restore
+
 **Goal**: Users can take encrypted, versioned backups of any stack and restore from a snapshot without manual restic CLI knowledge
 **Depends on**: Phase 1
 **Requirements**: BCK-01, BCK-02, BCK-03, BCK-04, BCK-05, BCK-06, BCK-07, BCK-08, BCK-09, BCK-10, BCK-11
 **Success Criteria** (what must be TRUE):
+
   1. User can configure a restic repository (local path, SFTP, or S3-compatible) and password in Settings; password is stored encrypted
   2. User can trigger a manual backup for any stack and see streaming progress output in the UI
   3. User can configure a per-stack backup schedule and retention policy; scheduled backups run automatically
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
+
 **Plans**: 13 plans
 
 Plans:
+
 - [x] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
 - [x] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
 - [x] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
@@ -113,18 +140,22 @@ Plans:
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 
 ### Phase 5: Onboarding
+
 **Goal**: New users reach a fully configured instance through a guided wizard; existing self-hosters can adopt running stacks into Docktor without downtime
 **Depends on**: Phase 1, Phase 2, Phase 4
 **Requirements**: WIZ-01, WIZ-02, WIZ-03, WIZ-04, WIZ-05, WIZ-06, WIZ-07, BF-01, BF-02, BF-03, BF-04, BF-05
 **Success Criteria** (what must be TRUE):
+
   1. On first boot with no user in the database, the browser shows a multi-step setup wizard instead of the login page
   2. After completing the wizard, a new user has an account, basic settings configured, and is redirected to the dashboard
   3. User can scan the host filesystem for existing docker-compose.yml files and see a compatibility assessment for each
   4. User can adopt a discovered stack in-place with zero downtime, and it immediately appears in the dashboard with live status
   5. User can run the full migration wizard to move a stack into Docktor's directory structure, with automatic rollback on failure
+
 **Plans**: 8 plans
 
 Plans:
+
 - [x] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
 - [x] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure (Wave 2)
 - [x] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
@@ -135,14 +166,17 @@ Plans:
 - [x] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
 
 ### Phase 6: Proxy Configuration
+
 **Goal**: Users can configure domain and TLS exposure for any service directly from the stack detail page, without touching Nginx configuration manually
 **Depends on**: Phase 1
 **Requirements**: PRXY-01, PRXY-02, PRXY-03, PRXY-04, PRXY-05
 **Success Criteria** (what must be TRUE):
+
   1. User can configure NPM API credentials (URL, username, password) in Settings
   2. User can assign a domain, internal port, and TLS setting to a service from the stack detail page; the corresponding NPM proxy host is created or updated automatically
   3. User can remove a proxy configuration from the UI; the NPM proxy host is deleted
   4. Proxy operations are idempotent: reconfiguring an existing domain updates the NPM host rather than creating a duplicate
+
 **Plans**: TBD
 
 ## Progress
