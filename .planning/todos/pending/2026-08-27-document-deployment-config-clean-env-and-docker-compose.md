@@ -1,0 +1,62 @@
+---
+created: 2026-08-27T14:29:09.949Z
+title: Document deployment config: clean .env and docker-compose.yml
+area: docs
+severity: major
+files:
+  - Dockerfile
+  - docker-compose.yml
+  - docker-compose.dev.yml
+---
+
+## Problem
+
+Docktor is a self-hosting management platform — a clean, documented deployment path
+(`.env`/`.env.example` + `docker-compose.yml`) is core to the product's value
+proposition, not an afterthought. The user called this out explicitly as "the main
+task" while manually verifying Phase 02 gap-closure plans via `docker compose up`.
+
+During that verification session, three deployment-path defects surfaced and were
+found by trial and error rather than caught by documentation or tooling:
+
+1. **Dockerfile bug** — referenced a root-level `prisma/` directory that never
+   existed (schema lives at `server/prisma/`); broke every Docker build. Fixed in
+   commit `b7a91fe`.
+2. **Dockerfile bug** — final stage copied compiled shared output to `./dist/shared`,
+   but the yarn `node-modules` linker's `@docktor/shared` symlink (created during the
+   `server-build` stage) points at `../../shared` (i.e. `/app/shared`), which never
+   existed in the final image. Any server import of `@docktor/shared` crashed at boot
+   with `ERR_MODULE_NOT_FOUND`. Fixed in commit `0819d40`.
+3. **Missing schema-sync step** — nothing in the image or compose startup runs
+   `prisma db push` (project uses schemaless `db push`, no `server/prisma/migrations/`
+   directory exists) before the server starts, so a fresh `docker compose up` fails
+   at runtime with `The table 'public.Backup' does not exist in the current
+   database`. Not fixed — logged in
+   `.planning/phases/02-observability/deferred-items.md`; needs a real decision once
+   the project adopts `prisma migrate` (a `db push` baked into container startup
+   needs guards against running unintentionally against prod / racing multiple
+   replicas).
+4. Also observed: `BETTER_AUTH_SECRET` / `BETTER_AUTH_BASE_URL` are required at boot
+   with no documented default or `.env.example` entry — the app crashes with an
+   unhelpful stack trace (`BetterAuthError`) rather than pointing at what's missing.
+
+Each of these is the kind of thing a documented, known-good `.env.example` +
+`docker-compose.yml` (with inline comments explaining each variable, and either a
+startup migration step or a clearly documented one-time setup command) would have
+caught before a user ever hit it.
+
+## Solution
+
+TBD — likely scope:
+- Write a `.env.example` at the repo root covering every env var the server reads
+  (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_BASE_URL`, etc.), each with a
+  one-line comment on what it does and whether it's required.
+- Clean up `docker-compose.yml` (and reconcile with `docker-compose.dev.yml`) into a
+  documented, copy-pasteable self-host quickstart — likely including a Postgres
+  service, volume mounts, and either a startup schema-sync step or a documented
+  `docker compose exec ... yarn db:push` one-time command.
+- Land this as part of the project's actual docs (README or a docs/deployment.md),
+  not just inline compose comments — the user framed this as "part of the
+  documentation."
+- Coordinate with the deferred migration-strategy decision above; the documented
+  compose file's schema-sync story depends on which way that resolves.
