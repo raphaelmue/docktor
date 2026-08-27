@@ -44,7 +44,8 @@ RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.
 
 COPY --from=server-build /app/node_modules ./node_modules
 COPY --from=server-build /app/server/dist ./dist/server
-COPY --from=server-build /app/shared/dist ./dist/shared
+COPY --from=server-build /app/shared/package.json ./shared/package.json
+COPY --from=server-build /app/shared/dist ./shared/dist
 COPY --from=server-build /app/server/prisma ./server/prisma
 COPY --from=client-build /app/client/dist ./client-dist
 
