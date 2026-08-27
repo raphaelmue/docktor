@@ -19,11 +19,10 @@ COPY .yarn .yarn
 COPY server/package.json server/
 COPY shared/package.json shared/
 COPY client/package.json client/
-COPY prisma/ prisma/
 RUN yarn install --immutable
 COPY shared/ shared/
 COPY server/ server/
-RUN yarn workspace @docktor/shared build && yarn workspace @docktor/server build && yarn prisma generate --config=prisma/prisma.config.ts
+RUN yarn workspace @docktor/shared build && yarn workspace @docktor/server build && yarn prisma generate --config=server/prisma/prisma.config.ts
 
 FROM node:22-slim
 WORKDIR /app
@@ -46,7 +45,7 @@ RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.
 COPY --from=server-build /app/node_modules ./node_modules
 COPY --from=server-build /app/server/dist ./dist/server
 COPY --from=server-build /app/shared/dist ./dist/shared
-COPY --from=server-build /app/prisma ./prisma
+COPY --from=server-build /app/server/prisma ./server/prisma
 COPY --from=client-build /app/client/dist ./client-dist
 
 ENV NODE_ENV=production
