@@ -35,7 +35,7 @@ function createMockFileWatcherRepo() {
         findAllStacks: vi.fn(),
         findStackByPath: vi.fn(),
         updateStackHash: vi.fn(),
-        replaceServices: vi.fn().mockResolvedValue(undefined),
+        syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
         createStackEvent: vi.fn(),
     };
 }
@@ -56,6 +56,8 @@ describe("FileWatcher", () => {
     let mockHashContent: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockParseContent: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockCreateComposeConfig: any;
 
     beforeEach(async () => {
         vi.clearAllMocks();
@@ -70,12 +72,20 @@ describe("FileWatcher", () => {
         mockHashContent = parser.hashComposeContent as ReturnType<typeof vi.fn>;
         mockParseContent = parser.parseComposeContent as ReturnType<typeof vi.fn>;
 
+        const composeConfigModule = await import("../../../../src/domain/compose-config.js");
+        mockCreateComposeConfig = composeConfigModule.createComposeConfig as ReturnType<typeof vi.fn>;
+
         // Default: file reads succeed with some content
         mockReadFile.mockResolvedValue("services:\n  app:\n    image: nginx:latest\n");
         // Default: hash returns a value different from "old-hash"
         mockHashContent.mockReturnValue("new-computed-hash");
-        // Default: parse succeeds
+        // Default: parse succeeds (unused directly by handleFileChange, kept for compose-parser mock shape)
         mockParseContent.mockReturnValue([{serviceName: "app", image: "nginx", imageTag: "latest", ports: [], volumes: []}]);
+        // Default: createComposeConfig succeeds
+        mockCreateComposeConfig.mockReturnValue({
+            hash: "new-computed-hash",
+            services: [{serviceName: "app", image: "nginx", imageTag: "latest", ports: [], volumes: []}],
+        });
     });
 
     describe("start() (FW-01)", () => {
@@ -118,8 +128,8 @@ describe("FileWatcher", () => {
             mockRepo.createStackEvent.mockResolvedValue(undefined);
             // hash differs so we proceed to parse
             mockHashContent.mockReturnValue("new-computed-hash");
-            // Parse throws to simulate invalid YAML
-            mockParseContent.mockImplementation(() => {
+            // createComposeConfig throws to simulate invalid YAML (propagated from parseComposeContent)
+            mockCreateComposeConfig.mockImplementation(() => {
                 throw new Error("Invalid YAML");
             });
 
@@ -151,7 +161,7 @@ describe("FileWatcher", () => {
             mockRepo.findStackByPath.mockResolvedValue(fakeStack);
             mockRepo.createStackEvent.mockResolvedValue(undefined);
             mockHashContent.mockReturnValue("new-computed-hash");
-            mockParseContent.mockImplementation(() => {
+            mockCreateComposeConfig.mockImplementation(() => {
                 throw new Error("Invalid YAML");
             });
 
@@ -173,6 +183,67 @@ describe("FileWatcher", () => {
 
             expect(mockRepo.createStackEvent).not.toHaveBeenCalled();
             expect(mockBroadcaster.publish).not.toHaveBeenCalled();
+        });
+
+        it("calls repo.syncServicesFromCompose with stack.id and the parsed ComposeConfig", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            const fakeComposeConfig = {
+                hash: "new-computed-hash",
+                services: [{serviceName: "app", image: "nginx", imageTag: "1.25", ports: [], volumes: []}],
+            };
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockRepo.updateStackHash.mockResolvedValue(undefined);
+            mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockCreateComposeConfig.mockReturnValue(fakeComposeConfig);
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.syncServicesFromCompose).toHaveBeenCalledWith(fakeStack.id, fakeComposeConfig);
+        });
+
+        it("calls repo.syncServicesFromCompose before repo.updateStackHash", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockRepo.updateStackHash.mockResolvedValue(undefined);
+            mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            const syncOrder = mockRepo.syncServicesFromCompose.mock.invocationCallOrder[0];
+            const updateHashOrder = mockRepo.updateStackHash.mock.invocationCallOrder[0];
+            expect(syncOrder).toBeLessThan(updateHashOrder);
+        });
+
+        it("does NOT call updateStackHash or publish config_changed when syncServicesFromCompose rejects", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockRepo.updateStackHash.mockResolvedValue(undefined);
+            mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockRepo.syncServicesFromCompose.mockRejectedValue(new Error("sync failed"));
+
+            await expect((fileWatcher as any).handleFileChange(fakePath)).rejects.toThrow("sync failed");
+
+            expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
+            expect(mockBroadcaster.publish).not.toHaveBeenCalledWith(
+                expect.objectContaining({type: "config_changed"}),
+            );
+        });
+
+        it("does NOT call syncServicesFromCompose when the hash is unchanged", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "same-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockHashContent.mockReturnValue("same-hash");
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.syncServicesFromCompose).not.toHaveBeenCalled();
         });
     });
 
