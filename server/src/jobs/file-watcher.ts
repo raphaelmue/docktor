@@ -4,15 +4,15 @@ import type {FSWatcher} from "chokidar"
 import {readFile} from "node:fs/promises"
 import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
-import {parseComposeContent, hashComposeContent} from "../lib/compose-parser.js"
-import {createComposeConfig} from "../domain/compose-config.js"
+import {hashComposeContent} from "../lib/compose-parser.js"
+import {createComposeConfig, type ComposeConfig} from "../domain/compose-config.js"
 import {getStacksDir} from "../lib/stacks-dir.js"
 
 export interface FileWatcherRepo {
     findAllStacks(): Promise<Array<{id: string; composeFilePath: string; hash: string | null}>>
     findStackByPath(composePath: string): Promise<{id: string; composeFilePath: string; hash: string | null} | null>
     updateStackHash(args: {stackId: string; hash: string}): Promise<void>
-    replaceServices(stackId: string, composeConfig: any): Promise<void>
+    syncServicesFromCompose(stackId: string, composeConfig: ComposeConfig): Promise<void>
     createStackEvent(args: {stackId: string; type: string; message?: string; payload?: string}): Promise<void>
 }
 
@@ -140,8 +140,9 @@ export class FileWatcher {
         console.log(`[FileWatcher] Hash changed for ${stack.id}: ${oldHash.slice(0, 8)}... -> ${newHash.slice(0, 8)}...`)
 
         // Try to parse the compose content
+        let composeConfig: ComposeConfig
         try {
-            parseComposeContent(content)
+            composeConfig = createComposeConfig(content)
         } catch (err: any) {
             // Invalid YAML or no services key
             console.log(`[FileWatcher] Config error for ${stack.id}: ${err.message}`)
@@ -158,11 +159,12 @@ export class FileWatcher {
             return
         }
 
-        // Valid compose file with changed hash — update hash, set configChanged flag and broadcast
-        // NOTE: We do NOT call replaceServices() here because that would update the service records
-        // to show the new image versions before deployment. The service records should reflect
-        // what's currently running, not what's in the compose file. replaceServices() is called
-        // during deployment when the stack is actually updated.
+        // Valid compose file with changed hash — sync config-derived service metadata
+        // (image, imageTag, ports, volumes) without touching container runtime columns,
+        // then update hash and broadcast. Sync runs before updateStackHash: if it throws,
+        // the stored hash stays stale so the 60s reconcile() retry picks it back up.
+        await repo.syncServicesFromCompose(stack.id, composeConfig)
+        console.log(`[FileWatcher] syncServicesFromCompose completed for ${stack.id} (${composeConfig.services.length} services)`)
         await repo.updateStackHash({stackId: stack.id, hash: newHash})
         await repo.createStackEvent({
             stackId: stack.id,

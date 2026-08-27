@@ -127,6 +127,55 @@ export class StackRepository {
         ]);
     }
 
+    /**
+     * Syncs config-derived Service fields (image, imageTag, ports, volumes) from an
+     * external compose edit without touching container runtime columns
+     * (containerId, containerState, healthStatus, restartCount, imageDigest),
+     * which are owned by StatePoller. Unlike replaceServices(), this never
+     * deletes-and-recreates rows for services still present in the compose file.
+     */
+    async syncServicesFromCompose(
+        stackId: string,
+        composeConfig: ComposeConfig,
+    ): Promise<void> {
+        const serviceNames = composeConfig.services.map((s) => s.serviceName);
+        await prisma.$transaction([
+            prisma.service.deleteMany({
+                where: {stackId, serviceName: {notIn: serviceNames}},
+            }),
+            ...composeConfig.services.map((s) =>
+                prisma.service.upsert({
+                    where: {stackId_serviceName: {stackId, serviceName: s.serviceName}},
+                    update: {
+                        image: s.image,
+                        imageTag: s.imageTag,
+                        ports: s.ports.length ? JSON.stringify(s.ports) : null,
+                        volumes: s.volumes.length
+                            ? JSON.stringify(s.volumes)
+                            : null,
+                    },
+                    create: {
+                        stackId,
+                        serviceName: s.serviceName,
+                        image: s.image,
+                        imageTag: s.imageTag,
+                        ports: s.ports.length ? JSON.stringify(s.ports) : null,
+                        volumes: s.volumes.length
+                            ? JSON.stringify(s.volumes)
+                            : null,
+                    },
+                }),
+            ),
+            prisma.stack.update({
+                where: {id: stackId},
+                data: {
+                    lastKnownHash: composeConfig.hash,
+                    lastParsedAt: new Date(),
+                },
+            }),
+        ]);
+    }
+
     async updateMetadata(
         id: string,
         data: {displayName?: string; description?: string},
