@@ -1,45 +1,46 @@
+# This file is for development / testing purposes, not for production purposes.
+
 services:
   docktor:
-    image: docktor/docktor:latest
+    # image: docktor/docktor:latest
+    build:
+      context: .
     container_name: docktor
     restart: unless-stopped
     ports:
-      - "8443:3000"
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env.local
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
       - /var/run/docker.sock:/var/run/docker.sock
 
       # Stacks directory — where all managed stacks live
-      - /opt/docktor/stacks:/stacks
+      - ./dev-data/docktor/stacks:/stacks
 
       # Docktor's own persistent data (config, logs)
-      - /opt/docktor/data:/data
+      - ./dev-data/docktor/data:/data
 
       # Restic backup repository
-      - /opt/docktor/backups:/backups
+      - ./dev-data/docktor/backups:/backups
 
       # Brownfield: host filesystem access for scanning existing stacks
       - /:/host:ro
-    environment:
-      - DATABASE_URL=postgresql://docktor:CHANGE_ME@db:5432/docktor
-      - DOCKTOR_BASE_URL=https://docktor.example.com
-      # Must match the origin you actually access Docktor at, or login fails with "invalid origin"
-      - BETTER_AUTH_URL=https://docktor.example.com
-      # Generate with: openssl rand -base64 32
-      - BETTER_AUTH_SECRET=CHANGE_ME
 
   db:
-    image: postgres:17
+    image: postgres:18
     container_name: docktor-db
     restart: unless-stopped
     volumes:
-      - /opt/docktor/db:/var/lib/postgresql/data
+      - ./dev-data/docktor/db:/var/lib/postgresql
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: docktor
-      POSTGRES_PASSWORD: CHANGE_ME
+      POSTGRES_PASSWORD: docktor
       POSTGRES_DB: docktor
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U docktor" ]
