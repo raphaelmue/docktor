@@ -204,6 +204,10 @@ Each task was committed atomically:
 - The `latestTag`/semver comparison branch in `checkImage()` is live end-to-end for the first time since the phase began; UAT gap 4's last behavioral cause is closed
 - Blocker: the `availableTags` column exists in `schema.prisma` and the generated Prisma Client, but has **not** been pushed to any live database in this session — `yarn db:push` must run before the next deploy or the app will boot against a table missing the column (Prisma's runtime will surface this as a query error on first `upsert` call, not a boot-time failure, since Prisma Client doesn't validate the live schema at startup)
 
+## Self-Check: PASSED
+
+All files created/modified in this plan were verified present on disk, and all four commit hashes (`6ff7a64`, `63d5d77`, `e67c011`, `c608446`) were verified present in `git log --all`.
+
 ---
 *Phase: 02-observability*
 *Completed: 2026-08-28*
