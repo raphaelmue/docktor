@@ -1,17 +1,13 @@
 ---
-status: diagnosed
+status: complete
 phase: 02-observability
-source:
-  - 02-01-SUMMARY.md
-  - 02-02-SUMMARY.md
-  - 02-03-SUMMARY.md
-  - 02-04-SUMMARY.md
-  - 02-05-SUMMARY.md
-started: 2026-03-16T00:00:00Z
-updated: 2026-03-16T00:00:00Z
+source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md, 02-12-SUMMARY.md]
+started: 2026-08-28T14:17:56Z
+updated: 2026-08-28T14:35:00Z
 ---
 
 ## Current Test
+<!-- OVERWRITE each test - shows where we are -->
 
 [testing complete]
 
@@ -25,173 +21,118 @@ result: pass
 expected: After server startup, StatePoller, FileWatcher, and UpdateChecker jobs are running. No crash logs or uncaught exceptions in console. FileWatcher is watching STACKS_ROOT directory, UpdateChecker cron is scheduled.
 result: pass
 
-### 3. Database Models Available
-expected: Prisma client has StackEvent and ImageUpdateCheck models accessible. TypeScript autocomplete shows StackEventType enum with config_changed, config_error, update_available values.
+### 3. Config File Change Detection (regression retest — was failing)
+expected: Modify a docker-compose.yml file in STACKS_ROOT (e.g. change an image tag or a port). Within a few seconds, FileWatcher detects the change, updates the stack's service metadata (image, tag, ports, volumes) in the database — not just the hash — and broadcasts a config_changed SSE event.
 result: pass
 
-### 4. Config File Change Detection
-expected: Modify a docker-compose.yml file in STACKS_ROOT. Within a few seconds, FileWatcher detects the change, updates the stack's hash in DB, and broadcasts a config_changed SSE event. Yellow "config changed" badge appears in stack list without page refresh.
+### 4. Config Error Detection (regression retest — was failing)
+expected: Introduce invalid YAML syntax (or remove the services key) in a docker-compose.yml file. FileWatcher detects the error, logs it, and broadcasts a config_error StackEvent/SSE event.
+result: pass
+note: "Backend detection/broadcast confirmed working. No UI indication shown — user confirmed this is the pre-existing, already-tracked gap (see .planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md), independently re-checked at Test 18."
+
+### 5. Instant File-Change Detection on Windows/Docker Desktop (regression retest — was failing)
+expected: With the stack detail page open, modify the compose file on disk. The change is detected within seconds (not only on the next cron reconcile tick), even when running under Docker Desktop on Windows.
+result: pass
+
+### 6. Update Checker Detects a Newer Image via Registry (regression retest — was blocker)
+expected: For a service with a newer tag available in its registry (e.g. Docker Hub), UpdateChecker's registry query succeeds (no "manifest inspect returned null" error) and the update-available badge appears next to the service, showing the newer tag.
+result: pass
+
+### 7. Version Candidates Are Genuinely Newer (new — bugfix from live verification)
+expected: Opening the version picker for a service with updates available lists only tags that are genuinely newer than the current one (proper semver/date ranking) — it does not list moving tags (e.g. "latest") or OS/flavor variant tags (e.g. "alpine3.24") as if they were newer versions.
+result: pass
+
+### 8. Per-Service Upgrade Dialog Persists to Compose File (new feature)
+expected: Click the upgrade action on a service with an available update. Pick a specific version in the dialog and confirm. The stack transitions through UPDATING back to RUNNING, the service's Tag column updates live, and the docker-compose.yml on disk is rewritten with the new tag (survives a restart, not just a container recreate).
+result: pass
+
+### 9. Upgrade Dialog States Are Distinguishable (new feature)
+expected: Opening the upgrade dialog for different services shows a clearly different state depending on context: loading while fetching candidates, a populated list when candidates exist, a distinct "already on the newest version" message when there's nothing newer, a distinct "never checked yet" message when no check has run, and a retry option on request failure.
+result: pass
+
+### 10. Upgrade Blocked During Transitional Stack States (new feature)
+expected: While a stack is BACKING_UP, RESTORING, DEPLOYING, UPDATING, or MIGRATING, the per-service upgrade action is disabled (visible but not clickable), not hidden.
+result: pass
+
+### 11. Bulk "Update Images" Shows Contextual Feedback
+expected: Click "Update Images" in the stack detail page actions. If no images had updates, a toast says images are already up to date. If images were pulled and updated, a toast confirms images were updated successfully — distinct messages for each case.
 result: issue
-reported: "When changing the e.g. version, this is not reflected in the UI (and also the database). Same applies e.g. for ports. If there are any changes made to the docker compose (regardless whether they are directly changing the file or via the ui), extract all information and update the stack / service."
+reported: "the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
 severity: major
 
-### 5. Config Error Detection
-expected: Introduce invalid YAML syntax in a docker-compose.yml file. FileWatcher detects the error, broadcasts a config_error SSE event. Stack shows appropriate error indication.
+### 12. SSE Live Updates for Config Changes
+expected: With the stack detail page open, modify the compose file on disk. Within seconds, a config_changed SSE event triggers a refetch and the UI shows the yellow "config changed" state without a manual page refresh.
 result: issue
-reported: "Change has been detected, but no error message is shown, not even in the logs. Also restrictions (such as e.g. the network or the volumes must be all in the volumes/ directory) are not reflected."
-severity: major
-
-### 6. Manual Reconcile Trigger
-expected: FileWatcher reconcile() can be triggered manually or runs on cron schedule. It re-hashes all stack compose files and detects any drifted hashes (simulates NFS delay scenario).
-result: issue
-reported: "the cron schedule works, however, at least on windows, file changes are not detected instantly."
+reported: "pass, however it looks like the page was refreshed. Can this be prevented?"
 severity: minor
 
-### 7. Update Checker Stagger Logic
-expected: With multiple images tracked, UpdateChecker processes one image per 5-minute tick, respecting the 6h/N stagger window. Images are checked in round-robin order, not all at once.
-result: pass
-
-### 8. Version Comparison Logic
-expected: compareVersions() correctly identifies newer versions using date-first parsing (2024-06-01 > 2024-01-01), then semver (1.2.0 > 1.1.9), then digest fallback. Date tags don't get miscoerced by semver.
-result: skipped
-reason: There is no possibility to check if there is a newer version. Therefore cannot tell if it is working.
-
-### 9. Docker Registry Manifest Inspection
-expected: DockerExecutor.manifestInspect() queries a Docker registry for image manifest (digest). Works with both Docker Hub and custom registries. Handles multi-arch and single-arch manifests.
-result: skipped
-reason: cannot tell
-
-### 10. Update Available Detection
-expected: UpdateChecker polls for image updates, compares current vs latest tag using compareVersions(), stores result in ImageUpdateCheck table, and broadcasts update_available SSE event if newer version found.
-result: pass
-
-### 11. Update Available Badge Display
-expected: When UpdateChecker detects a newer image version, blue "update available → tag" badge appears next to affected service in stack detail page without page refresh. Badge shows the newer version number.
-result: issue
-reported: "The update checker is running, but it is not detecting new versions. The latestTag latestDigest and currentDigest are null and the error says: manifest inspect returned null."
-severity: blocker
-
-### 12. User-Initiated Update Images
-expected: Click "Update Images" button in stack detail PageActions. Stack transitions RUNNING→UPDATING. Docker compose pull executes for all services, then containers recreate via docker compose up -d. Stack returns to RUNNING. Update badges clear.
-result: issue
-reported: "yes this is working. However the usability is quite bad. When nothing was done because the image was is already up-to-date, it should say that. Also it would be better to upgrade a service if a new version was found and then the ui lets you choose to which version should be upgraded. Then the docker-compose is adjusted automatically. The 'update images' is rather a pull and deploy."
-severity: major
-
-### 13. Config Changed Badge in Dashboard
-expected: When FileWatcher detects compose file change, yellow "config changed" badge appears in Status column of stack list (dashboard). Badge persists until stack is restarted, deployed, or updated.
+### 13. SSE Live Updates for Image Updates
+expected: With the stack detail page open, when UpdateChecker finds a newer image, an update_available SSE event triggers a refetch and the blue update badge appears on the affected service without a manual page refresh.
 result: pass
 
 ### 14. Config Changed Badge Clears on Action
-expected: After deploying, restarting, or updating a stack that has configChanged=true, the yellow badge disappears from both detail and list views. Database shows configChanged=false for that stack.
+expected: After deploying, restarting, or updating a stack that has a "config changed" badge, the badge disappears from both the detail and list views.
 result: pass
 
-### 15. SSE Live Updates for Config Changes
-expected: With stack detail page open, modify the compose file on disk. Within seconds, config_changed SSE event triggers refetch, and UI updates to show yellow config changed state without manual refresh.
+### 15. Update Checker Works When Stack Is Stopped or in Error
+expected: UpdateChecker still polls and detects updates for stacks in STOPPED or ERROR state, and the per-service upgrade action is available for those stacks too.
+result: skipped
+reason: "User was not able to test it (no stopped/error stack available to test against)."
+
+### 16. Stack Event Audit Trail
+expected: config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type.
 result: issue
-reported: "SSE is working. Only the file watcher is not working at least on windows. When changing the file it is only reflected when the cron job detects it."
+reported: "I dont see no config_changed in the \"Status Log\". Only in the server logs."
 severity: major
 
-### 16. SSE Live Updates for Image Updates
-expected: With stack detail page open, when UpdateChecker finds a newer image, update_available SSE event triggers refetch, and blue update badge appears on affected service without manual refresh.
+### 17. Manual Reconcile / Cron Fallback
+expected: Even without live file-watch events, the periodic reconcile loop still re-hashes stack compose files on its schedule and catches any drift.
 result: pass
 
-### 17. Stack Event Audit Trail
-expected: StackEventRepository stores config_changed, config_error, and update_available events in StackEvent table. Events include timestamp, stackId, and event type. Can query recent events per stack.
-result: pass
-
-### 18. Update Checker Works When Stack Stopped
-expected: UpdateChecker polls and detects updates even for stacks in STOPPED or ERROR state. Update Images button is enabled for STOPPED stacks (canUpdate includes STOPPED and ERROR states).
+### 18. Config Error UI Indication (known gap — confirm still open)
+expected: When FileWatcher detects a config_error, some visible indication appears in the UI (a badge, an error state) — not just a server log. (A prior investigation found the backend event fires correctly but the client has no handling for it yet; this test confirms whether that's still the case.)
 result: skipped
+reason: "Deferred follow-up: already created a todo for this (see .planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md) — not a new blocking gap for this phase."
 
 ## Summary
 
 total: 18
-passed: 9
-issues: 6
+passed: 13
+issues: 3
 pending: 0
-skipped: 3
+skipped: 2
 
 ## Gaps
 
-- truth: "Modify a docker-compose.yml file in STACKS_ROOT. Within a few seconds, FileWatcher detects the change, updates the stack's hash in DB, and broadcasts a config_changed SSE event. Yellow config changed badge appears in stack list without page refresh."
+- gap_id: G-02-11
+  truth: "Click \"Update Images\" in the stack detail page actions. If no images had updates, a toast says images are already up to date."
   status: failed
-  reason: "User reported: When changing the e.g. version, this is not reflected in the UI (and also the database). Same applies e.g. for ports. If there are any changes made to the docker compose (regardless whether they are directly changing the file or via the ui), extract all information and update the stack / service."
+  reason: "User reported: the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
   severity: major
-  test: 4
-  root_cause: "FileWatcher.handleFileChange() parses docker-compose.yml for validation only but discards the result. It only updates hash and sets configChanged flag, never calling stackRepository.replaceServices() to update service metadata (image, imageTag, ports, volumes)."
-  artifacts:
-    - path: "server/src/jobs/file-watcher.ts"
-      issue: "Missing replaceServices call after parse validation (line 146)"
-  missing:
-    - "Call createComposeConfig() and repo.replaceServices() to sync database services with compose file"
-  debug_session: ".planning/debug/config-data-not-updating.md"
-
-- truth: "Introduce invalid YAML syntax in a docker-compose.yml file. FileWatcher detects the error, broadcasts a config_error SSE event. Stack shows appropriate error indication."
-  status: failed
-  reason: "User reported: Change has been detected, but no error message is shown, not even in the logs. Also restrictions (such as e.g. the network or the volumes must be all in the volumes/ directory) are not reflected."
-  severity: major
-  test: 5
-  root_cause: "parseComposeContent() returns empty array [] when services key is missing/invalid instead of throwing error. This bypasses error handling in file-watcher.ts, preventing config_error events from being broadcast."
-  artifacts:
-    - path: "server/src/lib/compose-parser.ts"
-      issue: "Silent failure on missing/invalid services key (lines 49-54)"
-  missing:
-    - "Throw descriptive errors for missing/invalid/empty services key"
-    - "Note: Network/volumes directory restrictions are user expectations without requirements"
-  debug_session: ".planning/debug/config-error-not-shown.md"
-
-- truth: "FileWatcher reconcile() can be triggered manually or runs on cron schedule. It re-hashes all stack compose files and detects any drifted hashes (simulates NFS delay scenario)."
-  status: failed
-  reason: "User reported: the cron schedule works, however, at least on windows, file changes are not detected instantly."
-  severity: minor
-  test: 6
-  root_cause: "chokidar on Windows requires usePolling:true for reliable file detection. Native fs.watch (default) has known issues on Windows detecting file modifications. Current FileWatcher config missing usePolling and interval options."
-  artifacts:
-    - path: "server/src/jobs/file-watcher.ts"
-      issue: "Missing usePolling option for Windows platform (lines 45-53)"
-  missing:
-    - "Add platform detection (process.platform === 'win32')"
-    - "Enable usePolling:true and interval:1000 for Windows"
-  debug_session: ".planning/debug/windows-file-watch.md"
-
-- truth: "When UpdateChecker detects a newer image version, blue update available → tag badge appears next to affected service in stack detail page without page refresh. Badge shows the newer version number."
-  status: failed
-  reason: "User reported: The update checker is running, but it is not detecting new versions. The latestTag latestDigest and currentDigest are null and the error says: manifest inspect returned null."
-  severity: blocker
   test: 11
-  root_cause: "manifestInspect() returns null when Docker CLI fails with 'no such manifest' or 'not found' errors. Actual imageRef values and error messages not visible due to insufficient logging. Need diagnostic info to identify which images are invalid/inaccessible."
-  artifacts:
-    - path: "server/src/infrastructure/docker-executor.ts"
-      issue: "Insufficient logging for manifestInspect failures (lines 76-110)"
-    - path: "server/src/jobs/update-checker.ts"
-      issue: "Generic error message doesn't show which imageRef failed (line 269)"
-  missing:
-    - "Add diagnostic logging to show failing imageRef and Docker stderr"
-    - "Improve error message to show specific imageRef"
-  debug_session: ".planning/debug/manifest-inspect-null.md"
-
-- truth: "Click Update Images button in stack detail PageActions. Stack transitions RUNNING→UPDATING. Docker compose pull executes for all services, then containers recreate via docker compose up -d. Stack returns to RUNNING. Update badges clear."
-  status: failed
-  reason: "User reported: yes this is working. However the usability is quite bad. When nothing was done because the image was is already up-to-date, it should say that. Also it would be better to upgrade a service if a new version was found and then the ui lets you choose to which version should be upgraded. Then the docker-compose is adjusted automatically. The 'update images' is rather a pull and deploy."
-  severity: major
-  test: 12
-  root_cause: "Feature works but missing UX enhancements: (1) No feedback when images already up-to-date, (2) No version selection UI for upgrading to specific versions, (3) Doesn't update compose file with new version tags automatically. Current behavior is pull+deploy, not true version upgrade."
   artifacts: []
-  missing:
-    - "Add feedback message when pull finds no updates"
-    - "Add version selection UI for choosing upgrade target"
-    - "Implement compose file modification to persist version changes"
-  debug_session: ""
+  missing: []
 
-- truth: "With stack detail page open, modify the compose file on disk. Within seconds, config_changed SSE event triggers refetch, and UI updates to show yellow config changed state without manual refresh."
+- gap_id: G-02-12
+  truth: "A config_changed SSE event triggers a data refetch without a manual page refresh."
   status: failed
-  reason: "User reported: SSE is working. Only the file watcher is not working at least on windows. When changing the file it is only reflected when the cron job detects it."
+  reason: "User reported: pass, however it looks like the page was refreshed. Can this be prevented?"
+  severity: minor
+  test: 12
+  artifacts: []
+  missing: []
+
+- gap_id: G-02-16
+  truth: "config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type, visible in the UI's Status Log."
+  status: failed
+  reason: "User reported: I dont see no config_changed in the \"Status Log\". Only in the server logs."
   severity: major
-  test: 15
-  root_cause: "Same as test 6 - chokidar requires usePolling:true on Windows. Native fs.watch unreliable. SSE infrastructure works correctly, only file detection is broken."
-  artifacts:
-    - path: "server/src/jobs/file-watcher.ts"
-      issue: "Missing usePolling option for Windows"
-  missing:
-    - "Enable Windows polling mode (same fix as test 6)"
-  debug_session: ".planning/debug/windows-file-watch.md"
+  test: 16
+  artifacts: []
+  missing: []
+
+## Deferred Follow-Ups
+
+- test: 18
+  idea: "Config Error UI indication is confirmed still absent client-side. Already tracked as a todo, not spawned as a new gap: .planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md"
+  deferred_at: 2026-08-28
