@@ -109,3 +109,32 @@ export function updateImages(id: string) {
         method: "POST",
     });
 }
+
+export interface ServiceTagsResponse {
+    currentTag: string;
+    latestTag: string | null;
+    candidates: string[];
+}
+
+export interface UpgradeServiceResponse {
+    success: boolean;
+    changed: boolean;
+    previousTag: string | null;
+    newTag: string;
+}
+
+export function getServiceTags(stackId: string, serviceName: string) {
+    return apiFetch<ServiceTagsResponse>(
+        `/api/stacks/${encodeURIComponent(stackId)}/services/${encodeURIComponent(serviceName)}/tags`,
+    );
+}
+
+export function upgradeService(stackId: string, serviceName: string, targetTag: string) {
+    return apiFetch<UpgradeServiceResponse>(
+        `/api/stacks/${encodeURIComponent(stackId)}/services/${encodeURIComponent(serviceName)}/upgrade`,
+        {
+            method: "POST",
+            body: JSON.stringify({targetTag}),
+        },
+    );
+}
