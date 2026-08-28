@@ -39,6 +39,7 @@ function createMockDocker() {
         down: vi.fn(),
         ps: vi.fn(),
         composePull: vi.fn(),
+        imageDigest: vi.fn(),
     };
 }
 
@@ -263,6 +264,27 @@ describe("StackService", () => {
                 "ERROR",
                 "DB unavailable",
             );
+        });
+
+        it("reports noUpdates: true when every service's local image digest is unchanged before and after the pull", async () => {
+            mockDockerAndFsForSuccess();
+            docker.imageDigest.mockResolvedValue("sha256:aaa");
+
+            const result = await service.updateImages("my-app");
+
+            expect(result.noUpdates).toBe(true);
+            expect(docker.imageDigest).toHaveBeenCalledWith("nginx:latest");
+        });
+
+        it("reports noUpdates: false when a service's local image digest changed across the pull", async () => {
+            mockDockerAndFsForSuccess();
+            docker.imageDigest
+                .mockResolvedValueOnce("sha256:aaa") // before composePull
+                .mockResolvedValueOnce("sha256:bbb"); // after composePull + up
+
+            const result = await service.updateImages("my-app");
+
+            expect(result.noUpdates).toBe(false);
         });
     });
 

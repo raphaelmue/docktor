@@ -3,6 +3,7 @@ import {slugify} from "../lib/slugify.js";
 import {BadRequestError, ConflictError, NotFoundError} from "../lib/errors.js";
 import {createComposeConfig} from "../domain/compose-config.js";
 import {assertTransition, TransitionError,} from "../domain/stack-status-machine.js";
+import {detectNoUpdates, toImageRef, type ImageDigestComparison} from "../domain/image-update-detection.js";
 import {ComposeEditError, getServiceImageTag, setServiceImageTag} from "../lib/compose-editor.js";
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
@@ -217,6 +218,12 @@ export class StackService {
         const stack = await this.repo.findByIdOrThrow(id);
         this.guardTransition(stack.status as StackStatus, "UPDATE");
 
+        // Collected before the UPDATING transition and always total (see
+        // collectImageRefs): a malformed or unreadable compose file can
+        // never strand the stack in UPDATING through this digest-comparison
+        // code path — it just degrades the answer to the generic message.
+        const refs = await this.collectImageRefs(id);
+
         await this.repo.transitionStatus(
             id,
             stack.status as StackStatus,
@@ -224,10 +231,13 @@ export class StackService {
             "Image update started",
         );
 
-        let pullOutput = "";
+        let beforeDigests = new Map<string, string | null>();
+        let afterDigests = new Map<string, string | null>();
         try {
-            pullOutput = await this.docker.composePull(id);
+            beforeDigests = await this.snapshotDigests(refs);
+            await this.docker.composePull(id);
             await this.docker.up(id);
+            afterDigests = await this.snapshotDigests(refs);
         } catch (err: any) {
             await this.repo.transitionStatus(
                 id,
@@ -266,23 +276,56 @@ export class StackService {
             throw err;
         }
 
-        // Detect if images were actually updated by checking pull output
-        // Docker compose pull outputs:
-        // - When pulling new image: "Pulling...", "Pull complete", "Downloaded newer image"
-        // - When already up-to-date: "Image is up to date", "Already exists" for all layers
-        // - Empty output usually means no images defined or all are up-to-date
-        const output = pullOutput.toLowerCase();
-        const hasDownloadActivity =
-            output.includes("downloading") ||
-            output.includes("extracting") ||
-            output.includes("pull complete") ||
-            output.includes("downloaded newer image");
-        const noUpdates = !hasDownloadActivity && (
-            output.includes("up to date") ||
-            output.includes("already exists") ||
-            output.trim().length === 0
+        // An unknown or missing digest must never be reported as "nothing
+        // changed" — detectNoUpdates() only returns true on positive
+        // evidence (every ref's before digest strictly equals its after
+        // digest). This replaces the old free-text scan of the pull
+        // command's stdout/stderr, which does not correspond to any status
+        // vocabulary the current Docker Compose CLI actually emits.
+        const comparisons: ImageDigestComparison[] = refs.map((ref) => ({
+            ref,
+            before: beforeDigests.get(ref) ?? null,
+            after: afterDigests.get(ref) ?? null,
+        }));
+        return {noUpdates: detectNoUpdates(comparisons)};
+    }
+
+    /**
+     * Reads and parses the compose file to build the set of image refs to
+     * digest-compare across the pull. Must be total — called before the
+     * UPDATING transition, so a compose file that cannot be read or parsed
+     * can never strand the stack there. Any failure here degrades to an
+     * empty ref list, which in turn makes detectNoUpdates() report the
+     * generic "images updated" answer rather than throwing.
+     */
+    private async collectImageRefs(id: string): Promise<string[]> {
+        try {
+            const composeContent = await this.fs.readCompose(id);
+            const composeConfig = createComposeConfig(composeContent);
+            const refs = composeConfig.services
+                .map((service) => toImageRef(service))
+                .filter((ref): ref is string => ref !== null);
+            return Array.from(new Set(refs));
+        } catch (err: any) {
+            console.warn(
+                `[StackService] collectImageRefs: failed to read/parse compose file for stack "${id}", proceeding without digest comparison:`,
+                err.message ?? err,
+            );
+            return [];
+        }
+    }
+
+    /**
+     * Resolves the local image store digest for each ref in parallel.
+     * DockerExecutor.imageDigest() already swallows its own failures and
+     * resolves null rather than throwing, so this helper does not need a
+     * catch of its own.
+     */
+    private async snapshotDigests(refs: readonly string[]): Promise<Map<string, string | null>> {
+        const entries = await Promise.all(
+            refs.map(async (ref) => [ref, await this.docker.imageDigest(ref)] as const),
         );
-        return {noUpdates};
+        return new Map(entries);
     }
 
     /**
