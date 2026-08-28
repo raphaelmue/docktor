@@ -64,22 +64,22 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Test scaffolds (Wave 0 RED state for FW-01/02/03 and UPD-01/02/04)
-- [ ] 02-02-PLAN.md — DB schema (StackEvent + ImageUpdateCheck) + StateBroadcaster extension + repositories
-- [ ] 02-03-PLAN.md — FileWatcher job (chokidar + 60s reconcile) + jobs/index.ts registry
-- [ ] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
-- [ ] 02-07-PLAN.md — Gap closure: test mock fixes, compose-parser throw tests, Update Images UX feedback
-- [ ] 02-08-PLAN.md — Gap closure (UAT gap 1): runtime-state-preserving service sync in FileWatcher; parser sequence guard
+- [x] 02-01-PLAN.md — Test scaffolds (Wave 0 RED state for FW-01/02/03 and UPD-01/02/04)
+- [x] 02-02-PLAN.md — DB schema (StackEvent + ImageUpdateCheck) + StateBroadcaster extension + repositories
+- [x] 02-03-PLAN.md — FileWatcher job (chokidar + 60s reconcile) + jobs/index.ts registry
+- [x] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
+- [x] 02-07-PLAN.md — Gap closure: test mock fixes, compose-parser throw tests, Update Images UX feedback
+- [x] 02-08-PLAN.md — Gap closure (UAT gap 1): runtime-state-preserving service sync in FileWatcher; parser sequence guard
 - [ ] 02-09-PLAN.md — Gap closure (UAT gap 4a): currentDigest, imageRef splitting, badge lookup key
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
+- [x] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
 - [ ] 02-10-PLAN.md — Gap closure (UAT gap 4b): RegistryClient tag listing, live latestTag comparison, tags route
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
+- [x] 02-05-PLAN.md — Stack detail badges (config changed, update available) + POST /update route + UI
 - [ ] 02-11-PLAN.md — Gap closure (UAT gap 5a): compose version rewrite, upgrade endpoint, rollback
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 7/7 | Complete   | 2026-03-16 |
+| 2. Observability | 8/12 | In Progress|  |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |

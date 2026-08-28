@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 current_phase: 02
 current_phase_name: Observability
-status: Phase complete — ready for verification
-stopped_at: Completed 05-06-PLAN.md
-last_updated: "2026-08-27T12:35:03.757Z"
-state_head: 1b00d800fff6de38a04727c15bd404c8bd7f997c
+status: Phase 02 gap-closure in progress — 02-08 complete, 02-09..02-12 remain
+stopped_at: Completed 02-08-PLAN.md
+last_updated: "2026-08-28T00:00:00.000Z"
+state_head: 43aa41f
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 45
-  completed_plans: 40
+  total_plans: 50
+  completed_plans: 41
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 02 (Observability) — EXECUTING
-Plan: 1 of 12
+Plan: 8 of 12 complete (02-09..02-12 remain)
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 1 of 12
 | Phase 02-observability P05 | 25 | 2 tasks | 9 files |
 | Phase 02-observability P06 | 2 | 2 tasks | 2 files |
 | Phase 02-observability P07 | 3 | 2 tasks | 8 files |
+| Phase 02-observability P08 | - | 3 tasks | 13 files |
 | Phase 03-notifications P01 | 12 | 2 tasks | 7 files |
 | Phase 03-notifications P02 | 10 | 2 tasks | 10 files |
 | Phase 03-notifications P03 | 10 | 2 tasks | 3 files |
@@ -125,6 +126,12 @@ Recent decisions affecting current work:
 - [Phase 02-observability]: FileWatcher calls replaceServices before updateStackHash — if service sync fails, hash stays stale and reconcile retries, ensuring data consistency
 - [Phase 02-observability]: Update Images button uses inline async onClick instead of handleAction — handleAction discards return value, noUpdates detection requires reading the response
 - [Phase 02-observability]: noUpdates detection: pullOutput.toLowerCase().includes('up to date') OR empty stdout — covers docker compose pull messages and edge cases
+- [Phase 02-observability P08]: syncServicesFromCompose() writes only image/imageTag/ports/volumes on config-only sync — never touches containerId/containerState/healthStatus/restartCount, so StatePoller-owned runtime state survives an external compose edit; replaceServices() (deploy path) keeps its wipe-and-recreate semantics unchanged
+- [Phase 02-observability P08]: chokidar ignored filter must key off stats?.isFile() defaulting falsy, not stats?.isDirectory() ?? false — the inverted form silently blocks all directory traversal (not just on Windows); root-caused via live diagnostic scripting after 3 other hypotheses were refuted
+- [Phase 02-observability P08]: DOCKTOR_FS_POLLING env override added — process.platform inside the container is always "linux" even when the Docker host is Windows/Mac Desktop, so platform auto-detection can't see through Docker Desktop's virtualized bind mounts
+- [Phase 02-observability P08]: BETTER_AUTH_URL (not DOCKTOR_BASE_URL) is the canonical env var per .env.example/.env.development/INTEGRATIONS.md/STACK.md; DOCKTOR_BASE_URL is separately confirmed dead code
+- [Phase 02-observability P08]: DOCKTOR_STACKS_DIR/DOCKTOR_DATA_DIR/DOCKTOR_BACKUP_DIR moved from docker-compose.yml environment to fixed Dockerfile ENV — they're container-side mount points, not deployment-varying config
+- [Phase 02-observability P08]: deployStack()/updateImages() now wrap all post-docker-call logic in try/catch that transitions to ERROR on failure — previously an unhandled failure there (compose re-parse, DB write) permanently wedged the stack in DEPLOYING/UPDATING with no recoverable action and no StatePoller self-heal
 - [Phase 03-notifications]: AES-256-GCM storage format: iv(12 bytes) + tag(16 bytes) + ciphertext, all hex-encoded as single string
 - [Phase 03-notifications]: getKey() validates both presence and exact 32-byte length of ENCRYPTION_KEY env var
 - [Phase 03-notifications]: NotificationService.notify() delegates to this.settings.getSmtpConfig() — matches test scaffold mock expectations and separates config retrieval
@@ -177,16 +184,21 @@ Recent decisions affecting current work:
 
 - [major] Document deployment config: clean .env and docker-compose.yml — `.planning/todos/pending/2026-08-27-document-deployment-config-clean-env-and-docker-compose.md`
 - [blocker] Fix integration/e2e tests — `.planning/todos/pending/2026-08-28-fix-integration-e2e-tests.md`
+- [major] config_error has no client-side handling or UI badge — `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md`
+- [major] Manual stack actions (deploy/stop/restart/update/backup/restore) never broadcast SSE status updates — `.planning/todos/pending/2026-08-28-manual-actions-dont-broadcast-sse.md`
+- [minor] Service status badges show "unknown" for up to 60s after every deploy — `.planning/todos/pending/2026-08-28-container-status-unknown-after-deploy.md`
+- [blocker] No schema sync step on container startup (fresh deploy 500s on missing tables) — `.planning/todos/pending/2026-08-28-no-schema-sync-on-container-startup.md`
+- [major] No redirect to /setup wizard on first run — `.planning/todos/pending/2026-08-28-no-redirect-to-setup-wizard.md`
 
 ### Blockers/Concerns
 
-- Phase 1: StatePoller must skip stacks in transitional states (DEPLOYING, UPDATING, BACKING_UP, RESTORING, MIGRATING) — use optimistic locking on DB writes
+- Phase 1: StatePoller must skip stacks in transitional states (DEPLOYING, UPDATING, BACKING_UP, RESTORING, MIGRATING) — use optimistic locking on DB writes. [Phase 02-observability P08]: this skip is unconditional with no staleness/timeout recovery — deployStack()/updateImages() were hardened to always exit their transitional state on failure, but a stack wedged by any other future bug still has no self-heal path. See also the deferred SSE-broadcast and unknown-status todos, which are downstream of this same skip.
 - Phase 1: dockerode log stream on SSE client disconnect — RESOLVED in P06: request.raw.on('close', () => streams.forEach(s => s.destroy())) wired in /api/stacks/:id/logs route
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
 
 ## Session Continuity
 
-Last session: 2026-04-08T15:27:44.794Z
-Stopped at: Completed 05-06-PLAN.md
-Resume file: None
+Last session: 2026-08-28T00:00:00.000Z
+Stopped at: Completed 02-08-PLAN.md — verified on real deployment, checkpoint approved
+Resume file: None — next up is 02-09-PLAN.md
