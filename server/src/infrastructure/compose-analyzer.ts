@@ -1,5 +1,14 @@
 import {parse as parseYaml} from "yaml";
 
+// Matches a whole-value shell-style variable reference: "${VAR}" or "$VAR",
+// optionally with a default ("${VAR:-default}"). A value that IS one of these
+// is a pass-through from the host/.env, not a hardcoded inline literal.
+const VARIABLE_REFERENCE_PATTERN = /^\$(\{[A-Za-z_][A-Za-z0-9_]*(:?[-?+][^}]*)?\}|[A-Za-z_][A-Za-z0-9_]*)$/;
+
+function isVariableReference(value: string): boolean {
+    return VARIABLE_REFERENCE_PATTERN.test(value.trim());
+}
+
 export type CompatibilityLevel = "green" | "yellow" | "red";
 
 export interface BindMountInfo {
@@ -67,22 +76,45 @@ export class ComposeAnalyzer {
             if (!Array.isArray(svc?.volumes)) continue;
 
             for (const vol of svc.volumes) {
-                if (typeof vol !== "string" || !vol.includes(":")) continue;
-                const [hostPath, containerPath] = vol.split(":");
-
-                // Skip named volume references (no / or . prefix)
-                if (!hostPath.startsWith(".") && !hostPath.startsWith("/")) continue;
-
-                results.push({
-                    path: hostPath,
-                    type: hostPath.startsWith("/") ? "absolute" : "relative",
-                    serviceName,
-                    containerPath,
-                });
+                const mount = this.parseVolumeEntry(vol, serviceName);
+                if (mount) results.push(mount);
             }
         }
 
         return results;
+    }
+
+    /**
+     * Parses a single volumes[] entry, in either short form ("host:container")
+     * or long form ({type, source, target}). Returns null for entries that
+     * aren't host bind mounts (named-volume references in either form).
+     */
+    private parseVolumeEntry(vol: unknown, serviceName: string): BindMountInfo | null {
+        if (typeof vol === "string") {
+            if (!vol.includes(":")) return null;
+            const [hostPath, containerPath] = vol.split(":");
+            // Skip named volume references (no / or . prefix)
+            if (!hostPath.startsWith(".") && !hostPath.startsWith("/")) return null;
+            return {
+                path: hostPath,
+                type: hostPath.startsWith("/") ? "absolute" : "relative",
+                serviceName,
+                containerPath,
+            };
+        }
+
+        if (vol && typeof vol === "object") {
+            const v = vol as any;
+            if (v.type !== "bind" || typeof v.source !== "string") return null;
+            return {
+                path: v.source,
+                type: v.source.startsWith("/") ? "absolute" : "relative",
+                serviceName,
+                containerPath: typeof v.target === "string" ? v.target : "",
+            };
+        }
+
+        return null;
     }
 
     extractInlineEnvVars(doc: any): {serviceName: string; vars: Record<string, string>}[] {
@@ -96,11 +128,15 @@ export class ComposeAnalyzer {
             // Array form (${VAR} references) is NOT inline
             if (Array.isArray(env)) continue;
 
-            // Object form IS inline
+            // Object form is inline, except when a value is itself a variable
+            // reference (${VAR} or $VAR) rather than a literal — that's a
+            // pass-through from the host/.env, not a hardcoded inline value.
             if (env && typeof env === "object") {
                 const vars: Record<string, string> = {};
                 for (const [key, value] of Object.entries(env)) {
-                    vars[key] = String(value);
+                    const strValue = String(value);
+                    if (isVariableReference(strValue)) continue;
+                    vars[key] = strValue;
                 }
                 if (Object.keys(vars).length > 0) {
                     results.push({serviceName, vars});

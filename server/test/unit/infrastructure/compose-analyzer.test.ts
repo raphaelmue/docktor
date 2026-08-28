@@ -1,12 +1,10 @@
 import {describe, it, expect} from "vitest";
-
-// RED: Import will fail until implementation exists
-// import {ComposeAnalyzer} from "../../../src/infrastructure/compose-analyzer.js";
+import {parse as parseYaml} from "yaml";
+import {ComposeAnalyzer} from "../../../src/infrastructure/compose-analyzer.js";
 
 describe("ComposeAnalyzer", () => {
     describe("analyzeCompatibility (BF-02)", () => {
         it("should return green for compose with only relative bind mounts", () => {
-            // BF-02: compatibility assessment - green
             const compose = `
 services:
   app:
@@ -14,14 +12,12 @@ services:
     volumes:
       - ./data:/app/data
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("green");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("green");
         });
 
         it("should return yellow for compose with named volumes", () => {
-            // BF-02: named volumes = yellow
             const compose = `
 services:
   db:
@@ -31,14 +27,12 @@ services:
 volumes:
   pgdata:
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("yellow");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("yellow");
         });
 
         it("should return yellow for compose with absolute bind mount paths", () => {
-            // BF-02: absolute paths = yellow
             const compose = `
 services:
   app:
@@ -46,14 +40,12 @@ services:
     volumes:
       - /mnt/nas/data:/app/data
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("yellow");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("yellow");
         });
 
         it("should return yellow for compose with inline environment variables", () => {
-            // BF-02: inline env vars = yellow
             const compose = `
 services:
   app:
@@ -62,14 +54,12 @@ services:
       PORT: 8080
       DEBUG: true
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("yellow");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("yellow");
         });
 
         it("should return red for compose with configs section", () => {
-            // BF-02: unsupported features = red
             const compose = `
 services:
   app:
@@ -78,10 +68,9 @@ configs:
   my_config:
     file: ./config.txt
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("red");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("red");
         });
 
         it("should return red for compose with secrets section", () => {
@@ -93,10 +82,9 @@ secrets:
   my_secret:
     file: ./secret.txt
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("red");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("red");
         });
 
         it("should return red for compose with depends_on conditions", () => {
@@ -110,10 +98,9 @@ services:
   db:
     image: postgres
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("red");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("red");
         });
 
         it("should detect multiple yellow flags and return yellow", () => {
@@ -129,13 +116,12 @@ services:
 volumes:
   namedvol:
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const result = analyzer.analyzeCompatibility(compose);
-            // expect(result.compatibility).toBe("yellow");
-            // expect(result.issues).toContain("named volumes");
-            // expect(result.issues).toContain("absolute paths");
-            // expect(result.issues).toContain("inline environment variables");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const result = analyzer.analyzeCompatibility(compose);
+            expect(result.compatibility).toBe("yellow");
+            expect(result.namedVolumes).toContain("namedvol");
+            expect(result.bindMounts.some((m) => m.type === "absolute" && m.path === "/absolute/path")).toBe(true);
+            expect(result.inlineEnvVars.some((e) => e.serviceName === "app" && e.vars.KEY === "value")).toBe(true);
         });
     });
 
@@ -150,10 +136,9 @@ volumes:
   logs:
   cache:
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const volumes = analyzer.extractNamedVolumes(compose);
-            // expect(volumes).toEqual(["data", "logs", "cache"]);
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const volumes = analyzer.extractNamedVolumes(parseYaml(compose));
+            expect(volumes).toEqual(["data", "logs", "cache"]);
         });
 
         it("should return empty array when no volumes section exists", () => {
@@ -162,10 +147,9 @@ services:
   app:
     image: nginx
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const volumes = analyzer.extractNamedVolumes(compose);
-            // expect(volumes).toEqual([]);
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const volumes = analyzer.extractNamedVolumes(parseYaml(compose));
+            expect(volumes).toEqual([]);
         });
     });
 
@@ -180,12 +164,13 @@ services:
       - /mnt/nas:/app/nas
       - ../config:/app/config
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const mounts = analyzer.extractBindMounts(compose);
-            // expect(mounts.relative).toContain("./data");
-            // expect(mounts.relative).toContain("../config");
-            // expect(mounts.absolute).toContain("/mnt/nas");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const mounts = analyzer.extractBindMounts(parseYaml(compose));
+            const relativePaths = mounts.filter((m) => m.type === "relative").map((m) => m.path);
+            const absolutePaths = mounts.filter((m) => m.type === "absolute").map((m) => m.path);
+            expect(relativePaths).toContain("./data");
+            expect(relativePaths).toContain("../config");
+            expect(absolutePaths).toContain("/mnt/nas");
         });
 
         it("should handle volume long-form syntax", () => {
@@ -198,10 +183,41 @@ services:
         source: ./data
         target: /app/data
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const mounts = analyzer.extractBindMounts(compose);
-            // expect(mounts.relative).toContain("./data");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const mounts = analyzer.extractBindMounts(parseYaml(compose));
+            expect(mounts.some((m) => m.type === "relative" && m.path === "./data" && m.containerPath === "/app/data")).toBe(true);
+        });
+
+        it("should categorize a long-form bind mount with an absolute source as absolute", () => {
+            const compose = `
+services:
+  app:
+    image: nginx
+    volumes:
+      - type: bind
+        source: /mnt/nas
+        target: /app/nas
+`;
+            const analyzer = new ComposeAnalyzer();
+            const mounts = analyzer.extractBindMounts(parseYaml(compose));
+            expect(mounts.some((m) => m.type === "absolute" && m.path === "/mnt/nas")).toBe(true);
+        });
+
+        it("should skip long-form named-volume entries (type: volume)", () => {
+            const compose = `
+services:
+  db:
+    image: postgres
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/data
+volumes:
+  pgdata:
+`;
+            const analyzer = new ComposeAnalyzer();
+            const mounts = analyzer.extractBindMounts(parseYaml(compose));
+            expect(mounts).toEqual([]);
         });
     });
 
@@ -215,11 +231,11 @@ services:
       PORT: 8080
       DEBUG: true
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const envVars = analyzer.extractInlineEnvVars(compose);
-            // expect(envVars).toHaveProperty("PORT", "8080");
-            // expect(envVars).toHaveProperty("DEBUG", "true");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const envVars = analyzer.extractInlineEnvVars(parseYaml(compose));
+            const appVars = envVars.find((e) => e.serviceName === "app")?.vars;
+            expect(appVars).toHaveProperty("PORT", "8080");
+            expect(appVars).toHaveProperty("DEBUG", "true");
         });
 
         it("should not flag array-form environment references as inline", () => {
@@ -231,10 +247,9 @@ services:
       - PORT=\${PORT}
       - DEBUG=\${DEBUG}
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const envVars = analyzer.extractInlineEnvVars(compose);
-            // expect(Object.keys(envVars).length).toBe(0);
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const envVars = analyzer.extractInlineEnvVars(parseYaml(compose));
+            expect(envVars.length).toBe(0);
         });
 
         it("should handle mixed inline and reference env vars", () => {
@@ -246,11 +261,11 @@ services:
       PORT: 8080
       HOST: \${HOST}
 `;
-            // const analyzer = new ComposeAnalyzer();
-            // const envVars = analyzer.extractInlineEnvVars(compose);
-            // expect(envVars).toHaveProperty("PORT", "8080");
-            // expect(envVars).not.toHaveProperty("HOST");
-            expect(true).toBe(false); // RED
+            const analyzer = new ComposeAnalyzer();
+            const envVars = analyzer.extractInlineEnvVars(parseYaml(compose));
+            const appVars = envVars.find((e) => e.serviceName === "app")?.vars;
+            expect(appVars).toHaveProperty("PORT", "8080");
+            expect(appVars).not.toHaveProperty("HOST");
         });
     });
 });
