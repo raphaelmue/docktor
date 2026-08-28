@@ -46,6 +46,18 @@ found by trial and error rather than caught by documentation or tooling:
    image/build with the correct env and getting the SPA `index.html` back on `GET /`.
    Another case a documented `.env.example` (spelling out what `NODE_ENV=production`
    controls) would have prevented.
+6. **Real bug, fixed** — the tracked `docker-compose.yml` never set `BETTER_AUTH_URL`
+   or `BETTER_AUTH_SECRET` at all. `server/src/lib/auth.ts` reads `BETTER_AUTH_URL`
+   for both `baseURL` and `trustedOrigins`; without it, `trustedOrigins` silently fell
+   back to the dev-only `http://localhost:5173` default, so login failed with
+   "invalid origin" for any real deployment. Missing `BETTER_AUTH_SECRET` crashes the
+   server at boot (confirmed earlier in this same session). Fixed in `6c9e69e`
+   (explicit `baseURL` wiring in `auth.ts` + both vars added to
+   `docker-compose.yml`). Also note: `docker-compose.yml` sets `DOCKTOR_BASE_URL`,
+   which nothing in `server/src` actually reads (confirmed by grep) — it's dead
+   config that looks load-bearing; `BETTER_AUTH_URL` is the one that matters. The
+   documented `.env.example` should make this relationship explicit rather than
+   have two same-looking "base URL" vars where only one does anything.
 
 Each of these is the kind of thing a documented, known-good `.env.example` +
 `docker-compose.yml` (with inline comments explaining each variable, and either a
