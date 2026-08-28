@@ -59,7 +59,7 @@ Plans:
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
 
-**Plans**: 14/16 plans executed
+**Plans**: 16/16 plans executed
 
 Plans:
 **Wave 1**
@@ -97,7 +97,7 @@ Plans:
 
 **Re-verification gap closure — Wave 3** *(blocked on 02-14 and 02-15)*
 
-- [ ] 02-16-PLAN.md — Gap closure (G-02-16): stack events API client, hook, Event Log card, Status Log extraction
+- [x] 02-16-PLAN.md — Gap closure (G-02-16): stack events API client, hook, Event Log card, Status Log extraction
 
 ### Phase 3: Notifications
 
@@ -200,7 +200,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 14/16 | In Progress|  |
+| 2. Observability | 16/16 | In Progress|  |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |

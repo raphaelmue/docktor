@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 02
 current_phase_name: Observability
 status: Phase 02 gap-closure complete — all 12 plans done (02-08 through 02-12 verified on real deployments)
-stopped_at: Completed 02-15-PLAN.md
-last_updated: "2026-08-28T20:22:17.374Z"
-state_head: 72954251adb83345f3d88d9201b80ce57164b759
+stopped_at: Completed 02-16-PLAN.md
+last_updated: "2026-08-28T20:42:56.242Z"
+state_head: b572434672875a4314010bbcb9544b4653b8e352
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 49
-  completed_plans: 48
+  completed_plans: 49
 milestone_name: milestone
 ---
 
@@ -95,6 +95,7 @@ Plan: 4 of 4
 | Phase 02-observability P13 | 25min | 2 tasks | 4 files |
 | Phase 02-observability P14 | 15min | 2 tasks | 3 files |
 | Phase 02-observability P15 | 19min | 2 tasks | 7 files |
+| Phase 02-observability P16 | 25min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -184,6 +185,9 @@ Recent decisions affecting current work:
 - [Phase 02]: [Phase 02-observability P15]: getStackEvents() forwards an absent limit through unchanged rather than inventing a service-level default — StackEventRepository.findRecentByStack()'s own default (20) is the single definition; the route schema separately owns the HTTP-facing default
 - [Phase 02]: [Phase 02-observability P15]: createFileWatcherRepo's two parameters are narrow structural interfaces declared locally in file-watcher.ts, not the concrete repository classes — preserves getRepo()'s lazy-import pattern (keeps db.ts out of the unit-test module graph) while getting compiler-enforced shape checking instead of a cast
 - [Phase 02]: [Phase 02-observability P15]: StackRepository.createStackEvent() (ad-hoc write method with an as any enum cast) deleted outright, not deprecated — FileWatcher was its only caller (confirmed by grep); StackEventRepository.createEvent() is now the single write path to the StackEvent table
+- [Phase 02]: [Phase 02-observability P16]: useStackEvents mirrors useStack's fetchMode('initial'|'background') split — SSE-triggered refreshes never clear loaded entries or touch loading/error
+- [Phase 02]: [Phase 02-observability P16]: describeStackEvent() badge variants spread across all three Badge variants (default/secondary/destructive) so every event type is visually distinct from every other, not just error standing out from a pair
+- [Phase 02]: [Phase 02-observability P16]: EventLogCard's error UI gates on events===null (not the error flag alone) since background failures never clear error — a successful retry flips the card out of the error view once entries exist
 
 ### Quick Tasks Completed
 
@@ -230,6 +234,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-28T20:22:16.945Z
-Stopped at: Completed 02-15-PLAN.md
+Last session: 2026-08-28T20:42:55.793Z
+Stopped at: Completed 02-16-PLAN.md
 Resume file: None
