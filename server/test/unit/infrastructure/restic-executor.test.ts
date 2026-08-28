@@ -3,7 +3,7 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 vi.mock("node:child_process");
 
 import {spawn} from "node:child_process";
-import {ResticExecutor} from "../../../src/infrastructure/restic-executor.js";
+import {ResticExecutor, isRepositoryNotFoundError} from "../../../src/infrastructure/restic-executor.js";
 
 const mockSpawn = vi.mocked(spawn);
 
@@ -295,11 +295,53 @@ describe("ResticExecutor", () => {
             expect(result).toEqual([]);
         });
 
+        it("returns empty array when restic 0.16.x exits 1 with the 'unable to open config file' message (real-world repo-not-found shape)", async () => {
+            const mockProc = createMockProcess(
+                [],
+                1,
+                "Fatal: unable to open config file: stat /stacks/memos/backups/config: no such file or directory\nIs there a repository at the following location?\n/stacks/memos/backups",
+            );
+            mockSpawn.mockReturnValue(mockProc);
+
+            const result = await executor.snapshots({RESTIC_REPOSITORY: "/repo"}, "stack-1");
+
+            expect(result).toEqual([]);
+        });
+
         it("throws when exit code is non-zero and not 10", async () => {
             const mockProc = createMockProcess([], 1, "Fatal: something went wrong");
             mockSpawn.mockReturnValue(mockProc);
 
             await expect(executor.snapshots({RESTIC_REPOSITORY: "/repo"}, "stack-1")).rejects.toThrow();
+        });
+    });
+
+    describe("isRepositoryNotFoundError()", () => {
+        it("returns true for exit code 10", () => {
+            const err = Object.assign(new Error("Fatal: unable to open repo"), {exitCode: 10});
+            expect(isRepositoryNotFoundError(err)).toBe(true);
+        });
+
+        it("returns true for the real restic 0.16.x exit-1 'unable to open config file' message", () => {
+            const err = Object.assign(
+                new Error(
+                    "restic exited with code 1: Fatal: unable to open config file: stat /stacks/memos/backups/config: no such file or directory",
+                ),
+                {exitCode: 1},
+            );
+            expect(isRepositoryNotFoundError(err)).toBe(true);
+        });
+
+        it("returns false for a wrong-password error, even though it also exits 1", () => {
+            const err = Object.assign(
+                new Error("restic exited with code 1: Fatal: wrong password or no key found"),
+                {exitCode: 1},
+            );
+            expect(isRepositoryNotFoundError(err)).toBe(false);
+        });
+
+        it("returns false for a non-Error value", () => {
+            expect(isRepositoryNotFoundError("not an error")).toBe(false);
         });
     });
 });

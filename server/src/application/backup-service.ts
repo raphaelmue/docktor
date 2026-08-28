@@ -9,6 +9,7 @@ import {assertTransition} from "../domain/stack-status-machine.js"
 import {createComposeConfig} from "../domain/compose-config.js"
 import type {StackStatus, BackupTrigger} from "../generated/prisma/enums.js"
 import type {ResticExecutor, BackupRepoConfig, RetentionPolicy, ResticSnapshot} from "../infrastructure/restic-executor.js"
+import {isRepositoryNotFoundError} from "../infrastructure/restic-executor.js"
 import type {BackupRepository} from "../repositories/backup-repository.js"
 import type {NotificationService} from "./notification-service.js"
 import type {DockerExecutor} from "../infrastructure/docker-executor.js"
@@ -516,8 +517,7 @@ export class BackupService {
         try {
             await this.resticExecutor.run(args, env, onLine, cwd)
         } catch (err) {
-            const exitCode = (err as {exitCode?: number}).exitCode
-            if (exitCode === 10) {
+            if (isRepositoryNotFoundError(err)) {
                 // Repository not initialized — init and retry
                 const initArgs = typeof this.resticExecutor.buildInitArgs === "function"
                     ? this.resticExecutor.buildInitArgs()

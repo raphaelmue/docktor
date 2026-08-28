@@ -315,6 +315,46 @@ describe("BackupService", () => {
             // run should be called at least 3 times: backup (fail) → init → backup (ok) → forget
             expect(mockResticExecutor.run.mock.calls.length).toBeGreaterThanOrEqual(3);
         });
+
+        it("auto-initializes repo on the real restic 0.16.x error shape (exit 1, 'unable to open config file')", async () => {
+            // This is what restic actually returns for a missing local repo — exit code 10
+            // is documented but not what this restic version produces. Reproduced directly:
+            // `restic backup` against a non-existent repo exits 1 with this exact message.
+            const realRepoNotFoundError = Object.assign(
+                new Error(
+                    "restic exited with code 1: Fatal: unable to open config file: stat /stacks/memos/backups/config: no such file or directory\nIs there a repository at the following location?\n/stacks/memos/backups",
+                ),
+                {exitCode: 1},
+            );
+            mockResticExecutor.run
+                .mockRejectedValueOnce(realRepoNotFoundError)
+                .mockResolvedValue({exitCode: 0, stderr: ""});
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(mockResticExecutor.run.mock.calls.length).toBeGreaterThanOrEqual(3);
+            const backupResult = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "COMPLETED",
+            );
+            expect(backupResult).toBeDefined();
+        });
+
+        it("does not auto-init on a wrong-password error, even though it also exits 1", async () => {
+            const wrongPasswordError = Object.assign(
+                new Error("restic exited with code 1: Fatal: wrong password or no key found"),
+                {exitCode: 1},
+            );
+            mockResticExecutor.run.mockRejectedValue(wrongPasswordError);
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            // Only the original failing call — no init, no retry
+            expect(mockResticExecutor.run).toHaveBeenCalledTimes(1);
+            expect(mockBackupRepository.update).toHaveBeenCalledWith(
+                backupRecord.id,
+                expect.objectContaining({status: "FAILED"}),
+            );
+        });
     });
 
     describe("getBackupRepoConfig()", () => {

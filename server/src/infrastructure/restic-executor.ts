@@ -5,6 +5,21 @@ export interface ResticRunResult {
     stderr: string;
 }
 
+/**
+ * True when a restic error means "the repository has not been initialized yet".
+ * Restic's documented exit code for this (10) is not what restic 0.16.x actually
+ * returns for a missing local-backend config — it returns the generic exit code 1
+ * for this case (confirmed by direct reproduction), the same code a wrong password
+ * also produces. Matching restic's stable "unable to open config file" stderr text
+ * distinguishes the two; exitCode 10 is kept as a harmless fallback in case a future
+ * restic version does use it.
+ */
+export function isRepositoryNotFoundError(err: unknown): boolean {
+    if (!(err instanceof Error)) return false;
+    if ((err as {exitCode?: number}).exitCode === 10) return true;
+    return err.message.includes("unable to open config file");
+}
+
 export interface ResticSnapshot {
     id: string;
     time: string;
@@ -180,8 +195,7 @@ export class ResticExecutor {
                 (l) => lines.push(l),
             );
         } catch (err) {
-            const exitCode = (err as {exitCode?: number}).exitCode;
-            if (exitCode === 10) return []; // Repository not initialized
+            if (isRepositoryNotFoundError(err)) return []; // Repository not initialized
             throw err;
         }
 
