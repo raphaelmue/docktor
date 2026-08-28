@@ -1,9 +1,47 @@
 ---
-status: diagnosed
+status: reopened
 trigger: "Investigate why invalid YAML errors and validation restrictions are not being detected or shown."
 created: 2026-03-16T00:00:00Z
-updated: 2026-03-16T00:11:00Z
+updated: 2026-08-28T00:00:00Z
 ---
+
+## Reopened 2026-08-28 (plan 02-08 Task 3 checkpoint)
+
+The backend half of the original diagnosis is confirmed fixed: on a real YAML
+syntax error, the server logs `[FileWatcher] Config error for memos: ...` and
+`[NotificationWatcher] Received event: config_error`. But the user reports
+"the logs represent the error, but not the UI" — no indication appears in
+the Docktor web UI itself.
+
+The original diagnosis (below) never actually checked the client. It assumed
+that once `config_error` broadcasts server-side, "UI indication" follows for
+free. That assumption is false:
+
+- `client/src/hooks/use-container-events.ts` — the `StateEvent` union has no
+  `ConfigErrorEvent` variant at all (only `ContainerStateEvent`,
+  `StackStatusEvent`, `ConfigChangedEvent`, `UpdateAvailableEvent`,
+  `NotificationCreatedEvent`). A `config_error` SSE message is delivered to
+  `onmessage` and silently ignored by every consumer's `if/else if` chain.
+- `client/src/hooks/use-stacks.ts` and `use-stack.ts` only branch on
+  `event.type === "config_changed"` to trigger a refetch. No `config_error`
+  branch exists.
+- `server/prisma/schema/stack.prisma` — `Stack` has `configChanged: Boolean`
+  but no persisted field for "has an unresolved config error" (e.g. a
+  `configError: String?` message column). `StackEvent` rows exist as an
+  append-only audit log, but nothing projects the *latest* error onto the
+  `Stack` row the way `configChanged` does.
+- `client/src/routes/app/stacks/[id].tsx` and
+  `client/src/components/domain/stack/stack-list.tsx` only render a badge
+  for `stack.configChanged` — there is no error-state badge/indicator at
+  all, so there is nothing to render even if the event were wired up.
+
+This is a distinct gap from the original root cause, not a re-occurrence of
+it: the "config_error not shown" symptom in 02-UAT.md test 5 was reported
+before the backend fix existed, so the original session correctly diagnosed
+the backend half but never got far enough to notice the frontend half is
+equally missing. Per plan 02-08 Task 3 instructions, this is being recorded
+here rather than turned into a new plan while the checkpoint is still open.
+
 
 ## Current Focus
 
