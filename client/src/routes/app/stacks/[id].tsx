@@ -30,6 +30,7 @@ import {ScrollArea} from "@/components/ui/scroll-area";
 import {StackActions} from "./components/stack-actions";
 import {BackupsTab} from "./components/backups-tab";
 import {ServicesTab} from "./components/services-tab";
+import {EventLogCard} from "./components/event-log-card";
 
 export default function StackDetailPage() {
     const {id = "", tab} = useParams<{ id: string; tab?: string }>();
@@ -332,6 +333,8 @@ export default function StackDetailPage() {
                                 </ScrollArea>
                             </CardContent>
                         </Card>
+
+                        <EventLogCard stackId={id}/>
                     </TabsContent>
 
                     <TabsContent value="compose" className="space-y-4 mt-4">

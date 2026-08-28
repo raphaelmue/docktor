@@ -149,6 +149,8 @@ export function upgradeService(stackId: string, serviceName: string, targetTag: 
     );
 }
 
+// getStackEvents forwards limit as a query parameter only when supplied, so
+// the server's own default (20) governs when the caller omits it.
 export function getStackEvents(stackId: string, limit?: number) {
     const query = limit !== undefined ? `?limit=${limit}` : "";
     return apiFetch<StackEvent[]>(
