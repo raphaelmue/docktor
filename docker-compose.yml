@@ -29,6 +29,10 @@ services:
       - DOCKTOR_STACKS_DIR=/stacks
       - DOCKTOR_DATA_DIR=/data
       - DOCKTOR_BACKUP_DIR=/backups
+      # Must match the origin you actually access Docktor at, or login fails with "invalid origin"
+      - BETTER_AUTH_URL=https://docktor.example.com
+      # Generate with: openssl rand -base64 32
+      - BETTER_AUTH_SECRET=CHANGE_ME
 
   db:
     image: postgres:17
