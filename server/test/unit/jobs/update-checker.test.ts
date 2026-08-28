@@ -245,6 +245,38 @@ describe("UpdateChecker", () => {
         it("returns an empty array when currentTag is a moving tag", () => {
             expect(selectUpgradeCandidates("latest", ["1.24", "1.25", "1.26"])).toEqual([]);
         });
+
+        it("excludes OS/flavor variant tags that merely contain digits, matching real nginx registry data", () => {
+            // Reproduces a real bug found against the live nginx Docker Hub registry:
+            // semver.coerce("alpine3.24") extracts "3.24.0" and used to rank it as a
+            // "newer version" than 1.27, even though it's an Alpine base-image variant
+            // tag, not an nginx version at all.
+            const result = selectUpgradeCandidates("1.27", [
+                "1.27",
+                "1.28",
+                "1.28.0",
+                "alpine3.24",
+                "alpine3.24-otel",
+                "mainline-alpine3.24-otel",
+                "stable-alpine3.24-perl",
+                "1.28.0-alpine",
+            ]);
+            expect(result).toEqual(["1.28", "1.28.0"]);
+        });
+
+        it("only compares a suffixed currentTag against candidates with the exact same suffix", () => {
+            const result = selectUpgradeCandidates("1.27.0-alpine", [
+                "1.28.0-alpine",
+                "1.28.0",
+                "1.27.0",
+                "1.29.0-alpine",
+            ]);
+            expect(result).toEqual(["1.29.0-alpine", "1.28.0-alpine"]);
+        });
+
+        it("returns an empty array when currentTag itself does not start with a version number", () => {
+            expect(selectUpgradeCandidates("alpine", ["1.24", "1.25", "1.26"])).toEqual([]);
+        });
     });
 
     describe("selectLatestTag() (UPD-01)", () => {

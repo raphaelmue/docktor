@@ -22,6 +22,14 @@ function stripTag(imageRef: string): string {
 const REQUEST_TIMEOUT_MS = 15_000
 const MAX_BODY_BYTES = 2 * 1024 * 1024 // ~2 MB
 const MOVING_TAG_HOST_FALLBACK = "registry-1.docker.io"
+// Registry v2 paginates tags/list via a `Link: <url>; rel="next"` header once a
+// repository has more tags than fit in one page. Docker Hub returns tags in
+// alphabetical order, not version or chronological order, so for a
+// high-traffic image like nginx (1000+ tags) the tags a user actually cares
+// about can be many pages in — nginx's own "1.27"/"1.28"/"1.29" don't appear
+// until page 7 of 13. A cap still exists to bound worst-case request count
+// against a pathological or malicious registry.
+const MAX_TAG_PAGES = 50
 
 /**
  * Thrown when the registry cannot be reached or refuses to answer — a
@@ -130,12 +138,10 @@ export class RegistryClient {
         }
     }
 
-    private async requestTagsList(
-        host: string,
-        repository: string,
+    private async requestTagsListUrl(
+        url: string,
         token: string | null,
     ): Promise<Response> {
-        const url = `https://${host}/v2/${repository}/tags/list?n=100`
         const headers: Record<string, string> = {}
         if (token) headers.Authorization = `Bearer ${token}`
 
@@ -144,6 +150,28 @@ export class RegistryClient {
             signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
             redirect: "error",
         })
+    }
+
+    private requestTagsList(
+        host: string,
+        repository: string,
+        token: string | null,
+    ): Promise<Response> {
+        return this.requestTagsListUrl(`https://${host}/v2/${repository}/tags/list?n=100`, token)
+    }
+
+    /**
+     * Resolves a Registry v2 pagination `Link: <url>; rel="next"` header to an
+     * absolute URL for the next page, or null when there is none. The header
+     * value is host-relative (e.g. `</v2/library/nginx/tags/list?last=...>`),
+     * so it's resolved against the same host the current page came from.
+     */
+    private resolveNextPageUrl(response: Response, host: string): string | null {
+        const link = response.headers.get("link")
+        if (!link) return null
+        const match = /<([^>]+)>\s*;\s*rel="next"/i.exec(link)
+        if (!match) return null
+        return new URL(match[1], `https://${host}`).toString()
     }
 
     /**
@@ -163,6 +191,7 @@ export class RegistryClient {
         }
 
         let response: Response
+        let token: string | null = null
         try {
             response = await this.requestTagsList(host, repository, null)
         } catch (err) {
@@ -176,7 +205,7 @@ export class RegistryClient {
                 throw new RegistryUnavailableError(imageRef, "401 with no usable auth challenge")
             }
 
-            const token = await this.fetchToken(challenge, host)
+            token = await this.fetchToken(challenge, host)
             let retryResponse: Response
             try {
                 retryResponse = await this.requestTagsList(host, repository, token)
@@ -203,6 +232,40 @@ export class RegistryClient {
             return null
         }
 
+        const firstPageTags = await this.parseTagsBody(response, imageRef)
+        if (firstPageTags === null) return null
+
+        const allTags = [...firstPageTags]
+        let nextUrl = this.resolveNextPageUrl(response, host)
+        let page = 1
+
+        // A mid-pagination failure past the first page stops pagination and
+        // returns what's already been accumulated, rather than throwing —
+        // the first page already succeeded, so partial results are strictly
+        // better than discarding everything over a later page's hiccup.
+        while (nextUrl && page < MAX_TAG_PAGES) {
+            page += 1
+            let pageResponse: Response
+            try {
+                pageResponse = await this.requestTagsListUrl(nextUrl, token)
+            } catch (err) {
+                console.warn(`[RegistryClient] listTags: page ${page} request failed for ${imageRef}, returning ${allTags.length} tags collected so far`, err)
+                break
+            }
+            if (!pageResponse.ok) {
+                console.warn(`[RegistryClient] listTags: page ${page} returned status ${pageResponse.status} for ${imageRef}, returning ${allTags.length} tags collected so far`)
+                break
+            }
+            const pageTags = await this.parseTagsBody(pageResponse, imageRef)
+            if (pageTags === null) break
+            allTags.push(...pageTags)
+            nextUrl = this.resolveNextPageUrl(pageResponse, host)
+        }
+
+        return allTags
+    }
+
+    private async parseTagsBody(response: Response, imageRef: string): Promise<string[] | null> {
         const body = await readBoundedBody(response)
         if (!body) return null
 

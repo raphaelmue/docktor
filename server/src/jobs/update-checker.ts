@@ -130,25 +130,52 @@ export function compareVersions(
 }
 
 /**
+ * Splits a tag into its leading numeric version and everything after it,
+ * e.g. "1.27.3-alpine" -> {version: "1.27.3", suffix: "-alpine"}. Returns
+ * null when the tag does not *start* with a version number. This is
+ * deliberately stricter than semver.coerce(), which extracts a version
+ * number from anywhere in a string (e.g. semver.coerce("alpine3.24") finds
+ * "3.24.0") — that leniency is correct for parsing a known-good tag, but
+ * wrong for filtering registry tag lists: a real-world Docker Hub registry
+ * mixes genuine version tags ("1.28.0") with OS/flavor variant tags
+ * ("alpine3.24", "mainline-alpine3.24-otel", "1.27.0-alpine") that
+ * semver.coerce also happily parses. Anchoring the numeric part to the
+ * start of the string excludes those.
+ */
+function extractVersionShape(tag: string): {version: string; suffix: string} | null {
+    const m = /^(\d+(?:\.\d+){0,3})(.*)$/.exec(tag)
+    if (!m) return null
+    return {version: m[1], suffix: m[2]}
+}
+
+/**
  * Filters and ranks tags that represent a genuine upgrade over currentTag,
  * newest first. A moving currentTag (latest, edge, stable, main, master,
  * nightly) has no version-ordered meaning — it always returns [] and the
  * digest comparison in checkImage() governs instead. Candidate tags are
- * first restricted to the same "shape" as currentTag (all date tags, or
- * all semver-coercible tags) before compareVersions() ranks them, so the
+ * first restricted to the same "shape" as currentTag before
+ * compareVersions() ranks them: date tags must both be date-shaped, and
+ * non-date tags must both be a bare leading version number with the exact
+ * same trailing suffix (e.g. a plain "1.27" only compares against other
+ * plain numeric tags, never "1.28-alpine" or a flavor tag like
+ * "alpine3.24" that happens to contain digits) — so the
  * date-tag-precedes-semver-coercion rule already established there keeps
- * holding rather than being re-decided per pair. Moving-tag candidates
- * (e.g. a "latest" entry in the registry's tag list) are always dropped.
+ * holding, and a variant/flavor tag never gets suggested as a "version
+ * upgrade". Moving-tag candidates (e.g. a "latest" entry in the registry's
+ * tag list) are always dropped.
  */
 export function selectUpgradeCandidates(currentTag: string, tags: string[]): string[] {
     if (MOVING_TAGS.has(currentTag)) return []
 
     const currentIsDate = parseDateTag(currentTag) !== null
+    const currentShape = currentIsDate ? null : extractVersionShape(currentTag)
+    if (!currentIsDate && !currentShape) return []
 
     const shapeCompatible = tags.filter((candidateTag) => {
         if (MOVING_TAGS.has(candidateTag)) return false
         if (currentIsDate) return parseDateTag(candidateTag) !== null
-        return semver.coerce(candidateTag) !== null
+        const candidateShape = extractVersionShape(candidateTag)
+        return candidateShape !== null && candidateShape.suffix === currentShape!.suffix
     })
 
     return shapeCompatible

@@ -141,4 +141,84 @@ describe("RegistryClient", () => {
             expect(url.startsWith("https://")).toBe(true)
         })
     })
+
+    describe("listTags() pagination (nginx has 1000+ tags spread across many pages)", () => {
+        it("follows a Link: rel=\"next\" header across multiple pages and merges all tags", async () => {
+            fetchMock
+                .mockResolvedValueOnce(
+                    jsonResponse(200, {tags: ["1-alpine", "1.10"]}, {
+                        link: '</v2/library/nginx/tags/list?last=1.10&n=100>; rel="next"',
+                    }),
+                )
+                .mockResolvedValueOnce(jsonResponse(200, {tags: ["1.27", "1.28"]}))
+
+            const result = await client.listTags("nginx:1.27")
+
+            expect(fetchMock).toHaveBeenCalledTimes(2)
+            const [secondUrl] = fetchMock.mock.calls[1]
+            expect(secondUrl).toBe("https://registry-1.docker.io/v2/library/nginx/tags/list?last=1.10&n=100")
+            expect(result).toEqual(["1-alpine", "1.10", "1.27", "1.28"])
+        })
+
+        it("reuses the negotiated bearer token for subsequent pages", async () => {
+            fetchMock
+                .mockResolvedValueOnce(
+                    textResponse(401, "", {
+                        "www-authenticate": 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"',
+                    }),
+                )
+                .mockResolvedValueOnce(jsonResponse(200, {token: "fake-token"}))
+                .mockResolvedValueOnce(
+                    jsonResponse(200, {tags: ["1.10"]}, {link: '</v2/library/nginx/tags/list?last=1.10>; rel="next"'}),
+                )
+                .mockResolvedValueOnce(jsonResponse(200, {tags: ["1.27"]}))
+
+            const result = await client.listTags("nginx:1.27")
+
+            const secondPageOptions = fetchMock.mock.calls[3][1] as RequestInit
+            expect((secondPageOptions.headers as Record<string, string>).Authorization).toBe("Bearer fake-token")
+            expect(result).toEqual(["1.10", "1.27"])
+        })
+
+        it("stops pagination and returns tags collected so far when a later page fails, without throwing", async () => {
+            const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+            fetchMock
+                .mockResolvedValueOnce(
+                    jsonResponse(200, {tags: ["1.10"]}, {link: '</v2/library/nginx/tags/list?last=1.10>; rel="next"'}),
+                )
+                .mockRejectedValueOnce(new Error("network blip"))
+
+            const result = await client.listTags("nginx:1.27")
+
+            expect(result).toEqual(["1.10"])
+            expect(warnSpy).toHaveBeenCalled()
+            warnSpy.mockRestore()
+        })
+
+        it("caps pagination at a bounded number of pages against a pathologically large tag list", async () => {
+            fetchMock.mockImplementation((url: string) => {
+                const lastMatch = /last=(\d+)/.exec(url)
+                const page = lastMatch ? Number(lastMatch[1]) : 0
+                return Promise.resolve(
+                    jsonResponse(200, {tags: [`page-${page}`]}, {
+                        link: `</v2/library/nginx/tags/list?last=${page + 1}&n=100>; rel="next"`,
+                    }),
+                )
+            })
+
+            const result = await client.listTags("nginx:1.27")
+
+            // Bounded: does not paginate forever even though every page claims a next link.
+            expect(fetchMock.mock.calls.length).toBeLessThan(100)
+            expect(result?.length).toBe(fetchMock.mock.calls.length)
+        })
+
+        it("has no Link header on a single-page response, so it does not attempt a second request", async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(200, {tags: ["1.27"]}))
+
+            await client.listTags("nginx:1.27")
+
+            expect(fetchMock).toHaveBeenCalledTimes(1)
+        })
+    })
 })
