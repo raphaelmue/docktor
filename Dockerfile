@@ -54,6 +54,15 @@ ENV CLIENT_DIST_PATH=./client-dist
 # Fixed container-side mount points (see docker-compose.yml volumes) — not meant to
 # vary per deployment, so they live in the image rather than compose environment.
 ENV DOCKTOR_STACKS_DIR=/stacks
+# Default the stacks-directory watcher to polling mode. process.platform inside this
+# image is always "linux", so the Windows auto-detect in file-watcher.ts can never
+# trigger here — but the /stacks bind mount's host side may be a Docker Desktop
+# (Windows/Mac) virtualized filesystem that doesn't propagate inotify into the
+# container either. Polling costs a small, bounded amount of CPU (1s interval over
+# the stacks directory) in exchange for correct instant-detection everywhere;
+# operators who've confirmed a native Linux host can override with
+# DOCKTOR_FS_POLLING=false to skip it.
+ENV DOCKTOR_FS_POLLING=true
 
 EXPOSE 3000
 
