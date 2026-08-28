@@ -75,7 +75,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 02-04-PLAN.md — UpdateChecker job (staggered registry polling, semver/date/digest) + manifestInspect()
-- [ ] 02-10-PLAN.md — Gap closure (UAT gap 4b): RegistryClient tag listing, live latestTag comparison, tags route
+- [x] 02-10-PLAN.md — Gap closure (UAT gap 4b): RegistryClient tag listing, live latestTag comparison, tags route
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 9/12 | In Progress|  |
+| 2. Observability | 10/12 | In Progress|  |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |

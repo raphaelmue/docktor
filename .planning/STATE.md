@@ -203,6 +203,7 @@ Recent decisions affecting current work:
 - Phase 1: dockerode log stream on SSE client disconnect — RESOLVED in P06: request.raw.on('close', () => streams.forEach(s => s.destroy())) wired in /api/stacks/:id/logs route
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
+- [Phase 02-observability P10]: `ImageUpdateCheck.availableTags String?` was added to schema.prisma and `prisma generate` was run, but `yarn db:push` could not be run against a reachable database in the execution sandbox — must be run against the real dev/prod database before the next deploy, or `upsert` calls touching this column will fail at runtime (not at boot, since Prisma doesn't validate live schema at startup).
 
 ## Session Continuity
 
