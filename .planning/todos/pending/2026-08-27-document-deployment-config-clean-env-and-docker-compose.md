@@ -58,6 +58,22 @@ found by trial and error rather than caught by documentation or tooling:
    config that looks load-bearing; `BETTER_AUTH_URL` is the one that matters. The
    documented `.env.example` should make this relationship explicit rather than
    have two same-looking "base URL" vars where only one does anything.
+7. **Real bug, fixed** — `DOCKTOR_STACKS_DIR`/`DOCKTOR_DATA_DIR`/`DOCKTOR_BACKUP_DIR`
+   were set in `docker-compose.yml`'s `environment:`, but these name
+   container-internal paths that must match the volume mount targets and never vary
+   per deployment — they belong in the image, not per-deployment config (user
+   feedback: "it is only relevant for the volumes on host side"). Moved
+   `DOCKTOR_STACKS_DIR=/stacks` to a Dockerfile `ENV` default in `19817b2`, since
+   `server/src/lib/stacks-dir.ts` actually reads it (default `./stacks`, which
+   would've resolved to the wrong `/app/stacks` without this). `DOCKTOR_DATA_DIR`
+   and `DOCKTOR_BACKUP_DIR` were dropped outright — neither is read anywhere in
+   `server/src` — meaning **the `/data` and `/backups` volume mounts in
+   `docker-compose.yml` aren't wired to any app code yet**. The restic backup path
+   (`server/src/application/backup-service.ts`) resolves its repo path from a
+   DB-stored setting (`repoConfig.repoPath`), not from these volumes at all. Worth
+   deciding, as part of this todo: either wire local/backup storage to read these
+   fixed container paths, or drop the `/data` and `/backups` volume mounts from the
+   documented compose file until something actually uses them.
 
 Each of these is the kind of thing a documented, known-good `.env.example` +
 `docker-compose.yml` (with inline comments explaining each variable, and either a
