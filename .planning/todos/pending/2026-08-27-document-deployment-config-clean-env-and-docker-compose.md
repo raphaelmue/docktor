@@ -75,6 +75,17 @@ found by trial and error rather than caught by documentation or tooling:
    fixed container paths, or drop the `/data` and `/backups` volume mounts from the
    documented compose file until something actually uses them.
 
+8. **Real bug, confirmed (2026-08-28), functional not just documentation** — the
+   `docker-compose.yml` `./dev-data/docktor/stacks:/stacks` mount (host path remapped
+   to a different container path) breaks every relative bind-mount volume in every
+   managed stack, because Docktor runs Docker-outside-of-Docker: `docker compose`
+   inside the Docktor container resolves relative paths against its own view
+   (`/stacks/...`) and sends that absolute string to the *host's* daemon, which has no
+   matching `/stacks` directory. See
+   [[2026-08-28-dood-bind-mount-path-mismatch]] for the full mechanism — likely also
+   silently breaks backups. The documented compose file needs to mount the host
+   stacks directory at the **same absolute path** on both sides, not remap it.
+
 Each of these is the kind of thing a documented, known-good `.env.example` +
 `docker-compose.yml` (with inline comments explaining each variable, and either a
 startup migration step or a clearly documented one-time setup command) would have

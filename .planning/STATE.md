@@ -197,6 +197,7 @@ Recent decisions affecting current work:
 - [major] Backup can be triggered without a configured repo, wedging the stack in BACKING_UP forever — `.planning/todos/pending/2026-08-28-backup-without-config-wedges-stack.md`
 - [blocker] Setup routes (scan/adopt/migration) are unauthenticated, and post-setup import has no UI — `.planning/todos/pending/2026-08-28-setup-routes-unauthenticated-no-postsetup-import.md`
 - [major] Env file changes (via app or externally) never set the config-changed badge — `.planning/todos/pending/2026-08-28-env-file-changes-dont-flag-config-changed.md`
+- [blocker] Docker-outside-of-Docker path mismatch resolves relative bind mounts to the wrong host location (likely breaks backups too) — `.planning/todos/pending/2026-08-28-dood-bind-mount-path-mismatch.md`
 
 ### Blockers/Concerns
 
