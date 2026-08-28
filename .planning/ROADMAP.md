@@ -59,7 +59,7 @@ Plans:
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
 
-**Plans**: 16 plans
+**Plans**: 13/16 plans executed
 
 Plans:
 **Wave 1**
@@ -88,7 +88,7 @@ Plans:
 
 **Re-verification gap closure — Wave 1** *(UAT 2026-08-28, plans 02-13 through 02-16)*
 
-- [ ] 02-13-PLAN.md — Gap closure (G-02-11): digest-based noUpdates detection replaces the pull-output text scrape
+- [x] 02-13-PLAN.md — Gap closure (G-02-11): digest-based noUpdates detection replaces the pull-output text scrape
 - [ ] 02-14-PLAN.md — Gap closure (G-02-12): useStack background refresh no longer remounts the detail page
 
 **Re-verification gap closure — Wave 2** *(blocked on 02-13)*
@@ -200,7 +200,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 12/12 | Complete   | 2026-08-28 |
+| 2. Observability | 13/16 | In Progress|  |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
