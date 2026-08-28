@@ -59,7 +59,7 @@ Plans:
   3. User can trigger an image pull and container recreate from the stack detail page; the update is never applied automatically
   4. Registry polling does not hit Docker Hub rate limits during normal operation (results cached, checks staggered)
 
-**Plans**: 12 plans
+**Plans**: 16 plans
 
 Plans:
 **Wave 1**
@@ -85,6 +85,19 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 02-12-PLAN.md — Gap closure (UAT gap 5b): version-selection dialog, services-tab extraction
+
+**Re-verification gap closure — Wave 1** *(UAT 2026-08-28, plans 02-13 through 02-16)*
+
+- [ ] 02-13-PLAN.md — Gap closure (G-02-11): digest-based noUpdates detection replaces the pull-output text scrape
+- [ ] 02-14-PLAN.md — Gap closure (G-02-12): useStack background refresh no longer remounts the detail page
+
+**Re-verification gap closure — Wave 2** *(blocked on 02-13)*
+
+- [ ] 02-15-PLAN.md — Gap closure (G-02-16): GET /api/stacks/:id/events + single StackEvent write path
+
+**Re-verification gap closure — Wave 3** *(blocked on 02-14 and 02-15)*
+
+- [ ] 02-16-PLAN.md — Gap closure (G-02-16): stack events API client, hook, Event Log card, Status Log extraction
 
 ### Phase 3: Notifications
 
