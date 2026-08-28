@@ -125,27 +125,43 @@ export class StackService {
             errorMessage = err.stderr || err.message;
         }
 
-        const composeContent = await this.fs.readCompose(id);
-        const composeConfig = createComposeConfig(composeContent);
+        // Everything below must stay inside this try/catch: no action's allowed-from
+        // list includes DEPLOYING (stack-status-machine.ts) and StatePoller
+        // unconditionally skips transitional statuses, so any unhandled failure here
+        // (compose re-read/parse, a DB write) would leave the stack permanently stuck
+        // in DEPLOYING with no way to recover it short of a manual DB edit.
+        try {
+            const composeContent = await this.fs.readCompose(id);
+            const composeConfig = createComposeConfig(composeContent);
 
-        await this.repo.recordDeployment({
-            stackId: id,
-            composeHash: composeConfig.hash,
-            success,
-            errorMessage,
-        });
+            await this.repo.recordDeployment({
+                stackId: id,
+                composeHash: composeConfig.hash,
+                success,
+                errorMessage,
+            });
 
-        if (success) {
-            // Update service records to match the deployed compose file
-            await this.repo.replaceServices(id, composeConfig);
-            await this.repo.transitionStatus(
-                id,
-                "DEPLOYING",
-                "RUNNING",
-                "Deployment succeeded",
-            );
-            await this.repo.clearConfigChanged(id);
-        } else {
+            if (success) {
+                // Update service records to match the deployed compose file
+                await this.repo.replaceServices(id, composeConfig);
+                await this.repo.transitionStatus(
+                    id,
+                    "DEPLOYING",
+                    "RUNNING",
+                    "Deployment succeeded",
+                );
+                await this.repo.clearConfigChanged(id);
+            } else {
+                await this.repo.transitionStatus(
+                    id,
+                    "DEPLOYING",
+                    "ERROR",
+                    `Deployment failed: ${errorMessage}`,
+                );
+            }
+        } catch (err: any) {
+            success = false;
+            errorMessage = err.message ?? String(err);
             await this.repo.transitionStatus(
                 id,
                 "DEPLOYING",
@@ -221,18 +237,33 @@ export class StackService {
             throw err;
         }
 
-        // After successful update, sync service records with the compose file
-        const composeContent = await this.fs.readCompose(id);
-        const composeConfig = createComposeConfig(composeContent);
-        await this.repo.replaceServices(id, composeConfig);
+        // Everything below must stay inside this try/catch: no action's allowed-from
+        // list includes UPDATING (stack-status-machine.ts) and StatePoller
+        // unconditionally skips transitional statuses, so any unhandled failure here
+        // (compose re-read/parse, a DB write) would leave the stack permanently stuck
+        // in UPDATING with no way to recover it short of a manual DB edit.
+        try {
+            // After successful update, sync service records with the compose file
+            const composeContent = await this.fs.readCompose(id);
+            const composeConfig = createComposeConfig(composeContent);
+            await this.repo.replaceServices(id, composeConfig);
 
-        await this.repo.transitionStatus(
-            id,
-            "UPDATING",
-            "RUNNING",
-            "Image update succeeded",
-        );
-        await this.repo.clearConfigChanged(id);
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "RUNNING",
+                "Image update succeeded",
+            );
+            await this.repo.clearConfigChanged(id);
+        } catch (err: any) {
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "ERROR",
+                err.message ?? String(err),
+            );
+            throw err;
+        }
 
         // Detect if images were actually updated by checking pull output
         // Docker compose pull outputs:

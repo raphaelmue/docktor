@@ -38,6 +38,7 @@ function createMockDocker() {
         restart: vi.fn(),
         down: vi.fn(),
         ps: vi.fn(),
+        composePull: vi.fn(),
     };
 }
 
@@ -200,6 +201,67 @@ describe("StackService", () => {
                 "DEPLOYING",
                 "ERROR",
                 expect.stringContaining("Container failed"),
+            );
+        });
+
+        it("transitions to ERROR instead of leaving the stack stuck in DEPLOYING when the post-deploy sync fails", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "my-app",
+                status: "DRAFT",
+            });
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+            repo.recordDeployment.mockRejectedValue(new Error("DB unavailable"));
+
+            const result = await service.deployStack("my-app");
+
+            expect(result.success).toBe(false);
+            expect(result.errorMessage).toBe("DB unavailable");
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "DEPLOYING",
+                "ERROR",
+                expect.stringContaining("DB unavailable"),
+            );
+        });
+    });
+
+    describe("updateImages", () => {
+        function mockDockerAndFsForSuccess() {
+            docker.composePull.mockResolvedValue("Pull complete");
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+        }
+
+        beforeEach(() => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+        });
+
+        it("updates successfully and transitions back to RUNNING", async () => {
+            mockDockerAndFsForSuccess();
+
+            const result = await service.updateImages("my-app");
+
+            expect(result.noUpdates).toBe(false);
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "RUNNING",
+                "Image update succeeded",
+            );
+        });
+
+        it("transitions to ERROR instead of leaving the stack stuck in UPDATING when the post-pull sync fails", async () => {
+            mockDockerAndFsForSuccess();
+            repo.replaceServices.mockRejectedValue(new Error("DB unavailable"));
+
+            await expect(service.updateImages("my-app")).rejects.toThrow("DB unavailable");
+
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "DB unavailable",
             );
         });
     });
