@@ -27,6 +27,11 @@ export const stackParamsSchema = z.object({
     id: stackIdSchema,
 });
 
+export const stackServiceParamsSchema = stackParamsSchema.extend({
+    serviceName: z.string().min(1),
+});
+
 export type StackParams = z.infer<typeof stackParamsSchema>;
+export type StackServiceParams = z.infer<typeof stackServiceParamsSchema>;
 export type CreateStackInput = z.infer<typeof createStackSchema>;
 export type UpdateStackInput = z.infer<typeof updateStackSchema>;

@@ -1,6 +1,6 @@
 import type {FastifyPluginAsyncZod} from "fastify-type-provider-zod";
 import {z} from "zod";
-import {createStackSchema, stackParamsSchema, updateStackSchema,} from "@docktor/shared";
+import {createStackSchema, stackParamsSchema, stackServiceParamsSchema, updateStackSchema,} from "@docktor/shared";
 import {requireAuth} from "../lib/auth-middleware.js";
 import {stackService} from "../application/index.js";
 import {prisma} from "../lib/db.js";
@@ -8,6 +8,26 @@ import {dockerodeClient} from "../infrastructure/dockerode-client.js";
 import {processDockerLogChunk, type LogLineEvent} from "../lib/docker-log-parser.js";
 import {buildImageRefFromService} from "../jobs/update-checker.js";
 import {imageUpdateCheckRepository} from "../repositories/image-update-check-repository.js";
+import {NotFoundError} from "../lib/errors.js";
+
+/**
+ * Decodes the JSON-encoded availableTags column into a candidate array,
+ * newest first, alongside the persisted latestTag. Never throws — a
+ * not-yet-checked image (no row) or an unparsable/absent column is a
+ * normal state, not an error, and must yield an empty candidate list.
+ */
+function decodeUpgradeCandidates(
+    row: {latestTag: string | null; availableTags: string | null} | null,
+): {latestTag: string | null; candidates: string[]} {
+    if (!row?.availableTags) return {latestTag: row?.latestTag ?? null, candidates: []};
+    try {
+        const parsed = JSON.parse(row.availableTags);
+        const candidates = Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
+        return {latestTag: row.latestTag, candidates};
+    } catch {
+        return {latestTag: row.latestTag, candidates: []};
+    }
+}
 
 const stackRoutes: FastifyPluginAsyncZod = async (app) => {
     app.addHook("onRequest", requireAuth);
@@ -130,6 +150,28 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
         schema: {params: stackParamsSchema},
     }, async (request) => {
         return stackService.getContainerStatuses(request.params.id);
+    });
+
+    // Get persisted upgrade candidates for one service — reads only what the
+    // staggered background check already persisted, never the registry.
+    app.get("/api/stacks/:id/services/:serviceName/tags", {
+        schema: {params: stackServiceParamsSchema},
+    }, async (request) => {
+        const {id, serviceName} = request.params;
+        const stack = await stackService.getStack(id);
+        if (!stack) throw new NotFoundError("Stack not found");
+
+        // Resolved from the addressed stack's own service list only — this
+        // scoping is the access control that prevents a guessed service name
+        // from reading another stack's data.
+        const svc = stack.services.find((s) => s.serviceName === serviceName);
+        if (!svc) throw new NotFoundError("Service not found");
+
+        const imageRef = buildImageRefFromService(svc.image, svc.imageTag);
+        const row = imageRef ? await imageUpdateCheckRepository.findByImageRef(imageRef) : null;
+        const {latestTag, candidates} = decodeUpgradeCandidates(row);
+
+        return {currentTag: svc.imageTag ?? "latest", latestTag, candidates};
     });
 
     // Log stream query schema
