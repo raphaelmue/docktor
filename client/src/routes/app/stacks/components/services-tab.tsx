@@ -76,7 +76,7 @@ export function ServicesTab({
                                         />
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex flex-col gap-1">
+                                        <div className="flex flex-row flex-wrap items-center gap-2">
                                             <span>{svc.image}</span>
                                             {svc.updateAvailable && (
                                                 <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
