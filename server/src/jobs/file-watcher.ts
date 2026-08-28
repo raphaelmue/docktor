@@ -45,11 +45,16 @@ export class FileWatcher {
         const stacksRoot = getStacksDir()
         console.log(`[FileWatcher] Starting file watcher on: ${stacksRoot}`)
 
-        // On Windows, fs.watch (chokidar's default) is unreliable for detecting file changes
-        // Use polling mode on Windows for reliable detection
-        const isWindows = process.platform === "win32"
-        if (isWindows) {
-            console.log(`[FileWatcher] Windows detected: enabling polling mode (interval: 1000ms)`)
+        // On Windows, fs.watch (chokidar's default) is unreliable for detecting file changes.
+        // process.platform reflects the container's OS (always "linux" under Docker), not the
+        // Docker host's OS — Docker Desktop on Windows/Mac virtualizes bind mounts and often
+        // fails to propagate host-side inotify events into the container regardless of the
+        // container's own platform. DOCKTOR_FS_POLLING lets an operator force the correct mode
+        // when auto-detection can't see through that layer; unset falls back to platform detection.
+        const pollingOverride = process.env.DOCKTOR_FS_POLLING
+        const usePolling = pollingOverride !== undefined ? pollingOverride === "true" : process.platform === "win32"
+        if (usePolling) {
+            console.log(`[FileWatcher] Polling mode enabled (interval: 1000ms)${pollingOverride !== undefined ? " [DOCKTOR_FS_POLLING override]" : " [Windows detected]"}`)
         }
 
         this.watcher = watch(stacksRoot, {
@@ -60,9 +65,8 @@ export class FileWatcher {
                 if (stats?.isDirectory() ?? false) return false // MUST allow dirs for traversal
                 return !filePath.endsWith("docker-compose.yml")
             },
-            // Windows-specific: enable polling for reliable file change detection
-            usePolling: isWindows,
-            interval: isWindows ? 1000 : undefined, // Poll every 1 second on Windows
+            usePolling,
+            interval: usePolling ? 1000 : undefined,
         })
 
         this.watcher.on("ready", () => {

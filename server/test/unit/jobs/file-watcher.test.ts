@@ -1,5 +1,6 @@
-import {describe, expect, it, vi, beforeEach} from "vitest";
+import {describe, expect, it, vi, beforeEach, afterEach} from "vitest";
 import {FileWatcher} from "../../../../src/jobs/file-watcher.js";
+import {watch} from "chokidar";
 
 vi.mock("chokidar", () => ({
     watch: vi.fn().mockReturnValue({
@@ -98,6 +99,62 @@ describe("FileWatcher", () => {
             await fileWatcher.start();
             await fileWatcher.stop();
             expect(fileWatcher.isWatching()).toBe(false);
+        });
+    });
+
+    describe("polling mode selection (FW-01)", () => {
+        const originalPlatform = process.platform;
+        const originalEnv = process.env.DOCKTOR_FS_POLLING;
+
+        afterEach(() => {
+            Object.defineProperty(process, "platform", {value: originalPlatform});
+            if (originalEnv === undefined) {
+                delete process.env.DOCKTOR_FS_POLLING;
+            } else {
+                process.env.DOCKTOR_FS_POLLING = originalEnv;
+            }
+        });
+
+        it("does not use polling by default on non-Windows platforms with no override", async () => {
+            Object.defineProperty(process, "platform", {value: "linux"});
+            delete process.env.DOCKTOR_FS_POLLING;
+
+            await fileWatcher.start();
+
+            const options = (watch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+            expect(options.usePolling).toBe(false);
+        });
+
+        it("uses polling automatically when process.platform is win32", async () => {
+            Object.defineProperty(process, "platform", {value: "win32"});
+            delete process.env.DOCKTOR_FS_POLLING;
+
+            await fileWatcher.start();
+
+            const options = (watch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+            expect(options.usePolling).toBe(true);
+            expect(options.interval).toBe(1000);
+        });
+
+        it("forces polling on via DOCKTOR_FS_POLLING=true even on Linux (containerized bind mounts, e.g. Docker Desktop on Windows/Mac, may not propagate inotify into the container regardless of its reported platform)", async () => {
+            Object.defineProperty(process, "platform", {value: "linux"});
+            process.env.DOCKTOR_FS_POLLING = "true";
+
+            await fileWatcher.start();
+
+            const options = (watch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+            expect(options.usePolling).toBe(true);
+            expect(options.interval).toBe(1000);
+        });
+
+        it("forces polling off via DOCKTOR_FS_POLLING=false even on Windows", async () => {
+            Object.defineProperty(process, "platform", {value: "win32"});
+            process.env.DOCKTOR_FS_POLLING = "false";
+
+            await fileWatcher.start();
+
+            const options = (watch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+            expect(options.usePolling).toBe(false);
         });
     });
 
