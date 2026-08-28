@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 current_phase: 02
 current_phase_name: Observability
-status: Phase 02 gap-closure in progress — 02-08 complete, 02-09..02-12 remain
-stopped_at: Completed 02-08-PLAN.md
-last_updated: "2026-08-28T11:51:32.788Z"
-state_head: 9758f1d95d1f7690a81496c9d9115fdf572b6b93
+status: Phase 02 gap-closure complete — all 12 plans done (02-08 through 02-12 verified on real deployments)
+stopped_at: Completed 02-12-PLAN.md
+last_updated: "2026-08-28T16:00:00.000Z"
+state_head: 6987ec7
 progress:
   total_phases: 6
   completed_phases: 2
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: 02 (Observability) — EXECUTING
-Plan: 11 of 12 complete; 02-12 Tasks 1-4 done, Task 5 blocking human-verify checkpoint pending (needs a real registry + live Docker daemon — see Blockers/Concerns)
+Phase: 02 (Observability) — COMPLETE (12/12 plans, including gap-closure plans 02-08 through 02-12)
+Plan: 12 of 12 complete
 
 ## Performance Metrics
 
@@ -212,10 +212,10 @@ Recent decisions affecting current work:
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
 - [Phase 02-observability P10]: `ImageUpdateCheck.availableTags String?` was added to schema.prisma and `prisma generate` was run, but `yarn db:push` could not be run against a reachable database in the execution sandbox — must be run against the real dev/prod database before the next deploy, or `upsert` calls touching this column will fail at runtime (not at boot, since Prisma doesn't validate live schema at startup).
-- [Phase 02-observability P12]: Task 5 (final checkpoint, blocking) needs a developer to verify the full update journey (registry detection → badge → version-selection dialog → persisted upgrade → compose file updated) against a real container registry and live Docker daemon — cannot be automated. See `.planning/phases/02-observability/02-12-PLAN.md` Task 5 for the exact steps and `.planning/phases/02-observability/02-12-SUMMARY.md` for what's already built and verified (Tasks 1-4, both client build and full unit suite green).
+- [Phase 02-observability P12]: RESOLVED — Task 5 checkpoint approved 2026-08-28 after live verification against a real registry and Docker daemon. Verification itself surfaced and got two real registry-logic bugs fixed inline (RegistryClient pagination, selectUpgradeCandidates version-shape matching — commit f200351); several smaller gaps found along the way were deferred as todos instead (see Pending Todos).
 
 ## Session Continuity
 
-Last session: 2026-08-28T00:00:00.000Z
-Stopped at: Completed 02-08-PLAN.md — verified on real deployment, checkpoint approved
-Resume file: None — next up is 02-09-PLAN.md
+Last session: 2026-08-28T16:00:00.000Z
+Stopped at: Completed 02-12-PLAN.md — phase 02 gap-closure fully complete, all checkpoints approved
+Resume file: None — phase 02 done; next is picking a pending todo or planning phase 03+ follow-on work

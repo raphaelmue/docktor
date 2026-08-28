@@ -14,7 +14,7 @@ Docktor's foundation (auth, stack CRUD, state machine, dashboard, detail page) i
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: MVP Completion** - Complete the three remaining blockers: settings persistence, container state poller, and live log streaming
-- [x] **Phase 2: Observability** - Detect external compose file changes and surface image update availability (completed 2026-03-15)
+- [x] **Phase 2: Observability** - Detect external compose file changes and surface image update availability (completed 2026-08-28, including gap-closure plans 02-08 through 02-12)
 - [x] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP (completed 2026-03-20)
 - [ ] **Phase 4: Backup & Restore** - Enable encrypted, versioned stack backups with manual and scheduled restore
 - [x] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import (completed 2026-04-08)
@@ -84,7 +84,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-12-PLAN.md — Gap closure (UAT gap 5b): version-selection dialog, services-tab extraction
+- [x] 02-12-PLAN.md — Gap closure (UAT gap 5b): version-selection dialog, services-tab extraction
 
 ### Phase 3: Notifications
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 11/12 | In Progress|  |
+| 2. Observability | 12/12 | Complete   | 2026-08-28 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
