@@ -6,7 +6,7 @@ import {stackService} from "../application/index.js";
 import {prisma} from "../lib/db.js";
 import {dockerodeClient} from "../infrastructure/dockerode-client.js";
 import {processDockerLogChunk, type LogLineEvent} from "../lib/docker-log-parser.js";
-import {normalizeImageRef} from "../jobs/update-checker.js";
+import {buildImageRefFromService} from "../jobs/update-checker.js";
 import {imageUpdateCheckRepository} from "../repositories/image-update-check-repository.js";
 
 const stackRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -34,17 +34,27 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
             return reply.status(404).send({error: "Stack not found"});
         }
 
-        // Load update check results for this stack's service images
-        const imageRefs = stack.services.map((s) => normalizeImageRef(s.image));
+        // Load update check results for this stack's service images. The
+        // lookup key must reconstruct the same tag-qualified ref that
+        // UpdateChecker.findAllImageRefs() persists (image + imageTag), not
+        // just the untagged `image` column — otherwise a service on an
+        // explicit tag never matches its own ImageUpdateCheck row.
+        const serviceKeys = stack.services.map((svc) => ({
+            svc,
+            key: buildImageRefFromService(svc.image, svc.imageTag),
+        }));
+        const imageRefs = serviceKeys
+            .map(({key}) => key)
+            .filter((key): key is string => key !== null);
         const updateChecks = await imageUpdateCheckRepository.findByImageRefs(imageRefs);
         const updateMap = new Map(updateChecks.map((u) => [u.imageRef, u]));
 
         return {
             ...stack,
-            services: stack.services.map((svc) => ({
+            services: serviceKeys.map(({svc, key}) => ({
                 ...svc,
-                updateAvailable: updateMap.get(normalizeImageRef(svc.image))?.hasUpdate ?? false,
-                latestTag: updateMap.get(normalizeImageRef(svc.image))?.latestTag ?? null,
+                updateAvailable: (key !== null ? updateMap.get(key)?.hasUpdate : undefined) ?? false,
+                latestTag: (key !== null ? updateMap.get(key)?.latestTag : undefined) ?? null,
             })),
         };
     });
