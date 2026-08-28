@@ -332,5 +332,83 @@ describe("StackService", () => {
             expect(repo.transitionStatus).not.toHaveBeenCalled();
         });
 
+        it("rejects a second upgrade while the stack is already UPDATING, leaving the in-flight upgrade unaffected", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "UPDATING"});
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow(BadRequestError);
+
+            expect(fs.writeCompose).not.toHaveBeenCalled();
+        });
+
+        it("restores the original compose content and transitions to ERROR when composePull fails", async () => {
+            docker.composePull.mockRejectedValue(new Error("pull failed"));
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow("pull failed");
+
+            expect(fs.writeCompose).toHaveBeenNthCalledWith(
+                1,
+                "my-app",
+                "services:\n  web:\n    image: nginx:1.26\n",
+            );
+            expect(fs.writeCompose).toHaveBeenLastCalledWith("my-app", ORIGINAL_COMPOSE);
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "pull failed",
+            );
+            expect(docker.up).not.toHaveBeenCalled();
+        });
+
+        it("restores the original compose content and transitions to ERROR when up fails after a successful pull", async () => {
+            docker.up.mockRejectedValue(new Error("recreate failed"));
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow("recreate failed");
+
+            expect(fs.writeCompose).toHaveBeenLastCalledWith("my-app", ORIGINAL_COMPOSE);
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "recreate failed",
+            );
+        });
+
+        it("surfaces the deploy error, not the restore error, when the restore write itself fails", async () => {
+            const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+            docker.composePull.mockRejectedValue(new Error("pull failed"));
+            fs.writeCompose
+                .mockResolvedValueOnce(undefined) // the initial rewrite
+                .mockRejectedValueOnce(new Error("disk full")); // the restore attempt
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow("pull failed");
+
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "pull failed",
+            );
+            expect(consoleErrorSpy).toHaveBeenCalled();
+            consoleErrorSpy.mockRestore();
+        });
+
+        it("does not restore or touch the compose file again when the deploy succeeds", async () => {
+            await service.upgradeServiceImage("my-app", "web", "1.26");
+
+            expect(fs.writeCompose).toHaveBeenCalledTimes(1);
+            expect(fs.writeCompose).toHaveBeenCalledWith(
+                "my-app",
+                "services:\n  web:\n    image: nginx:1.26\n",
+            );
+        });
     });
 });

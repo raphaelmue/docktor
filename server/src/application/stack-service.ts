@@ -342,6 +342,19 @@ export class StackService {
             await this.docker.composePull(id);
             await this.docker.up(id);
         } catch (err: any) {
+            // The compose file was already rewritten above — restore the
+            // original content so a failed upgrade never strands the stack
+            // on a version it never successfully ran (UPD-04). The restore
+            // is best-effort: if it fails too, log it and still surface the
+            // deploy error (the actionable cause), not the restore error.
+            try {
+                await this.fs.writeCompose(id, originalContent);
+            } catch (restoreErr: any) {
+                console.error(
+                    `[StackService] failed to restore compose file for stack "${id}" after a failed upgrade of "${serviceName}":`,
+                    restoreErr,
+                );
+            }
             await this.repo.transitionStatus(
                 id,
                 "UPDATING",
