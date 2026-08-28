@@ -7,13 +7,54 @@ import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
 import {hashComposeContent} from "../lib/compose-parser.js"
 import {createComposeConfig, type ComposeConfig} from "../domain/compose-config.js"
 import {getStacksDir} from "../lib/stacks-dir.js"
+import type {StackEventType} from "../generated/prisma/enums.js"
 
 export interface FileWatcherRepo {
     findAllStacks(): Promise<Array<{id: string; composeFilePath: string; hash: string | null}>>
     findStackByPath(composePath: string): Promise<{id: string; composeFilePath: string; hash: string | null} | null>
     updateStackHash(args: {stackId: string; hash: string}): Promise<void>
     syncServicesFromCompose(stackId: string, composeConfig: ComposeConfig): Promise<void>
-    createStackEvent(args: {stackId: string; type: string; message?: string; payload?: string}): Promise<void>
+    createStackEvent(args: {stackId: string; type: StackEventType; message?: string; payload?: string}): Promise<void>
+}
+
+/**
+ * Narrow local interface covering only the four stack members the watcher
+ * uses. Kept structural (not imported from repositories/) so the factory
+ * pulls in neither repository module and stays testable without dragging
+ * the database client into the test module graph.
+ */
+interface FileWatcherStackRepo {
+    findAllStacks: FileWatcherRepo["findAllStacks"]
+    findStackByPath: FileWatcherRepo["findStackByPath"]
+    updateStackHash: FileWatcherRepo["updateStackHash"]
+    syncServicesFromCompose: FileWatcherRepo["syncServicesFromCompose"]
+}
+
+/** Narrow local interface covering just the event repository's write member. */
+interface FileWatcherEventRepo {
+    createEvent(input: {stackId: string; type: StackEventType; message?: string; payload?: string}): Promise<unknown>
+}
+
+/**
+ * Builds the FileWatcherRepo adapter from the two repositories that
+ * actually own this data: StackRepository for stack reads/writes, and
+ * StackEventRepository for the StackEvent audit trail. This is the single
+ * write path for that table — the ad-hoc method that used to live on
+ * StackRepository (and cast its type argument past the enum) is gone.
+ */
+export function createFileWatcherRepo(
+    stacks: FileWatcherStackRepo,
+    events: FileWatcherEventRepo,
+): FileWatcherRepo {
+    return {
+        findAllStacks: (...args) => stacks.findAllStacks(...args),
+        findStackByPath: (...args) => stacks.findStackByPath(...args),
+        updateStackHash: (...args) => stacks.updateStackHash(...args),
+        syncServicesFromCompose: (...args) => stacks.syncServicesFromCompose(...args),
+        async createStackEvent(args) {
+            await events.createEvent(args)
+        },
+    }
 }
 
 export class FileWatcher {
@@ -34,7 +75,8 @@ export class FileWatcher {
         if (this.repo !== null) return this.repo
         // Lazy-load to avoid pulling db.ts into the module graph at test time
         const {stackRepository} = await import("../repositories/stack-repository.js")
-        return stackRepository as unknown as FileWatcherRepo
+        const {stackEventRepository} = await import("../repositories/stack-event-repository.js")
+        return createFileWatcherRepo(stackRepository, stackEventRepository)
     }
 
     isWatching(): boolean {

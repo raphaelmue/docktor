@@ -346,21 +346,6 @@ export class StackRepository {
         });
     }
 
-    async createStackEvent(args: {
-        stackId: string;
-        type: string;
-        message?: string;
-        payload?: string;
-    }) {
-        await prisma.stackEvent.create({
-            data: {
-                stackId: args.stackId,
-                type: args.type as any, // StackEventType enum
-                message: args.message ?? null,
-                payload: args.payload ?? null,
-            },
-        });
-    }
 }
 
 export const stackRepository = new StackRepository();

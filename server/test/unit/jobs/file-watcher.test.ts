@@ -1,5 +1,5 @@
 import {describe, expect, it, vi, beforeEach, afterEach} from "vitest";
-import {FileWatcher} from "../../../../src/jobs/file-watcher.js";
+import {FileWatcher, createFileWatcherRepo} from "../../../../src/jobs/file-watcher.js";
 import {watch} from "chokidar";
 
 vi.mock("chokidar", () => ({
@@ -46,6 +46,69 @@ function createMockBroadcaster() {
         publish: vi.fn(),
     };
 }
+
+describe("createFileWatcherRepo", () => {
+    function createStubStacks() {
+        return {
+            findAllStacks: vi.fn().mockResolvedValue([]),
+            findStackByPath: vi.fn().mockResolvedValue(null),
+            updateStackHash: vi.fn().mockResolvedValue(undefined),
+            syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
+        };
+    }
+
+    function createStubEvents() {
+        return {
+            createEvent: vi.fn().mockResolvedValue({id: "evt-1"}),
+        };
+    }
+
+    it("forwards a stack-event write to the injected event repository's createEvent, passing stack id, type, message and payload through unchanged", async () => {
+        const stacks = createStubStacks();
+        const events = createStubEvents();
+        const repo = createFileWatcherRepo(stacks, events);
+
+        await repo.createStackEvent({
+            stackId: "my-app",
+            type: "config_changed",
+            message: "hello",
+            payload: "{\"a\":1}",
+        });
+
+        expect(events.createEvent).toHaveBeenCalledWith({
+            stackId: "my-app",
+            type: "config_changed",
+            message: "hello",
+            payload: "{\"a\":1}",
+        });
+    });
+
+    it("resolves the event write to undefined regardless of what the event repository returns", async () => {
+        const stacks = createStubStacks();
+        const events = createStubEvents();
+        const repo = createFileWatcherRepo(stacks, events);
+
+        const result = await repo.createStackEvent({stackId: "my-app", type: "config_error"});
+
+        expect(result).toBeUndefined();
+    });
+
+    it("forwards each stack read and write member to the injected stack repository", async () => {
+        const stacks = createStubStacks();
+        const events = createStubEvents();
+        const repo = createFileWatcherRepo(stacks, events);
+
+        await repo.findAllStacks();
+        await repo.findStackByPath("/stacks/my-app/docker-compose.yml");
+        await repo.updateStackHash({stackId: "my-app", hash: "abc"});
+        await repo.syncServicesFromCompose("my-app", {hash: "abc", services: []});
+
+        expect(stacks.findAllStacks).toHaveBeenCalled();
+        expect(stacks.findStackByPath).toHaveBeenCalledWith("/stacks/my-app/docker-compose.yml");
+        expect(stacks.updateStackHash).toHaveBeenCalledWith({stackId: "my-app", hash: "abc"});
+        expect(stacks.syncServicesFromCompose).toHaveBeenCalledWith("my-app", {hash: "abc", services: []});
+    });
+});
 
 describe("FileWatcher", () => {
     let fileWatcher: FileWatcher;
