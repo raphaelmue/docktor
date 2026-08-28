@@ -8,13 +8,30 @@ import {ComposeEditError, getServiceImageTag, setServiceImageTag} from "../lib/c
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {DockerExecutor} from "../infrastructure/docker-executor.js";
-import type {StackStatus} from "../generated/prisma/enums.js";
+import type {StackStatus, StackEventType} from "../generated/prisma/enums.js";
+
+/**
+ * Read port for the StackEvent audit trail. Declared here rather than
+ * importing the concrete StackEventRepository, so this service stays
+ * unit-testable with a plain object and the dependency arrow keeps
+ * pointing inward (application depends on a port, not on repositories/).
+ */
+export interface StackEventReadRepo {
+    findRecentByStack(stackId: string, limit?: number): Promise<Array<{
+        id: string;
+        type: StackEventType;
+        message: string | null;
+        payload: string | null;
+        createdAt: Date;
+    }>>;
+}
 
 export class StackService {
     constructor(
         private readonly repo: StackRepository,
         private readonly fs: StackFilesystem,
         private readonly docker: DockerExecutor,
+        private readonly events: StackEventReadRepo,
     ) {}
 
     async createStack(input: CreateStackInput) {
@@ -50,6 +67,25 @@ export class StackService {
 
     async getStack(id: string) {
         return this.repo.findByIdWithRelations(id);
+    }
+
+    /**
+     * Reads the StackEvent audit trail (config_changed, config_error,
+     * update_available) for one stack, newest first. Guards the stack
+     * exists first so an unknown id raises NotFoundError instead of
+     * silently returning an empty list — a typo must be distinguishable
+     * from a quiet stack. Forwards an absent limit through unchanged so
+     * the repository's own default is the single definition.
+     */
+    async getStackEvents(id: string, limit?: number): Promise<Array<{
+        id: string;
+        type: StackEventType;
+        message: string | null;
+        payload: string | null;
+        createdAt: Date;
+    }>> {
+        await this.repo.findByIdOrThrow(id);
+        return this.events.findRecentByStack(id, limit);
     }
 
     async updateStack(id: string, input: UpdateStackInput) {

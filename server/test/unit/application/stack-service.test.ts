@@ -43,17 +43,25 @@ function createMockDocker() {
     };
 }
 
+function createMockStackEvents() {
+    return {
+        findRecentByStack: vi.fn(),
+    };
+}
+
 describe("StackService", () => {
     let service: StackService;
     let repo: ReturnType<typeof createMockRepo>;
     let fs: ReturnType<typeof createMockFs>;
     let docker: ReturnType<typeof createMockDocker>;
+    let events: ReturnType<typeof createMockStackEvents>;
 
     beforeEach(() => {
         repo = createMockRepo();
         fs = createMockFs();
         docker = createMockDocker();
-        service = new StackService(repo as any, fs as any, docker as any);
+        events = createMockStackEvents();
+        service = new StackService(repo as any, fs as any, docker as any, events as any);
     });
 
     describe("createStack", () => {
@@ -107,6 +115,55 @@ describe("StackService", () => {
             });
 
             expect(fs.writeEnv).toHaveBeenCalledWith("my-app", "FOO=bar");
+        });
+    });
+
+    describe("getStackEvents", () => {
+        it("resolves the rows the event repository returns for that stack", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            const rows = [
+                {id: "evt-1", type: "config_changed", message: null, payload: "{}", createdAt: new Date()},
+            ];
+            events.findRecentByStack.mockResolvedValue(rows);
+
+            const result = await service.getStackEvents("my-app");
+
+            expect(result).toEqual(rows);
+        });
+
+        it("asks the event repository for that stack id and no other", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            events.findRecentByStack.mockResolvedValue([]);
+
+            await service.getStackEvents("my-app");
+
+            expect(events.findRecentByStack).toHaveBeenCalledWith("my-app", undefined);
+        });
+
+        it("rejects with NotFoundError when the stack does not exist, and does not touch the event repository", async () => {
+            repo.findByIdOrThrow.mockRejectedValue(new NotFoundError('Stack "my-app" not found'));
+
+            await expect(service.getStackEvents("my-app")).rejects.toThrow(NotFoundError);
+
+            expect(events.findRecentByStack).not.toHaveBeenCalled();
+        });
+
+        it("passes an explicit limit through to the repository", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            events.findRecentByStack.mockResolvedValue([]);
+
+            await service.getStackEvents("my-app", 5);
+
+            expect(events.findRecentByStack).toHaveBeenCalledWith("my-app", 5);
+        });
+
+        it("passes the repository's own default through rather than inventing a different one when no limit is given", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            events.findRecentByStack.mockResolvedValue([]);
+
+            await service.getStackEvents("my-app");
+
+            expect(events.findRecentByStack).toHaveBeenCalledWith("my-app", undefined);
         });
     });
 

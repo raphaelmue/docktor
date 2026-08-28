@@ -196,6 +196,24 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
         return {...result, success: true};
     });
 
+    // Events query schema
+    const eventsQuerySchema = z.object({
+        limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+    })
+
+    // Get the StackEvent audit trail (config_changed, config_error,
+    // update_available) for one stack, newest first. Deliberately a
+    // different thing from the status transitions already carried by the
+    // stack detail payload — the UAT gap that led to this route was a
+    // naming collision between the two.
+    app.get("/api/stacks/:id/events", {
+        schema: {params: stackParamsSchema, querystring: eventsQuerySchema},
+    }, async (request) => {
+        const {id} = request.params
+        const {limit} = request.query
+        return stackService.getStackEvents(id, limit)
+    })
+
     // Log stream query schema
     const logQuerySchema = z.object({
         service: z.string().optional().default("all"),
