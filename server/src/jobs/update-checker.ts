@@ -36,6 +36,22 @@ export function buildImageRefFromService(
     return normalizeImageRef(ref)
 }
 
+/**
+ * Splits an imageRef into name and tag on the tag separator (the last
+ * colon), but only when no forward slash appears after that colon — a
+ * colon followed later by a slash is a registry port (e.g.
+ * "registry.example.com:5000/app"), not a tag separator. When no tag
+ * separator is found, the whole ref is the name and the tag defaults to
+ * "latest", matching Docker's own default-tag behavior.
+ */
+export function splitImageRef(imageRef: string): {name: string; tag: string} {
+    const lastColon = imageRef.lastIndexOf(":")
+    if (lastColon === -1 || imageRef.indexOf("/", lastColon) !== -1) {
+        return {name: imageRef, tag: "latest"}
+    }
+    return {name: imageRef.slice(0, lastColon), tag: imageRef.slice(lastColon + 1)}
+}
+
 export function detectRegistry(imageRef: string): "dockerhub" | "ghcr" | "private" {
     const normalized = normalizeImageRef(imageRef)
     const firstSlash = normalized.indexOf("/")
@@ -305,7 +321,7 @@ export class UpdateChecker {
             }
 
             const {digest: latestDigest, latestTag} = result
-            const tag = imageRef.split(":")[1] ?? "latest"
+            const tag = splitImageRef(imageRef).tag
             // Local-only, no registry traffic — resolves what is actually
             // deployed so the digest branch below has both operands.
             const currentDigest = await this.docker.imageDigest(imageRef)

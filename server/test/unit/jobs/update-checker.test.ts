@@ -3,6 +3,7 @@ import {
     UpdateChecker,
     compareVersions,
     getNextImageToCheck,
+    splitImageRef,
     buildImageRefFromService,
 } from "../../../../src/jobs/update-checker.js";
 
@@ -147,6 +148,34 @@ describe("UpdateChecker", () => {
         });
     });
 
+    describe("splitImageRef() (UPD-01)", () => {
+        it("splits name and tag on the tag separator", () => {
+            expect(splitImageRef("nginx:1.25")).toEqual({name: "nginx", tag: "1.25"});
+        });
+
+        it("defaults to tag 'latest' when no separator is present", () => {
+            expect(splitImageRef("nginx")).toEqual({name: "nginx", tag: "latest"});
+        });
+
+        it("splits a registry host with a path and an explicit tag", () => {
+            expect(splitImageRef("ghcr.io/user/app:2.0")).toEqual({name: "ghcr.io/user/app", tag: "2.0"});
+        });
+
+        it("does not mistake a registry port for a tag separator when a tag follows", () => {
+            expect(splitImageRef("registry.example.com:5000/app:1.2")).toEqual({
+                name: "registry.example.com:5000/app",
+                tag: "1.2",
+            });
+        });
+
+        it("does not mistake a registry port for a tag separator when no tag follows", () => {
+            expect(splitImageRef("registry.example.com:5000/app")).toEqual({
+                name: "registry.example.com:5000/app",
+                tag: "latest",
+            });
+        });
+    });
+
     describe("buildImageRefFromService() (UPD-02 imageless filter)", () => {
         it("returns null for a build-only service with no image", () => {
             expect(buildImageRefFromService("", null)).toBeNull();
@@ -258,6 +287,21 @@ describe("UpdateChecker", () => {
                     hasUpdate: false,
                     checkError: expect.stringContaining("nginx:1.25"),
                 }),
+            );
+        });
+
+        it("uses the true tag (not the registry port) for a port-qualified ref with no explicit tag", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: "2.0"});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+
+            await checker.checkImage("registry.example.com:5000/app");
+
+            // With the correct split, tag === "latest" so the digest branch is
+            // used and the tag-comparison branch (which would incorrectly fire
+            // if the port were mistaken for a tag) is never entered.
+            expect(mockRepo.getImageUpdateCheck).not.toHaveBeenCalled();
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({hasUpdate: false}),
             );
         });
     });
