@@ -279,9 +279,11 @@ export class StackService {
         // An unknown or missing digest must never be reported as "nothing
         // changed" — detectNoUpdates() only returns true on positive
         // evidence (every ref's before digest strictly equals its after
-        // digest). This replaces the old free-text scan of the pull
-        // command's stdout/stderr, which does not correspond to any status
-        // vocabulary the current Docker Compose CLI actually emits.
+        // digest). Reporting "up to date" on an unknown was the original
+        // bug (G-02-11): do not "helpfully" flip this default back to
+        // treat absence as equality. This replaces the old free-text scan
+        // of the pull command's stdout/stderr, which does not correspond
+        // to any status vocabulary the current Docker Compose CLI emits.
         const comparisons: ImageDigestComparison[] = refs.map((ref) => ({
             ref,
             before: beforeDigests.get(ref) ?? null,
@@ -318,12 +320,21 @@ export class StackService {
     /**
      * Resolves the local image store digest for each ref in parallel.
      * DockerExecutor.imageDigest() already swallows its own failures and
-     * resolves null rather than throwing, so this helper does not need a
-     * catch of its own.
+     * resolves null rather than throwing, but each lookup is still wrapped
+     * individually so a single unexpectedly-rejecting ref cannot fail the
+     * whole Promise.all and take the in-flight update down with it — the
+     * unknown digest still resolves to null, which detectNoUpdates()
+     * already treats as "not evidence of no change".
      */
     private async snapshotDigests(refs: readonly string[]): Promise<Map<string, string | null>> {
         const entries = await Promise.all(
-            refs.map(async (ref) => [ref, await this.docker.imageDigest(ref)] as const),
+            refs.map(async (ref): Promise<readonly [string, string | null]> => {
+                try {
+                    return [ref, await this.docker.imageDigest(ref)] as const;
+                } catch {
+                    return [ref, null] as const;
+                }
+            }),
         );
         return new Map(entries);
     }

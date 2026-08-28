@@ -286,6 +286,69 @@ describe("StackService", () => {
 
             expect(result.noUpdates).toBe(false);
         });
+
+        it("does not reject out of digest collection, and still ends in ERROR (not stuck in UPDATING) when the compose file cannot be read", async () => {
+            docker.composePull.mockResolvedValue("Pulled");
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockRejectedValue(new Error("ENOENT: no such file"));
+
+            await expect(service.updateImages("my-app")).rejects.toThrow("ENOENT");
+
+            // Reaching the UPDATING transition proves collectImageRefs()
+            // swallowed the compose-read failure instead of rejecting
+            // before the transition happened.
+            expect(repo.transitionStatus).toHaveBeenCalledWith(
+                "my-app",
+                "RUNNING",
+                "UPDATING",
+                "Image update started",
+            );
+            // The final status is ERROR (a non-transitional status), not
+            // left stuck in UPDATING — via the existing post-pull guard,
+            // not a new unhandled throw.
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "ENOENT: no such file",
+            );
+        });
+
+        it("resolves noUpdates: false and never calls imageDigest for a build-only service with no image", async () => {
+            docker.composePull.mockResolvedValue("Pulled");
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    build: .\n");
+
+            const result = await service.updateImages("my-app");
+
+            expect(result.noUpdates).toBe(false);
+            expect(docker.imageDigest).not.toHaveBeenCalled();
+            expect(docker.composePull).toHaveBeenCalledWith("my-app");
+            expect(repo.replaceServices).toHaveBeenCalled();
+        });
+
+        it("resolves noUpdates: false when imageDigest resolves null on both calls for every service", async () => {
+            mockDockerAndFsForSuccess();
+            docker.imageDigest.mockResolvedValue(null);
+
+            const result = await service.updateImages("my-app");
+
+            expect(result.noUpdates).toBe(false);
+        });
+
+        it("transitions UPDATING to ERROR and propagates the error when composePull rejects, unchanged from before", async () => {
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+            docker.composePull.mockRejectedValue(new Error("pull failed"));
+
+            await expect(service.updateImages("my-app")).rejects.toThrow("pull failed");
+
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "ERROR",
+                "pull failed",
+            );
+        });
     });
 
     describe("upgradeServiceImage", () => {
