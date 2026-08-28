@@ -107,10 +107,10 @@ coverage:
     requirement: "UPD-03, UPD-04"
     verification:
       - kind: manual
-        ref: ".planning/phases/02-observability/02-12-PLAN.md Task 5 checkpoint (blocking, gate=\"blocking\") — awaiting developer verification on a real deployment"
-        status: pending
+        ref: ".planning/phases/02-observability/02-12-PLAN.md Task 5 checkpoint (blocking, gate=\"blocking\") — developer verified on a real deployment (nginx service upgraded 1.27 -> 1.31.4, compose file confirmed updated, Tag column updated live, per-service status badges stayed live)"
+        status: pass
     human_judgment: true
-    rationale: "Cannot be automated: requires a real container registry and a live Docker daemon, exactly as the plan's Task 5 states. This executor stopped at the checkpoint per its explicit instructions and did not attempt to resolve or approve it"
+    rationale: "Verified live by the developer against a real Docker Hub registry and a live Docker daemon. The verification pass itself surfaced two real, confirmed bugs in the underlying RegistryClient/selectUpgradeCandidates logic (neither introduced by this plan — both in 02-10's registry-client.ts and update-checker.ts), fixed inline before final approval: (1) RegistryClient.listTags() fetched only one page (n=100) and ignored the Registry v2 Link: rel=\"next\" pagination header, so nginx's 1297-tag repository (tags 1.27+ start on page 7 of 13) never surfaced any genuinely newer version; (2) once pagination was fixed, selectUpgradeCandidates()'s shape-compatibility check (semver.coerce(tag) !== null) was too lenient and ranked OS/flavor variant tags like \"alpine3.24\" as newer nginx \"versions\" — tightened to require the version number be a clean leading prefix with a matching suffix. Both fixed and verified end-to-end against the live nginx registry (commit f200351) before the developer re-tested and confirmed the fix."
 
 duration: ~20min
 completed: 2026-08-28
@@ -119,13 +119,25 @@ status: complete
 
 # Phase 02 Plan 12: Version-Selection Dialog for Service Image Upgrades Summary
 
-**Added `ServiceUpgradeDialog` (a four-state version picker built on the existing `Dialog`/`Select` primitives), extracted the stack detail page's services table into `ServicesTab` with a per-row upgrade trigger gated by transitional stack status, relocated `ServiceStatusBadge` to `components/domain/stack/`, and added `getServiceTags()`/`upgradeService()` API client functions — closing the client-side half of UAT gap 5 that plans 02-10 and 02-11 built the server-side plumbing for. Tasks 1–4 are complete and committed; Task 5 is a blocking human-verify checkpoint on a live stack and has not been attempted by this executor.**
+**Added `ServiceUpgradeDialog` (a four-state version picker built on the existing `Dialog`/`Select` primitives), extracted the stack detail page's services table into `ServicesTab` with a per-row upgrade trigger gated by transitional stack status, relocated `ServiceStatusBadge` to `components/domain/stack/`, and added `getServiceTags()`/`upgradeService()` API client functions — closing the client-side half of UAT gap 5 that plans 02-10 and 02-11 built the server-side plumbing for. All 5 tasks are complete: Task 5's live-stack checkpoint is APPROVED after fixing two registry-logic bugs the verification pass itself surfaced.**
 
 ## Performance
 
-- **Duration:** ~20 min (Tasks 1–4)
-- **Tasks:** 4 of 5 (Task 5 is a blocking checkpoint, not executed)
-- **Files modified:** 6 (4 created, 2 modified)
+- **Duration:** ~20 min (Tasks 1–4) + an extended live-verification session for Task 5 (checkpoint round-trip, two bug fixes, re-verification)
+- **Tasks:** 5 of 5, all complete
+- **Files modified:** 6 (4 created, 2 modified) in Tasks 1-4; 4 more (2 source, 2 test) fixing registry-client.ts/update-checker.ts during Task 5 verification
+
+## Task 5 Verification (checkpoint APPROVED)
+
+Verified live by the developer against a real Docker Hub registry and a live Docker daemon, on a `memos` stack with three services (`memos` on the moving tag `stable`, `nginx` on `1.27`, `nginx2` on `1.27.0-alpine`):
+
+- **Detection** — confirmed working after resetting stale pre-fix `ImageUpdateCheck` rows (staggered 6h/N re-check window otherwise protects stale results from a same-day logic change).
+- **Badge** — confirmed showing, with a follow-up fix for its layout (was stacked under the image name instead of inline — `c06d9d0`).
+- **Selection and persistence** — initially failed ("no version to select from") for `nginx`. Root-caused to two real bugs, both pre-existing in 02-10's registry-client.ts/update-checker.ts, not introduced by this plan: `RegistryClient.listTags()` never followed Registry v2 pagination (nginx has 1297 tags; relevant versions start on page 7 of 13), and once paginated, `selectUpgradeCandidates()`'s shape check was lenient enough to rank OS/flavor tags like `alpine3.24` as a "newer version". Both fixed and verified directly against the live nginx registry (`f200351`). Re-tested by the developer: `nginx` upgraded `1.27` → `1.31.4` successfully, compose file confirmed carrying the new tag, Tag column updated live, status badges stayed live throughout.
+- **No-change / moving-tag path** — `memos` (tag `stable`) correctly shows the update-available badge (digest-based), but the dialog showed a misleading "not checked yet" message instead of an accurate "moving tag, no discrete version to pick" message — logged as a follow-up UX todo rather than fixed inline (`2026-08-28-upgrade-dialog-wrong-message-for-moving-tags.md`); "Update Images" is the correct action for a moving tag today.
+- **Failure rollback** — not separately exercised; covered by 02-11's existing unit test coverage of the rollback path.
+
+Checkpoint approved by the developer after the `nginx` re-test succeeded.
 
 ## Accomplishments
 
@@ -147,7 +159,7 @@ Each completed task was committed atomically:
 2. **Task 2: Make every dialog state distinguishable** — no separate commit; fully satisfied by `350be38` (see Deviations)
 3. **Task 3: Block the upgrade action during transitional stack states** — `08244a1` (feat)
 4. **Task 4: Component tests and the ServiceStatusBadge extraction** — `1480532` (test)
-5. **Task 5: Confirm the full update journey on a live stack** — not executed; blocking checkpoint reported below
+5. **Task 5: Confirm the full update journey on a live stack** — checkpoint APPROVED after fixing `f200351` (registry pagination + version-shape matching) and `c06d9d0` (badge layout); see "Task 5 Verification" above
 
 **Plan metadata:** committed separately by orchestrator (STATE.md/ROADMAP.md not touched by this executor)
 
@@ -188,8 +200,9 @@ None from this plan. Note that plan 02-10 left an outstanding requirement (alrea
 
 ## Next Phase Readiness
 
-- Tasks 1–4 are complete, committed, and verified by `yarn workspace @docktor/client build` and `yarn workspace @docktor/client test:unit` (both exit 0, 43 tests passed, no regressions)
-- **Task 5 is an unresolved blocking checkpoint** — see below. This plan (and, since it is the last plan in the phase's gap-closure wave, the phase's UAT gaps 4 and 5) cannot be marked fully closed until a developer runs the live-stack verification and reports the result.
+- All 5 tasks complete, committed, and verified. Client build/tests green throughout (43/43, no regressions from Tasks 1-4); server build/tests green after the Task 5 registry fixes (369/369).
+- Plan 02-12 was the last plan in phase 02's `--gaps-only` gap-closure wave (02-09 through 02-12). All four are now complete — UAT gaps 4 and 5 are closed.
+- Several additional real gaps were found during live verification and captured as follow-up todos rather than fixed inline (moving-tag dialog messaging, stale ImageUpdateCheck rows, no manual check-trigger, update-available badge missing at stack level, restic pinned to an old apt version, DooD bind-mount path mismatch, and others found earlier in this same session) — see STATE.md's Pending Todos.
 
 ## Self-Check: PASSED
 
