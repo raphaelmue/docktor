@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 02
 current_phase_name: Observability
 status: Phase 02 gap-closure complete — all 12 plans done (02-08 through 02-12 verified on real deployments)
-stopped_at: Completed 02-13-PLAN.md
-last_updated: "2026-08-28T20:03:08.533Z"
-state_head: 233bb72a74d861e564efa0cab41ba95d39665806
+stopped_at: Completed 02-14-PLAN.md
+last_updated: "2026-08-28T20:11:28.946Z"
+state_head: 6057a98dca5f49eeb3f8207bae24cdc3f4b4d62c
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 49
-  completed_plans: 46
+  completed_plans: 47
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 02 (Observability) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -93,6 +93,7 @@ Plan: 2 of 4
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 02-observability P13 | 25min | 2 tasks | 4 files |
+| Phase 02-observability P14 | 15min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -177,6 +178,8 @@ Recent decisions affecting current work:
 - [Phase 05-05]: Custom WizardStepper component built instead of third-party to avoid registry safety gate
 - [Phase 05-06]: Fire-and-forget migration pattern with toast notifications — modal closes immediately after user confirms, migration runs in background
 - [Phase 02]: [Phase 02-observability P13]: noUpdates decision moved from free-text pull-output scanning to before/after local image digest comparison (imageDigest); toImageRef() duplicates buildImageRefFromService()'s normalization to keep domain/ free of jobs/'s module graph, guarded by a parity test
+- [Phase 02]: [Phase 02-observability P14]: fetchStack(mode) replaces useStack's single fetch() — 'initial' mode preserves the existing loading/error behavior; 'background' mode (SSE handlers + refetch()) sets isRefreshing only and never touches loading or error, so a full-tree remount can no longer be triggered by a background refresh
+- [Phase 02]: [Phase 02-observability P14]: StackDetailPage's placeholder early-return changed from 'if (loading)' to 'if (loading && !stack)' — reachable only before the first successful load, closing UAT gap G-02-12 (FW-02)
 
 ### Quick Tasks Completed
 
@@ -223,6 +226,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-28T20:03:08.133Z
-Stopped at: Completed 02-13-PLAN.md
+Last session: 2026-08-28T20:11:28.700Z
+Stopped at: Completed 02-14-PLAN.md
 Resume file: None

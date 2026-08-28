@@ -153,3 +153,7 @@ None - no external service configuration required.
 ---
 *Phase: 02-observability*
 *Completed: 2026-08-28*
+
+## Self-Check: PASSED
+
+All created/modified files exist on disk and all task commit hashes (`0b4eb87`, `b72dd57`, `6057a98`) are present in `git log --oneline --all`.
