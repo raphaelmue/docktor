@@ -1,6 +1,13 @@
 import type {FastifyPluginAsyncZod} from "fastify-type-provider-zod";
 import {z} from "zod";
-import {createStackSchema, stackParamsSchema, stackServiceParamsSchema, updateStackSchema,} from "@docktor/shared";
+import {
+    createStackSchema,
+    stackParamsSchema,
+    stackServiceParamsSchema,
+    updateStackSchema,
+    upgradeServiceParamsSchema,
+    upgradeServiceSchema,
+} from "@docktor/shared";
 import {requireAuth} from "../lib/auth-middleware.js";
 import {stackService} from "../application/index.js";
 import {prisma} from "../lib/db.js";
@@ -172,6 +179,21 @@ const stackRoutes: FastifyPluginAsyncZod = async (app) => {
         const {latestTag, candidates} = decodeUpgradeCandidates(row);
 
         return {currentTag: svc.imageTag ?? "latest", latestTag, candidates};
+    });
+
+    // Upgrade a service to a specific version — rewrites the compose file
+    // and deploys it (user-initiated, never automatic; see UPD-04)
+    app.post("/api/stacks/:id/services/:serviceName/upgrade", {
+        schema: {params: upgradeServiceParamsSchema, body: upgradeServiceSchema},
+    }, async (request) => {
+        const {id, serviceName} = request.params;
+        const stack = await stackService.getStack(id);
+        if (!stack) throw new NotFoundError("Stack not found");
+        if (!stack.services.some((s) => s.serviceName === serviceName)) {
+            throw new NotFoundError("Service not found");
+        }
+        const result = await stackService.upgradeServiceImage(id, serviceName, request.body.targetTag);
+        return {...result, success: true};
     });
 
     // Log stream query schema

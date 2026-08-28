@@ -1,8 +1,9 @@
 import type {CreateStackInput, UpdateStackInput} from "@docktor/shared";
 import {slugify} from "../lib/slugify.js";
-import {BadRequestError, ConflictError} from "../lib/errors.js";
+import {BadRequestError, ConflictError, NotFoundError} from "../lib/errors.js";
 import {createComposeConfig} from "../domain/compose-config.js";
 import {assertTransition, TransitionError,} from "../domain/stack-status-machine.js";
+import {ComposeEditError, getServiceImageTag, setServiceImageTag} from "../lib/compose-editor.js";
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {DockerExecutor} from "../infrastructure/docker-executor.js";
@@ -284,6 +285,99 @@ export class StackService {
         return {noUpdates};
     }
 
+    /**
+     * Rewrites a single service's image tag in the compose file, deploys
+     * it, and persists the resulting Service rows — a real version upgrade
+     * rather than a pull-and-deploy whose effect disappears on restart
+     * (UPD-04). Never invoked from a background path; the only caller is
+     * the authenticated POST /api/stacks/:id/services/:serviceName/upgrade
+     * route.
+     */
+    async upgradeServiceImage(
+        id: string,
+        serviceName: string,
+        targetTag: string,
+    ): Promise<{changed: boolean; previousTag: string | null; newTag: string}> {
+        const stack = await this.repo.findByIdOrThrow(id);
+        const originalContent = await this.fs.readCompose(id);
+
+        let previousTag: string | null;
+        try {
+            previousTag = getServiceImageTag(originalContent, serviceName);
+        } catch (err) {
+            throw this.translateComposeEditError(err);
+        }
+
+        // guardTransition is a pure check (no side effects), so it always
+        // runs before the idempotency short-circuit below — this is what
+        // makes a second concurrent upgrade request fail with the same
+        // status-guard rejection as updateImages(), even when its target
+        // tag happens to match what a still-in-flight request already
+        // wrote to disk.
+        this.guardTransition(stack.status as StackStatus, "UPDATE");
+
+        if ((previousTag ?? "latest") === targetTag) {
+            // Idempotency guarantee: no write, no status transition.
+            return {changed: false, previousTag, newTag: targetTag};
+        }
+
+        await this.repo.transitionStatus(
+            id,
+            stack.status as StackStatus,
+            "UPDATING",
+            `Upgrading ${serviceName} to ${targetTag}`,
+        );
+
+        let newContent: string;
+        try {
+            newContent = setServiceImageTag(originalContent, serviceName, targetTag);
+        } catch (err) {
+            await this.repo.transitionStatus(id, "UPDATING", "ERROR", (err as Error).message);
+            throw this.translateComposeEditError(err);
+        }
+
+        await this.fs.writeCompose(id, newContent);
+
+        try {
+            await this.docker.composePull(id);
+            await this.docker.up(id);
+        } catch (err: any) {
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "ERROR",
+                err.stderr ?? err.message,
+            );
+            throw err;
+        }
+
+        // Everything below must stay inside this try/catch: no action's
+        // allowed-from list includes UPDATING and StatePoller unconditionally
+        // skips transitional statuses, so any unhandled failure here would
+        // leave the stack permanently stuck in UPDATING (see updateImages()).
+        try {
+            const composeConfig = createComposeConfig(newContent);
+            await this.repo.replaceServices(id, composeConfig);
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "RUNNING",
+                `Upgraded ${serviceName} to ${targetTag}`,
+            );
+            await this.repo.clearConfigChanged(id);
+        } catch (err: any) {
+            await this.repo.transitionStatus(
+                id,
+                "UPDATING",
+                "ERROR",
+                err.message ?? String(err),
+            );
+            throw err;
+        }
+
+        return {changed: true, previousTag, newTag: targetTag};
+    }
+
     async getContainerStatuses(id: string) {
         await this.repo.findByIdOrThrow(id);
         return this.docker.ps(id);
@@ -308,5 +402,18 @@ export class StackService {
             }
             throw err;
         }
+    }
+
+    // A service that doesn't belong to the addressed stack's compose file
+    // is a 404 (not found); every other compose-edit failure (no image key,
+    // a digest pin) is a 400 (the request can't be satisfied as written).
+    private translateComposeEditError(err: unknown): Error {
+        if (err instanceof ComposeEditError) {
+            if (err.reason === "service-not-found") {
+                return new NotFoundError(err.message);
+            }
+            return new BadRequestError(err.message);
+        }
+        return err instanceof Error ? err : new Error(String(err));
     }
 }

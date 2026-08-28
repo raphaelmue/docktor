@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {StackService} from "../../../src/application/stack-service.js";
-import {BadRequestError, ConflictError} from "../../../src/lib/errors.js";
+import {BadRequestError, ConflictError, NotFoundError} from "../../../src/lib/errors.js";
 
 function createMockRepo() {
     return {
@@ -264,5 +264,73 @@ describe("StackService", () => {
                 "DB unavailable",
             );
         });
+    });
+
+    describe("upgradeServiceImage", () => {
+        const ORIGINAL_COMPOSE = "services:\n  web:\n    image: nginx:1.25\n";
+
+        beforeEach(() => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            fs.readCompose.mockResolvedValue(ORIGINAL_COMPOSE);
+            docker.composePull.mockResolvedValue("Pull complete");
+            docker.up.mockResolvedValue(undefined);
+        });
+
+        it("rewrites the compose file, deploys, and returns the new tag", async () => {
+            const result = await service.upgradeServiceImage("my-app", "web", "1.26");
+
+            expect(result).toEqual({changed: true, previousTag: "1.25", newTag: "1.26"});
+            expect(fs.writeCompose).toHaveBeenCalledWith(
+                "my-app",
+                "services:\n  web:\n    image: nginx:1.26\n",
+            );
+            expect(repo.transitionStatus).toHaveBeenNthCalledWith(
+                1,
+                "my-app",
+                "RUNNING",
+                "UPDATING",
+                "Upgrading web to 1.26",
+            );
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "UPDATING",
+                "RUNNING",
+                "Upgraded web to 1.26",
+            );
+            expect(repo.replaceServices).toHaveBeenCalled();
+            expect(repo.clearConfigChanged).toHaveBeenCalledWith("my-app");
+        });
+
+        it("is a no-op when the target tag equals the tag already in the compose file", async () => {
+            const result = await service.upgradeServiceImage("my-app", "web", "1.25");
+
+            expect(result).toEqual({changed: false, previousTag: "1.25", newTag: "1.25"});
+            expect(fs.writeCompose).not.toHaveBeenCalled();
+            expect(repo.transitionStatus).not.toHaveBeenCalled();
+            expect(docker.composePull).not.toHaveBeenCalled();
+        });
+
+        it("throws NotFoundError for a service absent from the compose file, without writing", async () => {
+            await expect(
+                service.upgradeServiceImage("my-app", "missing", "1.26"),
+            ).rejects.toThrow(NotFoundError);
+
+            expect(fs.writeCompose).not.toHaveBeenCalled();
+            expect(repo.transitionStatus).not.toHaveBeenCalled();
+        });
+
+        it("throws BadRequestError for a digest-pinned image, without writing", async () => {
+            fs.readCompose.mockResolvedValue(
+                "services:\n  web:\n    image: nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+            );
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow(BadRequestError);
+
+            expect(fs.writeCompose).not.toHaveBeenCalled();
+            expect(repo.transitionStatus).not.toHaveBeenCalled();
+        });
+
     });
 });
