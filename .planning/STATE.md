@@ -195,6 +195,7 @@ Recent decisions affecting current work:
 - [minor] Audit frontend for reusable-component refactors — `.planning/todos/pending/2026-08-28-frontend-refactor-audit.md`
 - [minor] Add configurable docker-compose linting/formatting checks — `.planning/todos/pending/2026-08-28-configurable-compose-linting.md`
 - [major] Backup can be triggered without a configured repo, wedging the stack in BACKING_UP forever — `.planning/todos/pending/2026-08-28-backup-without-config-wedges-stack.md`
+- [blocker] Setup routes (scan/adopt/migration) are unauthenticated, and post-setup import has no UI — `.planning/todos/pending/2026-08-28-setup-routes-unauthenticated-no-postsetup-import.md`
 
 ### Blockers/Concerns
 
