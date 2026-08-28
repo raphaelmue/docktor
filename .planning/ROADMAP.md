@@ -93,7 +93,7 @@ Plans:
 
 **Re-verification gap closure — Wave 2** *(blocked on 02-13)*
 
-- [ ] 02-15-PLAN.md — Gap closure (G-02-16): GET /api/stacks/:id/events + single StackEvent write path
+- [x] 02-15-PLAN.md — Gap closure (G-02-16): GET /api/stacks/:id/events + single StackEvent write path
 
 **Re-verification gap closure — Wave 3** *(blocked on 02-14 and 02-15)*
 

@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 02
 current_phase_name: Observability
 status: Phase 02 gap-closure complete — all 12 plans done (02-08 through 02-12 verified on real deployments)
-stopped_at: Completed 02-14-PLAN.md
-last_updated: "2026-08-28T20:11:28.946Z"
-state_head: 6057a98dca5f49eeb3f8207bae24cdc3f4b4d62c
+stopped_at: Completed 02-15-PLAN.md
+last_updated: "2026-08-28T20:22:17.374Z"
+state_head: 72954251adb83345f3d88d9201b80ce57164b759
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 49
-  completed_plans: 47
+  completed_plans: 48
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 02 (Observability) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -94,6 +94,7 @@ Plan: 3 of 4
 |------|----------|-------|-------|
 | Phase 02-observability P13 | 25min | 2 tasks | 4 files |
 | Phase 02-observability P14 | 15min | 2 tasks | 3 files |
+| Phase 02-observability P15 | 19min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -180,6 +181,9 @@ Recent decisions affecting current work:
 - [Phase 02]: [Phase 02-observability P13]: noUpdates decision moved from free-text pull-output scanning to before/after local image digest comparison (imageDigest); toImageRef() duplicates buildImageRefFromService()'s normalization to keep domain/ free of jobs/'s module graph, guarded by a parity test
 - [Phase 02]: [Phase 02-observability P14]: fetchStack(mode) replaces useStack's single fetch() — 'initial' mode preserves the existing loading/error behavior; 'background' mode (SSE handlers + refetch()) sets isRefreshing only and never touches loading or error, so a full-tree remount can no longer be triggered by a background refresh
 - [Phase 02]: [Phase 02-observability P14]: StackDetailPage's placeholder early-return changed from 'if (loading)' to 'if (loading && !stack)' — reachable only before the first successful load, closing UAT gap G-02-12 (FW-02)
+- [Phase 02]: [Phase 02-observability P15]: getStackEvents() forwards an absent limit through unchanged rather than inventing a service-level default — StackEventRepository.findRecentByStack()'s own default (20) is the single definition; the route schema separately owns the HTTP-facing default
+- [Phase 02]: [Phase 02-observability P15]: createFileWatcherRepo's two parameters are narrow structural interfaces declared locally in file-watcher.ts, not the concrete repository classes — preserves getRepo()'s lazy-import pattern (keeps db.ts out of the unit-test module graph) while getting compiler-enforced shape checking instead of a cast
+- [Phase 02]: [Phase 02-observability P15]: StackRepository.createStackEvent() (ad-hoc write method with an as any enum cast) deleted outright, not deprecated — FileWatcher was its only caller (confirmed by grep); StackEventRepository.createEvent() is now the single write path to the StackEvent table
 
 ### Quick Tasks Completed
 
@@ -226,6 +230,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-28T20:11:28.700Z
-Stopped at: Completed 02-14-PLAN.md
+Last session: 2026-08-28T20:22:16.945Z
+Stopped at: Completed 02-15-PLAN.md
 Resume file: None
