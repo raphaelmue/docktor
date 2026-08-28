@@ -50,6 +50,15 @@ function ServiceStatusBadge({containerState, healthStatus}: ServiceStatusBadgePr
     return <span className={className}>{label}</span>;
 }
 
+// Transitional states that block a new upgrade: the states stack-actions.tsx
+// already treats as blocking (BACKING_UP, RESTORING, DEPLOYING), plus
+// UPDATING and MIGRATING. This matches the server's authoritative
+// TRANSITIONS.UPDATE allow-list in stack-status-machine.ts exactly (the
+// complement of that allow-list across all StackStatus values) — the client
+// gate exists only so the user isn't invited into a request the server's
+// guardTransition would reject anyway.
+const UPGRADE_BLOCKED_STATES = ["BACKING_UP", "RESTORING", "DEPLOYING", "UPDATING", "MIGRATING"];
+
 export interface ServicesTabProps {
     readonly services: Service[];
     readonly stackId: string;
@@ -66,6 +75,7 @@ export function ServicesTab({
     onUpgraded,
 }: Readonly<ServicesTabProps>) {
     const [upgradeTarget, setUpgradeTarget] = useState<Service | null>(null);
+    const isUpgradeBlocked = UPGRADE_BLOCKED_STATES.includes(stackStatus);
 
     return (
         <Card>
@@ -135,7 +145,12 @@ export function ServicesTab({
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
-                                                    title={`Upgrade ${svc.serviceName}`}
+                                                    disabled={isUpgradeBlocked}
+                                                    title={
+                                                        isUpgradeBlocked
+                                                            ? `Cannot upgrade while the stack is ${stackStatus.toLowerCase()}`
+                                                            : `Upgrade ${svc.serviceName}`
+                                                    }
                                                     onClick={() => setUpgradeTarget(svc)}
                                                 >
                                                     <ArrowUpCircle className="h-4 w-4"/>
