@@ -116,6 +116,34 @@ export class DockerExecutor {
             throw err;
         }
     }
+
+    /**
+     * Resolves the repo digest of a locally present image. Reads only the
+     * local image store (`docker image inspect`) — makes no network call
+     * and cannot consume registry rate limit. Returns null (not a throw)
+     * when the image is not present locally, since that is a normal
+     * condition (e.g. a stack that has never been deployed).
+     */
+    async imageDigest(imageRef: string): Promise<string | null> {
+        try {
+            const {stdout} = await execFileAsync(
+                "docker",
+                ["image", "inspect", imageRef, "--format", "{{index .RepoDigests 0}}"],
+                {timeout: 30_000},
+            );
+            const digest = stdout.trim();
+            // Empty output, or the literal Go template rendering when
+            // RepoDigests has no entry at index 0 (e.g. a locally built
+            // image with no registry digest), both mean "no digest".
+            if (!digest || digest === "<no value>" || digest.includes("index .RepoDigests")) {
+                return null;
+            }
+            return digest;
+        } catch (err: any) {
+            console.warn(`[DockerExecutor] imageDigest: image not present locally or inspect failed for ${imageRef}: ${err.message ?? err}`);
+            return null;
+        }
+    }
 }
 
 export const dockerExecutor = new DockerExecutor();

@@ -19,6 +19,23 @@ export function normalizeImageRef(imageRef: string): string {
     return ref
 }
 
+/**
+ * Reconstructs the canonical imageRef for a service's stored image + tag
+ * columns, using the same spelling as `findAllImageRefs()` so callers that
+ * need to look up an ImageUpdateCheck row for a specific service (e.g. the
+ * stack detail route's badge lookup) always agree with what was persisted.
+ * Returns null for build-only services (no image), which must be excluded
+ * from the checked image set rather than producing a guaranteed-failure ref.
+ */
+export function buildImageRefFromService(
+    image: string | null | undefined,
+    imageTag: string | null | undefined,
+): string | null {
+    if (!image || !image.trim()) return null
+    const ref = imageTag ? `${image}:${imageTag}` : image
+    return normalizeImageRef(ref)
+}
+
 export function detectRegistry(imageRef: string): "dockerhub" | "ghcr" | "private" {
     const normalized = normalizeImageRef(imageRef)
     const firstSlash = normalized.indexOf("/")
@@ -138,6 +155,7 @@ export interface UpdateCheckerRepo {
         lastCheckedAt: Date
         latestTag?: string | null
         latestDigest?: string | null
+        currentDigest?: string | null
         hasUpdate: boolean
         checkError?: string | null
     }): Promise<void>
@@ -161,15 +179,14 @@ async function createProductionRepo(): Promise<UpdateCheckerRepo> {
                 select: {image: true, imageTag: true},
                 distinct: ["image", "imageTag"],
             })
+            // Build-only services (no image) reconstruct into a ref of just
+            // a colon and a tag if not filtered — buildImageRefFromService
+            // returns null for those, which we drop here.
             return rows
-                .map((r: {image: string; imageTag: string | null}) => {
-                    // Reconstruct full imageRef from image + imageTag
-                    if (r.imageTag) {
-                        return `${r.image}:${r.imageTag}`
-                    }
-                    return r.image
-                })
-                .map(normalizeImageRef)
+                .map((r: {image: string; imageTag: string | null}) =>
+                    buildImageRefFromService(r.image, r.imageTag),
+                )
+                .filter((ref): ref is string => ref !== null)
         },
 
         async getImageUpdateCheck(imageRef: string) {
@@ -211,12 +228,12 @@ async function createProductionRepo(): Promise<UpdateCheckerRepo> {
 export class UpdateChecker {
     private cronTask: cron.ScheduledTask | null = null
     private readonly repo: UpdateCheckerRepo | null
-    private readonly docker: Pick<DockerExecutor, "manifestInspect">
+    private readonly docker: Pick<DockerExecutor, "manifestInspect" | "imageDigest">
     private readonly broadcaster: Pick<StateBroadcaster, "publish">
 
     constructor(
         repo?: UpdateCheckerRepo,
-        docker?: Pick<DockerExecutor, "manifestInspect">,
+        docker?: Pick<DockerExecutor, "manifestInspect" | "imageDigest">,
         broadcaster?: Pick<StateBroadcaster, "publish">,
     ) {
         this.repo = repo ?? null
@@ -289,6 +306,9 @@ export class UpdateChecker {
 
             const {digest: latestDigest, latestTag} = result
             const tag = imageRef.split(":")[1] ?? "latest"
+            // Local-only, no registry traffic — resolves what is actually
+            // deployed so the digest branch below has both operands.
+            const currentDigest = await this.docker.imageDigest(imageRef)
 
             let hasUpdate = false
 
@@ -299,10 +319,11 @@ export class UpdateChecker {
                     latestDigest: latestDigest ?? null,
                 })
                 hasUpdate = comparison === "newer"
-            } else if (latestDigest) {
-                const existing = await repo.getImageUpdateCheck(imageRef)
-                const prevDigest = existing?.latestDigest ?? null
-                hasUpdate = prevDigest !== null && prevDigest !== latestDigest
+            } else if (latestDigest !== null && currentDigest !== null) {
+                // Compare the registry digest against what is actually
+                // deployed locally — decidable on the very first check,
+                // unlike comparing against a previously stored observation.
+                hasUpdate = latestDigest !== currentDigest
             }
 
             await repo.upsertImageUpdateCheck({
@@ -310,6 +331,7 @@ export class UpdateChecker {
                 lastCheckedAt: new Date(),
                 latestTag: latestTag ?? null,
                 latestDigest: latestDigest ?? null,
+                currentDigest: currentDigest ?? null,
                 hasUpdate,
                 checkError: null,
             })

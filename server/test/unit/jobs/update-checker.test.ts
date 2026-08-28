@@ -1,5 +1,10 @@
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import {UpdateChecker, compareVersions, getNextImageToCheck} from "../../../../src/jobs/update-checker.js";
+import {
+    UpdateChecker,
+    compareVersions,
+    getNextImageToCheck,
+    buildImageRefFromService,
+} from "../../../../src/jobs/update-checker.js";
 
 function createMockUpdateCheckerRepo() {
     return {
@@ -13,6 +18,7 @@ function createMockUpdateCheckerRepo() {
 function createMockDockerExecutor() {
     return {
         manifestInspect: vi.fn(),
+        imageDigest: vi.fn(),
     };
 }
 
@@ -33,6 +39,10 @@ describe("UpdateChecker", () => {
         mockRepo = createMockUpdateCheckerRepo();
         mockDockerExecutor = createMockDockerExecutor();
         mockBroadcaster = createMockBroadcaster();
+        // Safe default so hasUpdate=true scenarios that don't care about the
+        // broadcast fan-out list don't hit "stacks is not iterable" — tests
+        // that assert broadcast behavior override this explicitly.
+        mockRepo.findStacksByImageRef.mockResolvedValue([]);
         checker = new UpdateChecker(mockRepo as any, mockDockerExecutor as any, mockBroadcaster as any);
     });
 
@@ -133,6 +143,121 @@ describe("UpdateChecker", () => {
 
             expect(mockBroadcaster.publish).toHaveBeenCalledWith(
                 expect.objectContaining({stackId: stack.id, type: "update_error"}),
+            );
+        });
+    });
+
+    describe("buildImageRefFromService() (UPD-02 imageless filter)", () => {
+        it("returns null for a build-only service with no image", () => {
+            expect(buildImageRefFromService("", null)).toBeNull();
+            expect(buildImageRefFromService("   ", null)).toBeNull();
+            expect(buildImageRefFromService(null, null)).toBeNull();
+            expect(buildImageRefFromService(undefined, undefined)).toBeNull();
+        });
+
+        it("reconstructs a canonical tag-qualified ref matching findAllImageRefs' spelling", () => {
+            expect(buildImageRefFromService("nginx", "1.25")).toBe("nginx:1.25");
+        });
+
+        it("defaults to :latest when no tag is stored", () => {
+            expect(buildImageRefFromService("nginx", null)).toBe("nginx:latest");
+        });
+    });
+
+    describe("checkImage() digest comparison (UPD-01, UPD-02)", () => {
+        it("resolves imageDigest() from the local image store, not the registry", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:bbbb", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:aaaa");
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+            mockRepo.findStacksByImageRef.mockResolvedValue([]);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockDockerExecutor.imageDigest).toHaveBeenCalledWith("nginx:1.25");
+        });
+
+        it("sets hasUpdate=true on the very first check when the registry digest differs from the local digest", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:bbbb", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:aaaa");
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null); // no prior row — first check
+            mockRepo.findStacksByImageRef.mockResolvedValue([{id: "stack-1"}]);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    imageRef: "nginx:1.25",
+                    currentDigest: "sha256:aaaa",
+                    latestDigest: "sha256:bbbb",
+                    hasUpdate: true,
+                }),
+            );
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "update_available", stackId: "stack-1"}),
+            );
+        });
+
+        it("sets hasUpdate=false and publishes no event when the registry digest equals the local digest", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:aaaa", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:aaaa");
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({hasUpdate: false, currentDigest: "sha256:aaaa", latestDigest: "sha256:aaaa"}),
+            );
+            expect(mockBroadcaster.publish).not.toHaveBeenCalled();
+        });
+
+        it("persists a non-null currentDigest and latestDigest on a successful check", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:cccc", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:dddd");
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("redis:7");
+
+            const call = mockRepo.upsertImageUpdateCheck.mock.calls[0][0];
+            expect(call.currentDigest).not.toBeNull();
+            expect(call.latestDigest).not.toBeNull();
+        });
+
+        it("produces the same hasUpdate verdict and the same imageRef key on a repeated check against unchanged state", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledTimes(2);
+            const [firstCall, secondCall] = mockRepo.upsertImageUpdateCheck.mock.calls;
+            expect(firstCall[0].imageRef).toBe(secondCall[0].imageRef);
+            expect(firstCall[0].hasUpdate).toBe(secondCall[0].hasUpdate);
+        });
+
+        it("leaves hasUpdate=false and does not compare against local digest when the local image is not present", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:bbbb", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue(null); // not deployed locally yet
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({hasUpdate: false, currentDigest: null, latestDigest: "sha256:bbbb"}),
+            );
+        });
+
+        it("records hasUpdate=false with a checkError naming the image and clears a previously stored hasUpdate=true when manifestInspect returns null", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    hasUpdate: false,
+                    checkError: expect.stringContaining("nginx:1.25"),
+                }),
             );
         });
     });
