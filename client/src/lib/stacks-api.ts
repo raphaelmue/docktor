@@ -51,6 +51,16 @@ export interface StackDetail extends StackWithServices {
     }[];
 }
 
+export type StackEventType = "config_changed" | "config_error" | "update_available";
+
+export interface StackEvent {
+    id: string;
+    type: StackEventType;
+    message: string | null;
+    payload: string | null;
+    createdAt: string;
+}
+
 export function listStacks() {
     return apiFetch<StackWithServices[]>("/api/stacks");
 }
@@ -136,5 +146,12 @@ export function upgradeService(stackId: string, serviceName: string, targetTag: 
             method: "POST",
             body: JSON.stringify({targetTag}),
         },
+    );
+}
+
+export function getStackEvents(stackId: string, limit?: number) {
+    const query = limit !== undefined ? `?limit=${limit}` : "";
+    return apiFetch<StackEvent[]>(
+        `/api/stacks/${encodeURIComponent(stackId)}/events${query}`,
     );
 }

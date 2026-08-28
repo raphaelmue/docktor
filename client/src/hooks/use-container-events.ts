@@ -27,6 +27,12 @@ export interface ConfigChangedEvent {
     stackId: string
 }
 
+export interface ConfigErrorEvent {
+    type: "config_error"
+    stackId: string
+    message: string
+}
+
 export interface UpdateAvailableEvent {
     type: "update_available"
     stackId: string
@@ -40,7 +46,7 @@ export interface NotificationCreatedEvent {
     notificationId: string
 }
 
-export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | UpdateAvailableEvent | NotificationCreatedEvent
+export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | ConfigErrorEvent | UpdateAvailableEvent | NotificationCreatedEvent
 
 const BASE = globalThis.location?.port === "5173" ? "http://localhost:3000" : ""
 
