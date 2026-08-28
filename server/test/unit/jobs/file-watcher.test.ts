@@ -158,6 +158,46 @@ describe("FileWatcher", () => {
         });
     });
 
+    describe("ignored filter (FW-01 regression)", () => {
+        async function getIgnoredFn(): Promise<(filePath: string, stats?: import("node:fs").Stats) => boolean | undefined> {
+            await fileWatcher.start();
+            const options = (watch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+            return options.ignored;
+        }
+
+        it("does not ignore a directory when stats confirm it is a directory", async () => {
+            const ignored = await getIgnoredFn();
+            const dirStats = {isDirectory: () => true, isFile: () => false} as import("node:fs").Stats;
+            expect(ignored("/stacks/my-stack", dirStats)).toBeFalsy();
+        });
+
+        it("does not ignore a directory-like path when stats are undefined (readdirp does not always supply stats during traversal)", async () => {
+            // Regression: chokidar's own documented pattern for a function-based `ignored`
+            // (`stats?.isFile() && !f.endsWith(...)`) treats an undefined `stats` as "don't
+            // ignore" by short-circuiting to a falsy value. A prior version of this filter
+            // used `stats?.isDirectory() ?? false` as its directory guard, which defaults to
+            // `false` when stats is undefined and falls through to the suffix check — wrongly
+            // ignoring (and thus blocking traversal into) any directory whose name doesn't
+            // happen to end with "docker-compose.yml". That silently broke live file-change
+            // detection entirely (proven via a real chokidar diagnostic against a Docker bind
+            // mount where directory-filter stats came back undefined).
+            const ignored = await getIgnoredFn();
+            expect(ignored("/stacks/my-stack", undefined)).toBeFalsy();
+        });
+
+        it("ignores a file that is not named docker-compose.yml", async () => {
+            const ignored = await getIgnoredFn();
+            const fileStats = {isDirectory: () => false, isFile: () => true} as import("node:fs").Stats;
+            expect(ignored("/stacks/my-stack/readme.md", fileStats)).toBe(true);
+        });
+
+        it("does not ignore a file named docker-compose.yml", async () => {
+            const ignored = await getIgnoredFn();
+            const fileStats = {isDirectory: () => false, isFile: () => true} as import("node:fs").Stats;
+            expect(ignored("/stacks/my-stack/docker-compose.yml", fileStats)).toBeFalsy();
+        });
+    });
+
     describe("handleFileChange() (FW-02)", () => {
         it("calls repo.updateStackHash and repo.createStackEvent with type config_changed when hash differs", async () => {
             const fakePath = "/stacks/my-stack/docker-compose.yml";

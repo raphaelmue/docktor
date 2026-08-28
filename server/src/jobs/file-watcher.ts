@@ -61,10 +61,16 @@ export class FileWatcher {
             ignoreInitial: true,
             awaitWriteFinish: {stabilityThreshold: 1000, pollInterval: 100},
             depth: 2,
-            ignored: (filePath: string, stats?: import("node:fs").Stats) => {
-                if (stats?.isDirectory() ?? false) return false // MUST allow dirs for traversal
-                return !filePath.endsWith("docker-compose.yml")
-            },
+            // Matches chokidar's own documented pattern for a function-based `ignored`
+            // (stats?.isFile() && ...): readdirp does not always supply `stats` during
+            // directory-filter traversal, and `stats?.isFile()` short-circuits to a falsy
+            // "don't ignore" in that case. A `stats?.isDirectory() ?? false` guard instead
+            // defaults to "not a directory" when stats is missing and falls through to the
+            // suffix check below, wrongly filtering out (and blocking traversal into) any
+            // directory whose name doesn't end in "docker-compose.yml" — silently breaking
+            // live change detection entirely regardless of usePolling.
+            ignored: (filePath: string, stats?: import("node:fs").Stats) =>
+                Boolean(stats?.isFile() && !filePath.endsWith("docker-compose.yml")),
             usePolling,
             interval: usePolling ? 1000 : undefined,
         })
