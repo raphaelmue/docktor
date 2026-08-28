@@ -22,7 +22,12 @@ COPY client/package.json client/
 RUN yarn install --immutable
 COPY shared/ shared/
 COPY server/ server/
-RUN yarn workspace @docktor/shared build && yarn workspace @docktor/server build && yarn prisma generate --config=server/prisma/prisma.config.ts
+# prisma generate MUST run before the server's tsc build: server/src/generated/prisma
+# is gitignored, so on a fresh build it does not exist yet, and tsc's type-check of
+# any Prisma-derived import is only meaningful once the real generated types are
+# present. Running generate after tsc "works" only by accident of Docker layer
+# caching reusing a stale generated client from a previous build of an older schema.
+RUN yarn prisma generate --config=server/prisma/prisma.config.ts && yarn workspace @docktor/shared build && yarn workspace @docktor/server build
 
 FROM node:22-slim
 WORKDIR /app
