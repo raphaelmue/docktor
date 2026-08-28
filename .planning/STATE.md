@@ -203,6 +203,7 @@ Recent decisions affecting current work:
 - [minor] "Update available" only shown per-service, never at the stack level — `.planning/todos/pending/2026-08-28-update-available-badge-missing-at-stack-level.md`
 - [cosmetic] Stale ImageUpdateCheck rows never pruned when a service's tag changes — `.planning/todos/pending/2026-08-28-stale-imageupdatecheck-rows-never-pruned.md`
 - [minor] Upgrade dialog shows "not checked yet" for a moving-tag service that was actually checked — `.planning/todos/pending/2026-08-28-upgrade-dialog-wrong-message-for-moving-tags.md`
+- [minor] "Update available" badge shows even when there's no latestTag to point to — `.planning/todos/pending/2026-08-28-update-badge-shown-with-null-latest-tag.md`
 - [minor] Support authenticated/private container registries for update checking — `.planning/todos/pending/2026-08-28-support-authenticated-custom-registries.md`
 
 ### Blockers/Concerns
