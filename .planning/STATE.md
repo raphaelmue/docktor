@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 02 (Observability) — EXECUTING
-Plan: 1 of 12
+Plan: 11 of 12 complete; 02-12 Tasks 1-4 done, Task 5 blocking human-verify checkpoint pending (needs a real registry + live Docker daemon — see Blockers/Concerns)
 
 ## Performance Metrics
 
@@ -206,6 +206,7 @@ Recent decisions affecting current work:
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
 - [Phase 02-observability P10]: `ImageUpdateCheck.availableTags String?` was added to schema.prisma and `prisma generate` was run, but `yarn db:push` could not be run against a reachable database in the execution sandbox — must be run against the real dev/prod database before the next deploy, or `upsert` calls touching this column will fail at runtime (not at boot, since Prisma doesn't validate live schema at startup).
+- [Phase 02-observability P12]: Task 5 (final checkpoint, blocking) needs a developer to verify the full update journey (registry detection → badge → version-selection dialog → persisted upgrade → compose file updated) against a real container registry and live Docker daemon — cannot be automated. See `.planning/phases/02-observability/02-12-PLAN.md` Task 5 for the exact steps and `.planning/phases/02-observability/02-12-SUMMARY.md` for what's already built and verified (Tasks 1-4, both client build and full unit suite green).
 
 ## Session Continuity
 
