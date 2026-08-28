@@ -8,10 +8,14 @@ export interface UpsertImageUpdateCheckInput {
     currentDigest?: string | null
     hasUpdate: boolean
     checkError?: string | null
+    availableTags?: string[] | null
 }
 
 export class ImageUpdateCheckRepository {
     async upsert(input: UpsertImageUpdateCheckInput) {
+        // JSON-encoding is an implementation detail of persistence — callers
+        // pass a real string[] and never see the encoded column value.
+        const availableTags = input.availableTags ? JSON.stringify(input.availableTags) : null
         return prisma.imageUpdateCheck.upsert({
             where: {imageRef: input.imageRef},
             create: {
@@ -22,6 +26,7 @@ export class ImageUpdateCheckRepository {
                 currentDigest: input.currentDigest ?? null,
                 hasUpdate: input.hasUpdate,
                 checkError: input.checkError ?? null,
+                availableTags,
             },
             update: {
                 lastCheckedAt: input.lastCheckedAt,
@@ -30,6 +35,7 @@ export class ImageUpdateCheckRepository {
                 currentDigest: input.currentDigest ?? null,
                 hasUpdate: input.hasUpdate,
                 checkError: input.checkError ?? null,
+                availableTags,
             },
         })
     }

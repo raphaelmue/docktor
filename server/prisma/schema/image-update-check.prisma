@@ -7,6 +7,7 @@ model ImageUpdateCheck {
   currentDigest String?  // digest of running image when check ran
   hasUpdate     Boolean  @default(false)
   checkError    String?  // last error message if check failed
+  availableTags String?  // JSON-encoded array of upgrade candidate tags, newest first
 
   updatedAt DateTime @updatedAt
 }

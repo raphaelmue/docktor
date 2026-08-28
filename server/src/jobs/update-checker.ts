@@ -2,8 +2,16 @@ import cron from "node-cron"
 import semver from "semver"
 import type {DockerExecutor} from "../infrastructure/docker-executor.js"
 import {dockerExecutor} from "../infrastructure/docker-executor.js"
+import type {RegistryClient} from "../infrastructure/registry-client.js"
+import {registryClient, RegistryUnavailableError} from "../infrastructure/registry-client.js"
 import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
+
+// Tags with no version-ordered meaning — a moving tag always points at
+// whatever was last pushed, so ordering it against other tags is undefined.
+// Both selectUpgradeCandidates (as the current tag) and checkImage (before
+// fetching a candidate list at all) treat these as "digest comparison only".
+const MOVING_TAGS = new Set(["latest", "edge", "stable", "main", "master", "nightly"])
 
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
@@ -122,6 +130,43 @@ export function compareVersions(
 }
 
 /**
+ * Filters and ranks tags that represent a genuine upgrade over currentTag,
+ * newest first. A moving currentTag (latest, edge, stable, main, master,
+ * nightly) has no version-ordered meaning — it always returns [] and the
+ * digest comparison in checkImage() governs instead. Candidate tags are
+ * first restricted to the same "shape" as currentTag (all date tags, or
+ * all semver-coercible tags) before compareVersions() ranks them, so the
+ * date-tag-precedes-semver-coercion rule already established there keeps
+ * holding rather than being re-decided per pair. Moving-tag candidates
+ * (e.g. a "latest" entry in the registry's tag list) are always dropped.
+ */
+export function selectUpgradeCandidates(currentTag: string, tags: string[]): string[] {
+    if (MOVING_TAGS.has(currentTag)) return []
+
+    const currentIsDate = parseDateTag(currentTag) !== null
+
+    const shapeCompatible = tags.filter((candidateTag) => {
+        if (MOVING_TAGS.has(candidateTag)) return false
+        if (currentIsDate) return parseDateTag(candidateTag) !== null
+        return semver.coerce(candidateTag) !== null
+    })
+
+    return shapeCompatible
+        .filter((candidateTag) => compareVersions(currentTag, candidateTag) === "newer")
+        .sort((a, b) => {
+            const result = compareVersions(a, b)
+            if (result === "newer") return 1
+            if (result === "older") return -1
+            return 0
+        })
+}
+
+/** Returns the newest upgrade candidate for currentTag, or null when there is none. */
+export function selectLatestTag(currentTag: string, tags: string[]): string | null {
+    return selectUpgradeCandidates(currentTag, tags)[0] ?? null
+}
+
+/**
  * Pure function: given image update check records and a total check interval,
  * returns the next image due for checking (never-checked first, then oldest).
  *
@@ -174,6 +219,7 @@ export interface UpdateCheckerRepo {
         currentDigest?: string | null
         hasUpdate: boolean
         checkError?: string | null
+        availableTags?: string[] | null
     }): Promise<void>
     findStacksByImageRef(imageRef: string): Promise<Array<{id: string}>>
 }
@@ -246,15 +292,18 @@ export class UpdateChecker {
     private readonly repo: UpdateCheckerRepo | null
     private readonly docker: Pick<DockerExecutor, "manifestInspect" | "imageDigest">
     private readonly broadcaster: Pick<StateBroadcaster, "publish">
+    private readonly registry: Pick<RegistryClient, "listTags">
 
     constructor(
         repo?: UpdateCheckerRepo,
         docker?: Pick<DockerExecutor, "manifestInspect" | "imageDigest">,
         broadcaster?: Pick<StateBroadcaster, "publish">,
+        registry?: Pick<RegistryClient, "listTags">,
     ) {
         this.repo = repo ?? null
         this.docker = docker ?? dockerExecutor
         this.broadcaster = broadcaster ?? stateEventBroadcaster
+        this.registry = registry ?? registryClient
     }
 
     private async getRepo(): Promise<UpdateCheckerRepo> {
@@ -320,11 +369,38 @@ export class UpdateChecker {
                 return
             }
 
-            const {digest: latestDigest, latestTag} = result
+            const {digest: latestDigest} = result
+            let latestTag = result.latestTag
             const tag = splitImageRef(imageRef).tag
             // Local-only, no registry traffic — resolves what is actually
             // deployed so the digest branch below has both operands.
             const currentDigest = await this.docker.imageDigest(imageRef)
+
+            // Fetch the tag list strictly inside this staggered check — never
+            // per request. A moving tag has no version-ordered upgrade
+            // target, so skip the registry round trip entirely for it. A
+            // registry failure here is recorded but must never discard the
+            // digest verdict computed below; it only means no tag-based
+            // candidates were found this run.
+            let availableTags: string[] | null = null
+            let registryCheckError: string | null = null
+            if (!MOVING_TAGS.has(tag)) {
+                try {
+                    const tags = await this.registry.listTags(imageRef)
+                    if (tags) {
+                        const candidates = selectUpgradeCandidates(tag, tags)
+                        availableTags = candidates.length > 0 ? candidates : null
+                        latestTag = selectLatestTag(tag, tags)
+                    }
+                } catch (err) {
+                    if (err instanceof RegistryUnavailableError) {
+                        registryCheckError = err.message
+                        console.warn(`[UpdateChecker] ${err.message}`)
+                    } else {
+                        throw err
+                    }
+                }
+            }
 
             let hasUpdate = false
 
@@ -349,7 +425,8 @@ export class UpdateChecker {
                 latestDigest: latestDigest ?? null,
                 currentDigest: currentDigest ?? null,
                 hasUpdate,
-                checkError: null,
+                checkError: registryCheckError,
+                availableTags,
             })
 
             if (hasUpdate) {

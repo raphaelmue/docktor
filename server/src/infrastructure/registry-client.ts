@@ -1,5 +1,23 @@
 import {AppError} from "../lib/errors.js"
-import {splitImageRef} from "../jobs/update-checker.js"
+
+/**
+ * Strips the tag from an image reference, mirroring splitImageRef() in
+ * jobs/update-checker.ts (a colon followed later by a slash is a registry
+ * port, not a tag separator). Duplicated locally rather than imported —
+ * update-checker.ts injects this infrastructure adapter via constructor DI
+ * and defaults to the registryClient singleton exported below, so importing
+ * from jobs/update-checker.ts here would create a circular module
+ * dependency between the two singletons (each defined via `export const x =
+ * new X()` at the foot of its file), which is a TDZ crash waiting to happen
+ * depending on which module a caller imports first.
+ */
+function stripTag(imageRef: string): string {
+    const lastColon = imageRef.lastIndexOf(":")
+    if (lastColon === -1 || imageRef.indexOf("/", lastColon) !== -1) {
+        return imageRef
+    }
+    return imageRef.slice(0, lastColon)
+}
 
 const REQUEST_TIMEOUT_MS = 15_000
 const MAX_BODY_BYTES = 2 * 1024 * 1024 // ~2 MB
@@ -136,7 +154,7 @@ export class RegistryClient {
      * checkError (rate limit, persistent auth failure).
      */
     async listTags(imageRef: string): Promise<string[] | null> {
-        const {name} = splitImageRef(imageRef)
+        const name = stripTag(imageRef)
 
         const {host, repository} = resolveRegistryTarget(name)
         if (!isValidHost(host)) {

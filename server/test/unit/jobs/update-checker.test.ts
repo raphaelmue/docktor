@@ -5,7 +5,10 @@ import {
     getNextImageToCheck,
     splitImageRef,
     buildImageRefFromService,
+    selectUpgradeCandidates,
+    selectLatestTag,
 } from "../../../../src/jobs/update-checker.js";
+import {RegistryUnavailableError} from "../../../../src/infrastructure/registry-client.js";
 
 function createMockUpdateCheckerRepo() {
     return {
@@ -29,22 +32,40 @@ function createMockBroadcaster() {
     };
 }
 
+function createMockRegistryClient() {
+    return {
+        listTags: vi.fn(),
+    };
+}
+
 describe("UpdateChecker", () => {
     let checker: UpdateChecker;
     let mockRepo: ReturnType<typeof createMockUpdateCheckerRepo>;
     let mockDockerExecutor: ReturnType<typeof createMockDockerExecutor>;
     let mockBroadcaster: ReturnType<typeof createMockBroadcaster>;
+    let mockRegistryClient: ReturnType<typeof createMockRegistryClient>;
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockRepo = createMockUpdateCheckerRepo();
         mockDockerExecutor = createMockDockerExecutor();
         mockBroadcaster = createMockBroadcaster();
+        mockRegistryClient = createMockRegistryClient();
         // Safe default so hasUpdate=true scenarios that don't care about the
         // broadcast fan-out list don't hit "stacks is not iterable" — tests
         // that assert broadcast behavior override this explicitly.
         mockRepo.findStacksByImageRef.mockResolvedValue([]);
-        checker = new UpdateChecker(mockRepo as any, mockDockerExecutor as any, mockBroadcaster as any);
+        // Safe default so pre-existing digest-only checkImage() tests that
+        // never set up registry expectations keep exercising exactly the
+        // digest-comparison path they were written against — no candidates
+        // found is a normal, common outcome.
+        mockRegistryClient.listTags.mockResolvedValue(null);
+        checker = new UpdateChecker(
+            mockRepo as any,
+            mockDockerExecutor as any,
+            mockBroadcaster as any,
+            mockRegistryClient as any,
+        );
     });
 
     describe("compareVersions() (UPD-01)", () => {
@@ -193,6 +214,49 @@ describe("UpdateChecker", () => {
         });
     });
 
+    describe("selectUpgradeCandidates() (UPD-01)", () => {
+        it("returns only tags comparing newer than 1.25, ordered newest first, dropping moving and non-version tags", () => {
+            const result = selectUpgradeCandidates("1.25", [
+                "1.24",
+                "1.25",
+                "1.25.3",
+                "1.26",
+                "latest",
+                "alpine",
+                "mainline",
+            ]);
+            expect(result).toEqual(["1.26", "1.25.3"]);
+        });
+
+        it("returns the two newer date tags, newest first", () => {
+            const result = selectUpgradeCandidates("2024-01-01", [
+                "2023-12-01",
+                "2024-02-01",
+                "2024-06-01",
+                "latest",
+            ]);
+            expect(result).toEqual(["2024-06-01", "2024-02-01"]);
+        });
+
+        it("returns an empty array when no candidate tag is version-comparable", () => {
+            expect(selectUpgradeCandidates("1.25", ["latest", "edge", "stable"])).toEqual([]);
+        });
+
+        it("returns an empty array when currentTag is a moving tag", () => {
+            expect(selectUpgradeCandidates("latest", ["1.24", "1.25", "1.26"])).toEqual([]);
+        });
+    });
+
+    describe("selectLatestTag() (UPD-01)", () => {
+        it("returns the first element of selectUpgradeCandidates", () => {
+            expect(selectLatestTag("1.25", ["1.24", "1.25", "1.26"])).toBe("1.26");
+        });
+
+        it("returns null when there is no candidate", () => {
+            expect(selectLatestTag("1.25", ["latest", "edge"])).toBeNull();
+        });
+    });
+
     describe("checkImage() digest comparison (UPD-01, UPD-02)", () => {
         it("resolves imageDigest() from the local image store, not the registry", async () => {
             mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:bbbb", latestTag: null});
@@ -303,6 +367,96 @@ describe("UpdateChecker", () => {
             expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
                 expect.objectContaining({hasUpdate: false}),
             );
+        });
+    });
+
+    describe("checkImage() tag-based upgrade detection (UPD-01)", () => {
+        it("sets latestTag=1.26, hasUpdate=true, and publishes an update_available event carrying that tag when the registry offers 1.26 for a service on 1.25", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: null, latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue(null);
+            mockRegistryClient.listTags.mockResolvedValue(["1.24", "1.25", "1.26"]);
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+            mockRepo.findStacksByImageRef.mockResolvedValue([{id: "stack-1"}]);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    imageRef: "nginx:1.25",
+                    latestTag: "1.26",
+                    hasUpdate: true,
+                    availableTags: ["1.26"],
+                }),
+            );
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "update_available", stackId: "stack-1", latestTag: "1.26"}),
+            );
+        });
+
+        it("leaves latestTag null and hasUpdate false when the registry offers nothing newer, falling back to the digest verdict", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+            mockRegistryClient.listTags.mockResolvedValue(["1.20", "1.24", "1.25"]);
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({latestTag: null, hasUpdate: false, availableTags: null}),
+            );
+        });
+
+        it("records a checkError and leaves hasUpdate governed by the digest verdict when listTags throws RegistryUnavailableError", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+            mockRegistryClient.listTags.mockRejectedValue(
+                new RegistryUnavailableError("nginx:1.25", "rate limited (429)"),
+            );
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    hasUpdate: false,
+                    checkError: expect.stringContaining("nginx:1.25"),
+                }),
+            );
+        });
+
+        it("does not abort the cron tick when listTags throws", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+            mockRegistryClient.listTags.mockRejectedValue(
+                new RegistryUnavailableError("nginx:1.25", "rate limited (429)"),
+            );
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await expect(checker.checkImage("nginx:1.25")).resolves.toBeUndefined();
+        });
+
+        it("persists the same candidate list under the same imageRef when the same image is checked twice against unchanged registry state", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: null, latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue(null);
+            mockRegistryClient.listTags.mockResolvedValue(["1.24", "1.25", "1.26"]);
+            mockRepo.getImageUpdateCheck.mockResolvedValue(null);
+
+            await checker.checkImage("nginx:1.25");
+            await checker.checkImage("nginx:1.25");
+
+            expect(mockRepo.upsertImageUpdateCheck).toHaveBeenCalledTimes(2);
+            const [firstCall, secondCall] = mockRepo.upsertImageUpdateCheck.mock.calls;
+            expect(firstCall[0].imageRef).toBe(secondCall[0].imageRef);
+            expect(firstCall[0].availableTags).toEqual(secondCall[0].availableTags);
+        });
+
+        it("does not call listTags for a service on a moving tag", async () => {
+            mockDockerExecutor.manifestInspect.mockResolvedValue({digest: "sha256:same", latestTag: null});
+            mockDockerExecutor.imageDigest.mockResolvedValue("sha256:same");
+
+            await checker.checkImage("nginx:latest");
+
+            expect(mockRegistryClient.listTags).not.toHaveBeenCalled();
         });
     });
 });
