@@ -51,6 +51,9 @@ COPY --from=client-build /app/client/dist ./client-dist
 
 ENV NODE_ENV=production
 ENV CLIENT_DIST_PATH=./client-dist
+# Fixed container-side mount points (see docker-compose.yml volumes) — not meant to
+# vary per deployment, so they live in the image rather than compose environment.
+ENV DOCKTOR_STACKS_DIR=/stacks
 
 EXPOSE 3000
 
