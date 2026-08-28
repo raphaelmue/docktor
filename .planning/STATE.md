@@ -176,6 +176,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 - [major] Document deployment config: clean .env and docker-compose.yml — `.planning/todos/pending/2026-08-27-document-deployment-config-clean-env-and-docker-compose.md`
+- [blocker] Fix integration/e2e tests — `.planning/todos/pending/2026-08-28-fix-integration-e2e-tests.md`
 
 ### Blockers/Concerns
 
