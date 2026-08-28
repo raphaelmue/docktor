@@ -70,7 +70,7 @@ Plans:
 - [x] 02-06-PLAN.md — Gap closure: FileWatcher service sync + parser error handling
 - [x] 02-07-PLAN.md — Gap closure: test mock fixes, compose-parser throw tests, Update Images UX feedback
 - [x] 02-08-PLAN.md — Gap closure (UAT gap 1): runtime-state-preserving service sync in FileWatcher; parser sequence guard
-- [ ] 02-09-PLAN.md — Gap closure (UAT gap 4a): currentDigest, imageRef splitting, badge lookup key
+- [x] 02-09-PLAN.md — Gap closure (UAT gap 4a): currentDigest, imageRef splitting, badge lookup key
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -187,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MVP Completion | 6/7 | In Progress|  |
-| 2. Observability | 8/12 | In Progress|  |
+| 2. Observability | 9/12 | In Progress|  |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 5/6 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
