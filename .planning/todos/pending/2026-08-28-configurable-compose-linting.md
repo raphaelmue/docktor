@@ -20,6 +20,18 @@ configurably, e.g.:
 - A "formatting function" — likely auto-format/normalize a compose file's
   structure.
 
+**Addendum (2026-08-28):** user also flagged that having a `.env` file
+next to `docker-compose.yml` is not sufficient on its own — Docker Compose
+only auto-loads `.env` for *variable substitution inside the compose file*
+(`${VAR}` placeholders); it does **not** automatically inject those
+key=values into the container's runtime environment. A service only
+actually receives them if the compose file declares `env_file: .env` (or
+equivalent `environment:` entries) for that service. A stack whose compose
+file has no `env_file` directive will have a `.env` file that silently
+does nothing at the container level — this should be one of the
+configurable checks (flag a service with no `env_file` reference when a
+`.env` exists for the stack).
+
 This is unrelated to the UI-redesign items split out alongside it (see
 [[2026-08-28-redesign-ui-ux-service-colors-mobile]]) — this one is
 backend validation logic, not a frontend change.
