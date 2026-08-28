@@ -31,6 +31,7 @@ import {StackActions} from "./components/stack-actions";
 import {BackupsTab} from "./components/backups-tab";
 import {ServicesTab} from "./components/services-tab";
 import {EventLogCard} from "./components/event-log-card";
+import {StatusLogCard} from "./components/status-log-card";
 
 export default function StackDetailPage() {
     const {id = "", tab} = useParams<{ id: string; tab?: string }>();
@@ -291,48 +292,7 @@ export default function StackDetailPage() {
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Status Log</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ScrollArea className={"h-64"}>
-                                    {stack.statusLogs.length === 0 ? (
-                                        <p className="text-muted-foreground">
-                                            No status changes
-                                        </p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {stack.statusLogs.map((log) => (
-                                                <div
-                                                    key={log.id}
-                                                    className="flex items-start gap-3 text-sm"
-                                                >
-                                                <span className="text-muted-foreground whitespace-nowrap">
-                                                    {new Date(
-                                                        log.createdAt,
-                                                    ).toLocaleString()}
-                                                </span>
-                                                    <span>
-                                                    {log.fromStatus && (
-                                                        <>
-                                                            {log.fromStatus} →{" "}
-                                                        </>
-                                                    )}
-                                                        {log.toStatus}
-                                                </span>
-                                                    {log.message && (
-                                                        <span className="text-muted-foreground">
-                                                        — {log.message}
-                                                    </span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </ScrollArea>
-                            </CardContent>
-                        </Card>
+                        <StatusLogCard statusLogs={stack.statusLogs}/>
 
                         <EventLogCard stackId={id}/>
                     </TabsContent>
