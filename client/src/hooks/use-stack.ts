@@ -3,27 +3,50 @@ import {toast} from "sonner";
 import {getStack, type StackDetail} from "@/lib/stacks-api";
 import {useContainerEvents} from "@/hooks/use-container-events";
 
+type FetchMode = "initial" | "background";
+
 export function useStack(id: string) {
     const [stack, setStack] = useState<StackDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetch = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    // A background refresh (SSE-triggered or refetch()) sets isRefreshing and must
+    // never touch `loading` or `error` — those flags drive the page's
+    // placeholder/error early returns, which swap out the whole mounted tree.
+    // Only the initial load may set them.
+    const fetchStack = useCallback(async (mode: FetchMode) => {
+        if (mode === "initial") {
+            setLoading(true);
+            setError(null);
+        } else {
+            setIsRefreshing(true);
+        }
         try {
             const data = await getStack(id);
             setStack(data);
         } catch (err: any) {
-            setError(err.message ?? "Failed to fetch stack");
+            if (mode === "initial") {
+                setError(err.message ?? "Failed to fetch stack");
+            } else {
+                console.warn("Background stack refresh failed", err);
+            }
         } finally {
-            setLoading(false);
+            if (mode === "initial") {
+                setLoading(false);
+            } else {
+                setIsRefreshing(false);
+            }
         }
     }, [id]);
 
+    const refetch = useCallback(() => {
+        void fetchStack("background");
+    }, [fetchStack]);
+
     useEffect(() => {
-        fetch();
-    }, [fetch]);
+        fetchStack("initial");
+    }, [fetchStack]);
 
     useContainerEvents((event) => {
         if (event.type === "notification_created") return;
@@ -53,11 +76,11 @@ export function useStack(id: string) {
             });
         } else if (event.type === "config_changed") {
             toast.info('Configuration file changed externally');
-            fetch();
+            void fetchStack("background");
         } else if (event.type === "update_available") {
-            fetch();
+            void fetchStack("background");
         }
     });
 
-    return {stack, loading, error, refetch: fetch};
+    return {stack, loading, isRefreshing, error, refetch};
 }

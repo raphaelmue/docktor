@@ -15,7 +15,8 @@ import {Textarea} from "@/components/ui/textarea";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {AlertTriangle, Save,} from "lucide-react";
+import {AlertTriangle, RefreshCw, Save,} from "lucide-react";
+import {cn} from "@/lib/utils";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -33,7 +34,7 @@ import {ServicesTab} from "./components/services-tab";
 export default function StackDetailPage() {
     const {id = "", tab} = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
-    const {stack, loading, error, refetch} = useStack(id);
+    const {stack, loading, isRefreshing, error, refetch} = useStack(id);
 
     const VALID_TABS = ["overview", "compose", "environment", "logs", "backups"] as const;
     type Tab = typeof VALID_TABS[number];
@@ -56,7 +57,7 @@ export default function StackDetailPage() {
         }
     }, [id, stack?.lastKnownHash, composeDirty, envDirty]);
 
-    if (loading) {
+    if (loading && !stack) {
         return (
             <Page>
                 <PageHeader
@@ -186,6 +187,16 @@ export default function StackDetailPage() {
                     )}
                 </div>
                 <PageActions>
+                    <span
+                        className={cn(
+                            "flex items-center gap-1 text-xs text-muted-foreground transition-opacity",
+                            isRefreshing ? "opacity-100" : "opacity-0",
+                        )}
+                        aria-hidden={!isRefreshing}
+                    >
+                        <RefreshCw className="h-3 w-3 animate-spin"/>
+                        Refreshing
+                    </span>
                     <StackStatusBadge status={status}/>
                     <StackActions
                         stackId={id}
