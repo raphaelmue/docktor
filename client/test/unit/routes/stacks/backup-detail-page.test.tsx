@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {render, screen, waitFor} from "@testing-library/react";
+import {act, render, screen, waitFor} from "@testing-library/react";
 import {MemoryRouter, Route, Routes} from "react-router";
 import BackupDetailPage from "../../../../src/routes/app/stacks/backups/[backupId]";
 import {getBackup, type BackupRecord} from "@/lib/backups-api";
@@ -16,6 +16,12 @@ vi.mock("@/hooks/use-backup-stream", () => ({
 
 const mockGetBackup = vi.mocked(getBackup);
 const mockUseBackupStream = vi.mocked(useBackupStream);
+
+// Mirrors the page's private BACKUP_RESYNC_POLL_INTERVAL_MS / BACKUP_RESYNC_MAX_POLLS
+// constants — not exported, so the poll-bound tests below assert against these
+// literal values rather than importing them.
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLLS = 60;
 
 function makeBackup(overrides: Partial<BackupRecord> = {}): BackupRecord {
     return {
@@ -38,10 +44,10 @@ function setStream(lines: string[], status: BackupStreamStatus) {
     mockUseBackupStream.mockReturnValue({lines, status});
 }
 
-function Page() {
+function Page({backupId = "b1"}: {backupId?: string} = {}) {
     return (
         <SidebarProvider>
-            <MemoryRouter initialEntries={["/stacks/s1/backups/b1"]}>
+            <MemoryRouter initialEntries={[`/stacks/s1/backups/${backupId}`]}>
                 <Routes>
                     <Route path="/stacks/:id/backups/:backupId" element={<BackupDetailPage />} />
                 </Routes>
@@ -74,6 +80,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
 });
 
 describe("BackupDetailPage", () => {
@@ -205,5 +212,192 @@ describe("BackupDetailPage", () => {
 
         await screen.findByText("Completed");
         expect(container.querySelector("[aria-live]")).toHaveAttribute("aria-live", "off");
+    });
+
+    describe("CR-03: non-blank title/breadcrumb", () => {
+        const longBackupId = "b1234567890abcdef1234567890";
+
+        it("renders a page title built from the first eight characters of the route's backupId when resticSnapshotId is empty", async () => {
+            mockGetBackup.mockResolvedValueOnce(
+                makeBackup({resticSnapshotId: "", status: "IN_PROGRESS", trigger: "MANUAL"}),
+            );
+
+            render(<Page backupId={longBackupId} />);
+
+            expect(await screen.findByText(`Backup #${longBackupId.slice(0, 8)}`)).toBeInTheDocument();
+        });
+
+        it("renders the same fallback behind the Restore prefix for a RESTORE-trigger record with an empty resticSnapshotId", async () => {
+            mockGetBackup.mockResolvedValueOnce(
+                makeBackup({resticSnapshotId: "", status: "IN_PROGRESS", trigger: "RESTORE"}),
+            );
+
+            render(<Page backupId={longBackupId} />);
+
+            expect(await screen.findByText(`Restore #${longBackupId.slice(0, 8)}`)).toBeInTheDocument();
+        });
+
+        it("still renders the first eight characters of a real resticSnapshotId, unchanged", async () => {
+            mockGetBackup.mockResolvedValueOnce(
+                makeBackup({resticSnapshotId: "abcdef1234567890", status: "COMPLETED"}),
+            );
+
+            render(<Page backupId={longBackupId} />);
+
+            expect(await screen.findByText("Backup #abcdef12")).toBeInTheDocument();
+        });
+    });
+
+    describe("CR-01: bounded poll while disconnected", () => {
+        it("requests the record immediately on moving to disconnected, then again on every poll interval", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(1);
+
+            mockGetBackup.mockResolvedValue(makeBackup({status: "IN_PROGRESS"}));
+            setStream([], "disconnected");
+            rerender(<Page />);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(3);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(4);
+        });
+
+        it("stops polling once a refetched record is no longer IN_PROGRESS", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "COMPLETED"}));
+            setStream([], "disconnected");
+            rerender(<Page />);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+
+            // The refetched record is COMPLETED, so isStreaming is now false —
+            // advancing further must not trigger any additional poll.
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+        });
+
+        it("stops polling once the stream returns to streaming", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            mockGetBackup.mockResolvedValue(makeBackup({status: "IN_PROGRESS"}));
+            setStream([], "disconnected");
+            rerender(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+
+            setStream([], "streaming");
+            rerender(<Page />);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+        });
+
+        it("stops polling on unmount", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender, unmount} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            mockGetBackup.mockResolvedValue(makeBackup({status: "IN_PROGRESS"}));
+            setStream([], "disconnected");
+            rerender(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+
+            unmount();
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+        });
+
+        it("stops after the configured maximum number of intervals even if the record never leaves IN_PROGRESS", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            mockGetBackup.mockResolvedValue(makeBackup({status: "IN_PROGRESS"}));
+            setStream([], "disconnected");
+            rerender(<Page />);
+
+            // 1 mount call + 1 immediate poll call + (MAX_POLLS - 1) interval ticks
+            // that still fetch (the MAX_POLLS-th tick clears the interval without
+            // fetching) = MAX_POLLS + 1 total calls, and it must stay there.
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * (MAX_POLLS + 10));
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(MAX_POLLS + 1);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 10);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(MAX_POLLS + 1);
+        });
+
+        it("a completed stream still costs exactly two requests in total after several poll intervals have elapsed", async () => {
+            vi.useFakeTimers();
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "IN_PROGRESS"}));
+            const {rerender} = render(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+
+            mockGetBackup.mockResolvedValueOnce(makeBackup({status: "COMPLETED"}));
+            setStream([], "completed");
+            rerender(<Page />);
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(0);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 10);
+            });
+            expect(mockGetBackup).toHaveBeenCalledTimes(2);
+        });
     });
 });

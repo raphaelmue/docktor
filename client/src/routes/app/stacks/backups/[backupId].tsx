@@ -44,6 +44,10 @@ const TRIGGER_LABELS: Record<BackupRecord["trigger"], string> = {
     RESTORE: "Restore",
 };
 
+// Bounds the disconnected-case poll at five minutes: interval * max = 300s.
+const BACKUP_RESYNC_POLL_INTERVAL_MS = 5000;
+const BACKUP_RESYNC_MAX_POLLS = 60;
+
 export default function BackupDetailPage() {
     const {id = "", backupId = ""} = useParams<{id: string; backupId: string}>();
     const [backup, setBackup] = useState<BackupRecord | null>(null);
@@ -95,17 +99,47 @@ export default function BackupDetailPage() {
         };
     }, [backupId, loadBackup]);
 
-    // One-shot resync: fires when the stream leaves "streaming" for a terminal
-    // outcome (completed, failed, or disconnected) while a stream is active. Once
-    // the refetched record is terminal, isStreaming goes false and this guard
-    // short-circuits — so this cannot become a request loop against GET /api/backups/:id.
+    // One-shot resync: fires when the stream reaches a real terminal verdict
+    // (completed or failed) while a stream is active. Once the refetched record
+    // is terminal, isStreaming goes false and this guard short-circuits — so
+    // this cannot become a request loop against GET /api/backups/:id. The
+    // "disconnected" case is handled by the poll effect below instead, so the
+    // two effects can never both fetch for the same transition.
     useEffect(() => {
-        if (!isStreaming || streamStatus === "streaming") return;
+        if (!isStreaming || (streamStatus !== "completed" && streamStatus !== "failed")) return;
 
         let cancelled = false;
         loadBackup("resync", () => cancelled);
         return () => {
             cancelled = true;
+        };
+    }, [isStreaming, streamStatus, loadBackup]);
+
+    // Bounded poll for the disconnected case: CR-01's answer to a dropped SSE
+    // connection permanently freezing the page. Re-reads the record instead of
+    // trusting anything the dropped connection implied, and terminates from
+    // three independent directions: the record leaving IN_PROGRESS (isStreaming
+    // flips false), the hook's reconnect succeeding (streamStatus returns to
+    // "streaming"), or the hard BACKUP_RESYNC_MAX_POLLS ceiling.
+    useEffect(() => {
+        if (!isStreaming || streamStatus !== "disconnected") return;
+
+        let cancelled = false;
+        let pollCount = 0;
+        loadBackup("resync", () => cancelled);
+
+        const interval = setInterval(() => {
+            pollCount += 1;
+            if (pollCount >= BACKUP_RESYNC_MAX_POLLS) {
+                clearInterval(interval);
+                return;
+            }
+            loadBackup("resync", () => cancelled);
+        }, BACKUP_RESYNC_POLL_INTERVAL_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
         };
     }, [isStreaming, streamStatus, loadBackup]);
 
@@ -116,7 +150,11 @@ export default function BackupDetailPage() {
             ? "No log output was captured for this backup."
             : "No output yet...";
 
-    const shortId = (backup?.resticSnapshotId ?? backupId).slice(0, 8);
+    // initiateBackup persists resticSnapshotId as "" on every new row, and that
+    // empty string lasts for the whole time a backup is IN_PROGRESS — precisely
+    // when a user most often opens this page. Nullish coalescing alone doesn't
+    // catch it, so the fallback must be an OR, not a `??`.
+    const shortId = (backup?.resticSnapshotId || backupId).slice(0, 8);
     const titlePrefix = backup?.trigger === "RESTORE" ? "Restore" : "Backup";
     const pageTitle = `${titlePrefix} #${shortId}`;
 
