@@ -22,6 +22,31 @@ export function getBackupBroadcaster(backupId: string): EventEmitter | undefined
     return backupBroadcasters.get(backupId)
 }
 
+/**
+ * Returns the registered emitter for `backupId`, creating and registering one
+ * if absent. The only function permitted to write to `backupBroadcasters`.
+ * Called at backup-creation time (initiateBackup/runRestore) so a subscriber
+ * that learns the id before runBackup/runRestore starts still finds a live
+ * emitter — closing the CR-02 race window.
+ */
+export function ensureBackupBroadcaster(backupId: string): EventEmitter {
+    const existing = backupBroadcasters.get(backupId)
+    if (existing) return existing
+    const emitter = new EventEmitter()
+    backupBroadcasters.set(backupId, emitter)
+    return emitter
+}
+
+/**
+ * Drops all listeners and removes `backupId` from the map. The only function
+ * permitted to remove from `backupBroadcasters`.
+ */
+export function disposeBackupBroadcaster(backupId: string): void {
+    const existing = backupBroadcasters.get(backupId)
+    existing?.removeAllListeners()
+    backupBroadcasters.delete(backupId)
+}
+
 // ─── Dependency interfaces ────────────────────────────────────────────────────
 
 export interface BackupStackRepo {
@@ -128,6 +153,11 @@ export class BackupService {
             resticSnapshotId: "",
         })
 
+        // Register the broadcaster now — before this method returns — so a
+        // client that learns the backup id from the 202 response always finds
+        // a live emitter, even if it subscribes before runBackup starts.
+        ensureBackupBroadcaster(backup.id)
+
         await this.stackRepo.update(stackId, {
             status: "BACKING_UP",
             previousStatus: stack.status,
@@ -147,8 +177,7 @@ export class BackupService {
         stack: StackRecord,
         repoConfig: BackupRepoConfig,
     ): Promise<void> {
-        const emitter = new EventEmitter()
-        backupBroadcasters.set(backupRecord.id, emitter)
+        const emitter = ensureBackupBroadcaster(backupRecord.id)
 
         const lines: string[] = []
         let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
@@ -226,7 +255,7 @@ export class BackupService {
             })
         } finally {
             emitter.emit("done", finalStatus)
-            backupBroadcasters.delete(backupRecord.id)
+            disposeBackupBroadcaster(backupRecord.id)
         }
     }
 
@@ -251,8 +280,7 @@ export class BackupService {
             previousStatus: stack.status,
         })
 
-        const emitter = new EventEmitter()
-        backupBroadcasters.set(backup.id, emitter)
+        const emitter = ensureBackupBroadcaster(backup.id)
 
         const lines: string[] = []
         let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
@@ -351,7 +379,7 @@ export class BackupService {
             }
         } finally {
             emitter.emit("done", finalStatus)
-            backupBroadcasters.delete(backup.id)
+            disposeBackupBroadcaster(backup.id)
         }
 
         return {id: backup.id}
@@ -505,29 +533,37 @@ export class BackupService {
         const backup = await this.backupRepo.findById(backupId)
         if (!backup || backup.status !== "IN_PROGRESS") return
 
-        await this.backupRepo.update(backupId, {
-            status: "FAILED",
-            completedAt: new Date(),
-            errorMessage,
-            logLines: [`[error] ${errorMessage}`],
-        })
-
-        await this.stackRepo.update(stackId, {status: "ERROR"})
-
-        let displayName = stackId
+        // A rejected notify() must not be able to strand a subscribed SSE
+        // client with a stream that never ends — the terminal `done` and the
+        // broadcaster disposal happen in `finally` regardless of outcome.
         try {
-            const stack = await this.stackRepo.findByIdOrThrow(stackId)
-            displayName = stack.displayName ?? stackId
-        } catch {
-            // Stack row unreadable — fall back to the stack id in the notification text
-        }
+            await this.backupRepo.update(backupId, {
+                status: "FAILED",
+                completedAt: new Date(),
+                errorMessage,
+                logLines: [`[error] ${errorMessage}`],
+            })
 
-        await this.notificationService.notify({
-            type: "backup_failure",
-            stackId,
-            subject: `Backup failed: ${displayName}`,
-            message: `Backup failed for stack "${displayName}". Error: ${errorMessage}`,
-        })
+            await this.stackRepo.update(stackId, {status: "ERROR"})
+
+            let displayName = stackId
+            try {
+                const stack = await this.stackRepo.findByIdOrThrow(stackId)
+                displayName = stack.displayName ?? stackId
+            } catch {
+                // Stack row unreadable — fall back to the stack id in the notification text
+            }
+
+            await this.notificationService.notify({
+                type: "backup_failure",
+                stackId,
+                subject: `Backup failed: ${displayName}`,
+                message: `Backup failed for stack "${displayName}". Error: ${errorMessage}`,
+            })
+        } finally {
+            getBackupBroadcaster(backupId)?.emit("done", "FAILED")
+            disposeBackupBroadcaster(backupId)
+        }
     }
 
     /**

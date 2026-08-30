@@ -171,8 +171,16 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
             // Backup is in progress — subscribe to live broadcaster
             const emitter = getBackupBroadcaster(id)
             if (!emitter) {
-                // Broadcaster gone (race condition) — end immediately
-                reply.raw.write(`data: ${JSON.stringify({done: true, status: backup.status})}\n\n`)
+                // No broadcaster registered for an IN_PROGRESS row is only possible
+                // when the backup finished between the fetch above and this lookup
+                // (or, pre-04-17, before runBackup had registered it at all). Re-read
+                // the record rather than trusting the pre-check status, and replay
+                // its stored log lines so this client isn't left with an empty pane.
+                const refreshed = await backupRepository.findByIdOrThrow(id)
+                for (const line of refreshed.logLines) {
+                    reply.raw.write(`data: ${JSON.stringify({line})}\n\n`)
+                }
+                reply.raw.write(`data: ${JSON.stringify({done: true, status: refreshed.status})}\n\n`)
                 reply.raw.end()
                 return
             }

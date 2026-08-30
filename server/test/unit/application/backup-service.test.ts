@@ -1,5 +1,11 @@
-import {beforeEach, describe, expect, it, vi} from "vitest";
-import {BackupService, getBackupBroadcaster} from "../../../src/application/backup-service.js";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {
+    BackupService,
+    getBackupBroadcaster,
+    ensureBackupBroadcaster,
+    disposeBackupBroadcaster,
+} from "../../../src/application/backup-service.js";
+import {EventEmitter} from "node:events";
 import path from "node:path";
 
 // Mock node:fs/promises
@@ -109,6 +115,14 @@ describe("BackupService", () => {
         });
     });
 
+    afterEach(() => {
+        // backupBroadcasters is module-level state shared across tests — a test
+        // that registers an emitter (e.g. via initiateBackup or abortBackup)
+        // without running a full runBackup()/runRestore() to completion must not
+        // leak it into the next test.
+        disposeBackupBroadcaster("backup-1");
+    });
+
     describe("initiateBackup()", () => {
         it("creates Backup record with status IN_PROGRESS and trigger MANUAL", async () => {
             mockSettingsService.getMany.mockResolvedValue({
@@ -161,6 +175,39 @@ describe("BackupService", () => {
                 "stack-1",
                 expect.objectContaining({previousStatus: "RUNNING"}),
             );
+        });
+
+        it("registers a broadcaster for the new backup before initiateBackup returns", async () => {
+            mockSettingsService.getMany.mockResolvedValue({
+                "backup.repoType": "local",
+                "backup.repoPath": "/backups",
+                "backup.password": "encrypted:abc",
+            });
+
+            await service.initiateBackup("stack-1");
+
+            expect(getBackupBroadcaster("backup-1")).toBeInstanceOf(EventEmitter);
+        });
+
+        it("a listener attached between initiateBackup and runBackup still receives runBackup's done event (CR-02 regression)", async () => {
+            mockSettingsService.getMany.mockResolvedValue({
+                "backup.repoType": "local",
+                "backup.repoPath": "/backups",
+                "backup.password": "encrypted:abc",
+            });
+
+            await service.initiateBackup("stack-1");
+            const emitter = getBackupBroadcaster("backup-1");
+            const onDone = vi.fn();
+            emitter?.on("done", onDone);
+
+            const backupRecord = {id: "backup-1", stackId: "stack-1", trigger: "MANUAL" as const, logLines: []};
+            const stack = {id: "stack-1", status: "BACKING_UP" as const, previousStatus: "RUNNING" as const, backupRetention: null};
+            const repoConfig = {repoType: "local" as const, repoPath: "/backups", password: "plaintext-password"};
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(onDone).toHaveBeenCalledWith("COMPLETED");
         });
     });
 
@@ -427,6 +474,12 @@ describe("BackupService", () => {
             const persistedLines = completedUpdate?.[1]?.logLines as string[];
             expect(persistedLines.some((line) => line.startsWith("[error] "))).toBe(false);
         });
+
+        it("removes the broadcaster once runBackup resolves", async () => {
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(getBackupBroadcaster(backupRecord.id)).toBeUndefined();
+        });
     });
 
     describe("getBackupRepoConfig()", () => {
@@ -682,6 +735,17 @@ services:
             );
             expect(failedUpdate?.[1]?.logLines.length).toBeGreaterThan(0);
         });
+
+        it("registers its emitter through ensureBackupBroadcaster and removes it through disposeBackupBroadcaster, same as runBackup (BCK-09)", async () => {
+            await service.runRestore("stack-1", snapshotId);
+
+            // By the time runRestore resolves, its broadcaster has already gone
+            // through the same register/dispose pair runBackup uses — verified by
+            // the absence of a leftover entry (disposeBackupBroadcaster ran) and by
+            // the "emits done" cases above (ensureBackupBroadcaster ran, since
+            // those attach a listener to the emitter it returns).
+            expect(getBackupBroadcaster("backup-1")).toBeUndefined();
+        });
     });
 
     describe("abortBackup()", () => {
@@ -750,6 +814,43 @@ services:
             expect(mockBackupRepository.update).not.toHaveBeenCalled();
             expect(mockStackRepository.update).not.toHaveBeenCalled();
             expect(mockNotificationService.notify).not.toHaveBeenCalled();
+        });
+
+        it("on a still-IN_PROGRESS row, emits done with FAILED on the registered emitter, then removes it", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+            const emitter = ensureBackupBroadcaster("backup-1");
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(onDone).toHaveBeenCalledWith("FAILED");
+            expect(getBackupBroadcaster("backup-1")).toBeUndefined();
+        });
+
+        it("emits done even when the notification send rejects", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+            mockNotificationService.notify.mockRejectedValueOnce(new Error("smtp down"));
+            const emitter = ensureBackupBroadcaster("backup-1");
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+
+            await expect(service.abortBackup("backup-1", "stack-1", "boom")).rejects.toThrow("smtp down");
+
+            expect(onDone).toHaveBeenCalledWith("FAILED");
+            expect(getBackupBroadcaster("backup-1")).toBeUndefined();
+        });
+
+        it("on a row that is already COMPLETED or FAILED, emits nothing and leaves the registered emitter in place", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "COMPLETED"});
+            const emitter = ensureBackupBroadcaster("backup-1");
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(onDone).not.toHaveBeenCalled();
+            expect(getBackupBroadcaster("backup-1")).toBe(emitter);
         });
     });
 
