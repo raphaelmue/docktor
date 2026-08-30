@@ -60,10 +60,8 @@ result: pass
 
 ### 12. SSE Live Updates for Config Changes (regression retest — was: issue, fix: 02-14-PLAN.md)
 expected: With the stack detail page open, modify the compose file on disk. Within seconds, a config_changed SSE event triggers a background refresh and the UI shows the yellow "config changed" state — without the page/tab state resetting or looking like a full page reload.
-result: issue
-reported: "passed, however, the toast as well as the badge at the top of the page are not yellow."
-severity: cosmetic
-note: "The G-02-12 regression itself (page looking fully reloaded on SSE refresh) is confirmed fixed. This is a separate, new finding: the stack-list badge uses yellow styling (bg-yellow-100/text-yellow-800), but the stack detail page's config-changed Alert has no variant set (falls back to Alert's neutral 'default' CVA variant — there is no 'warning' variant), and the toast in use-stack.ts:78 calls toast.info(...) instead of toast.warning(...). Neither surfaces the yellow/warning treatment the badge already establishes elsewhere."
+result: pass
+note: "First reported as an issue: toast and detail-page alert weren't yellow (G-02-12b) — the SSE-refresh regression itself (G-02-12) was already confirmed fixed at that point. G-02-12b fixed inline in 1f49d8c (toast.warning + className overrides on the toast and the Alert, since Alert is shadcn-managed). Client unit tests updated/passing, tsc clean."
 previously_reported: "pass, however it looks like the page was refreshed. Can this be prevented?"
 
 ### 13. SSE Live Updates for Image Updates
@@ -95,8 +93,8 @@ reason: "Deferred follow-up: already created a todo for this (see .planning/todo
 ## Summary
 
 total: 18
-passed: 15
-issues: 1
+passed: 16
+issues: 0
 pending: 0
 skipped: 2
 blocked: 0
