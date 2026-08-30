@@ -134,7 +134,7 @@ Plans:
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
 
-**Plans**: 13 plans
+**Plans**: 15 plans
 
 Plans:
 
@@ -151,6 +151,8 @@ Plans:
 - [x] 04-12-PLAN.md — Gap closure: stackPath undefined handling
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
+- [ ] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
+- [ ] 04-16-PLAN.md — Gap closure: backup detail page resyncs its record when the stream ends; stream status distinguishes failed from disconnected
 
 ### Phase 5: Onboarding
 
