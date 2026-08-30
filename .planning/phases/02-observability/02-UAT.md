@@ -1,15 +1,15 @@
 ---
-status: partial
+status: complete
 phase: 02-observability
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md, 02-12-SUMMARY.md, 02-13-SUMMARY.md, 02-14-SUMMARY.md, 02-15-SUMMARY.md, 02-16-SUMMARY.md]
 started: 2026-08-28T14:17:56Z
-updated: 2026-08-30T00:00:00Z
+updated: 2026-08-30T00:25:00Z
 ---
 
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-[testing paused — 3 items outstanding: server does not come up on this machine, see out-of-phase blocker below]
+[testing complete]
 
 ## Tests
 
@@ -56,16 +56,14 @@ result: pass
 
 ### 11. Bulk "Update Images" Shows Contextual Feedback (regression retest — was: issue, fix: 02-13-PLAN.md)
 expected: Click "Update Images" in the stack detail page actions. If no images had updates, a toast says images are already up to date. If images were pulled and updated, a toast confirms images were updated successfully — distinct messages for each case.
-result: blocked
-blocked_by: server
-reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
-previously_reported: "the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
+result: pass
 
 ### 12. SSE Live Updates for Config Changes (regression retest — was: issue, fix: 02-14-PLAN.md)
 expected: With the stack detail page open, modify the compose file on disk. Within seconds, a config_changed SSE event triggers a background refresh and the UI shows the yellow "config changed" state — without the page/tab state resetting or looking like a full page reload.
-result: blocked
-blocked_by: server
-reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
+result: issue
+reported: "passed, however, the toast as well as the badge at the top of the page are not yellow."
+severity: cosmetic
+note: "The G-02-12 regression itself (page looking fully reloaded on SSE refresh) is confirmed fixed. This is a separate, new finding: the stack-list badge uses yellow styling (bg-yellow-100/text-yellow-800), but the stack detail page's config-changed Alert has no variant set (falls back to Alert's neutral 'default' CVA variant — there is no 'warning' variant), and the toast in use-stack.ts:78 calls toast.info(...) instead of toast.warning(...). Neither surfaces the yellow/warning treatment the badge already establishes elsewhere."
 previously_reported: "pass, however it looks like the page was refreshed. Can this be prevented?"
 
 ### 13. SSE Live Updates for Image Updates
@@ -83,10 +81,7 @@ reason: "User was not able to test it (no stopped/error stack available to test 
 
 ### 16. Stack Event Audit Trail (regression retest — was: issue, fix: 02-15-PLAN.md, 02-16-PLAN.md)
 expected: config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type, visible in a new "Event Log" card on the stack detail page — separate from the "Status Log" card.
-result: blocked
-blocked_by: server
-reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
-previously_reported: "I dont see no config_changed in the \"Status Log\". Only in the server logs."
+result: pass
 
 ### 17. Manual Reconcile / Cron Fallback
 expected: Even without live file-watch events, the periodic reconcile loop still re-hashes stack compose files on its schedule and catches any drift.
@@ -100,13 +95,31 @@ reason: "Deferred follow-up: already created a todo for this (see .planning/todo
 ## Summary
 
 total: 18
-passed: 13
-issues: 0
+passed: 15
+issues: 1
 pending: 0
 skipped: 2
-blocked: 3
+blocked: 0
 
 ## Gaps
+
+- gap_id: G-02-12b
+  truth: "The 'config changed' state is shown in yellow, consistently, both as the badge and as the toast."
+  status: resolved
+  resolved_by: "fixed directly (not via a gap-closure plan) — see commit history"
+  resolved_at: 2026-08-30
+  reason: "User reported: passed, however, the toast as well as the badge at the top of the page are not yellow."
+  severity: cosmetic
+  test: 12
+  root_cause: "The stack detail page's config-changed Alert (client/src/routes/app/stacks/[id].tsx:212-220) renders with no `variant` prop, so it falls back to Alert's 'default' CVA variant (client/src/components/ui/alert.tsx) — there is no 'warning'/yellow variant defined at all. Separately, use-stack.ts:78 calls toast.info(...) for the same event; sonner's Toaster (client/src/components/ui/sonner.tsx) does declare a distinct 'warning' icon, but no richColors prop is set anywhere, so even toast.warning() would not turn the toast yellow without an explicit className/style override. Neither surfaces the yellow treatment the stack-list badge already establishes (client/src/components/domain/stack/stack-list.tsx:31-35, bg-yellow-100/text-yellow-800)."
+  artifacts:
+    - path: "client/src/routes/app/stacks/[id].tsx"
+      issue: "lines 212-220: config-changed Alert has no yellow/warning styling"
+    - path: "client/src/hooks/use-stack.ts"
+      issue: "line 78: toast.info(...) instead of a warning-styled toast for the config_changed event"
+  missing:
+    - "Apply the same yellow classes already used in stack-list.tsx (bg-yellow-100/text-yellow-800, dark:bg-yellow-900/dark:text-yellow-200) to the detail-page Alert via a className override (components/ui/alert.tsx is shadcn-managed and should not gain a new CVA variant for this)"
+    - "Switch the config_changed toast to toast.warning(...) with a matching className/style override so it renders yellow, or reconsider whether it needs a distinct treatment"
 
 - gap_id: G-02-11
   truth: "Click \"Update Images\" in the stack detail page actions. If no images had updates, a toast says images are already up to date."
@@ -182,6 +195,15 @@ all, which blocks retesting tests 11, 12, and 16 here. Captured as
 `.planning/todos/pending/2026-08-30-backup-recovery-crashes-server-on-db-not-ready.md` for
 investigation (likely `/gsd-debug`) since it's outside this phase's plan set. Resume this UAT
 session (`/gsd-verify-work 02`) once the server starts reliably on that machine.
+
+**Resolved 2026-08-30:** fixed directly in `302eaec` (`fix(jobs): isolate per-job startup
+failures so one job can't crash the server`) — each job's startup in `startJobs()` is now
+individually try/caught, so `BackupRecovery` failing no longer takes down the HTTP server or the
+other jobs. Todo marked complete in `6b1ce06`. A second, related issue surfaced while unblocking
+this on the same machine — `.env.example`'s `DOCKTOR_STACKS_DIR=./dev-data/stacks` silently
+overrides the correct docker-compose `/stacks` default via `.env.local`'s `env_file`, so
+app-created stacks were writing to a non-persisted path. Not yet fixed in the repo (blocked on
+`.env*` file access); user applying the workaround locally.
 
 ## Deferred Follow-Ups
 
