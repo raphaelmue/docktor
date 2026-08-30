@@ -151,6 +151,7 @@ export class BackupService {
         backupBroadcasters.set(backupRecord.id, emitter)
 
         const lines: string[] = []
+        let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
         console.log(`[BackupService] Starting backup ${backupRecord.id} for stack ${stack.id}`)
 
         try {
@@ -199,9 +200,14 @@ export class BackupService {
             // Restore stack to its previous status
             const targetStatus = stack.previousStatus ?? "RUNNING"
             await this.stackRepo.update(stack.id, {status: targetStatus})
+            finalStatus = "COMPLETED"
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
             console.error(`[BackupService] Backup failed:`, err)
+
+            const errorLine = `[error] ${errorMessage}`
+            lines.push(errorLine)
+            emitter.emit("line", errorLine)
 
             await this.backupRepo.update(backupRecord.id, {
                 status: "FAILED",
@@ -219,7 +225,7 @@ export class BackupService {
                 message: `Backup failed for stack "${stack.displayName ?? stack.id}" (repo: ${repoConfig.repoType}). Error: ${errorMessage}`,
             })
         } finally {
-            emitter.emit("done")
+            emitter.emit("done", finalStatus)
             backupBroadcasters.delete(backupRecord.id)
         }
     }
@@ -249,6 +255,7 @@ export class BackupService {
         backupBroadcasters.set(backup.id, emitter)
 
         const lines: string[] = []
+        let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
 
         // Send restore start notification
         await this.notificationService.notify({
@@ -310,9 +317,14 @@ export class BackupService {
                 subject: `Restore completed: ${stack.displayName ?? stackId}`,
                 message: `Restore completed successfully for stack "${stack.displayName ?? stackId}" from snapshot ${snapshotId}`,
             })
+            finalStatus = "COMPLETED"
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
             console.error(`[BackupService] Restore failed:`, err)
+
+            const errorLine = `[error] ${errorMessage}`
+            lines.push(errorLine)
+            emitter.emit("line", errorLine)
 
             await this.backupRepo.update(backup.id, {
                 status: "FAILED",
@@ -338,7 +350,7 @@ export class BackupService {
                 console.error(`[BackupService] Failed to restart stack after restore failure:`, restartErr)
             }
         } finally {
-            emitter.emit("done")
+            emitter.emit("done", finalStatus)
             backupBroadcasters.delete(backup.id)
         }
 

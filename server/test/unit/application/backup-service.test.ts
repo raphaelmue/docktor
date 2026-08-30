@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
-import {BackupService} from "../../../src/application/backup-service.js";
+import {BackupService, getBackupBroadcaster} from "../../../src/application/backup-service.js";
 import path from "node:path";
 
 // Mock node:fs/promises
@@ -355,6 +355,78 @@ describe("BackupService", () => {
                 expect.objectContaining({status: "FAILED"}),
             );
         });
+
+        it("emits done with COMPLETED status on success", async () => {
+            const promise = service.runBackup(backupRecord as any, stack as any, repoConfig);
+            const emitter = getBackupBroadcaster(backupRecord.id);
+            const onDone = vi.fn();
+            emitter?.on("done", onDone);
+
+            await promise;
+
+            expect(onDone).toHaveBeenCalledWith("COMPLETED");
+        });
+
+        it("emits done with FAILED status on restic error", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restic: connection refused"));
+
+            const promise = service.runBackup(backupRecord as any, stack as any, repoConfig);
+            const emitter = getBackupBroadcaster(backupRecord.id);
+            const onDone = vi.fn();
+            emitter?.on("done", onDone);
+
+            await promise;
+
+            expect(onDone).toHaveBeenCalledWith("FAILED");
+        });
+
+        it("persists a [error] logLines entry containing the rejection message on failure", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restic: connection refused"));
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            const failedUpdate = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "FAILED",
+            );
+            expect(failedUpdate).toBeDefined();
+            const persistedLines = failedUpdate?.[1]?.logLines as string[];
+            expect(persistedLines[persistedLines.length - 1]).toMatch(/^\[error\] /);
+            expect(persistedLines[persistedLines.length - 1]).toContain("restic: connection refused");
+        });
+
+        it("persists a non-empty logLines array when restic rejects before any onLine call", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restic binary not found"));
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            const failedUpdate = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "FAILED",
+            );
+            expect(failedUpdate?.[1]?.logLines.length).toBeGreaterThan(0);
+        });
+
+        it("emits the [error] line on the line event before the stream closes", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restic: connection refused"));
+
+            const promise = service.runBackup(backupRecord as any, stack as any, repoConfig);
+            const emitter = getBackupBroadcaster(backupRecord.id);
+            const onLine = vi.fn();
+            emitter?.on("line", onLine);
+
+            await promise;
+
+            expect(onLine).toHaveBeenCalledWith(expect.stringContaining("[error] restic: connection refused"));
+        });
+
+        it("persists logLines with no [error] entry on success", async () => {
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            const completedUpdate = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "COMPLETED",
+            );
+            const persistedLines = completedUpdate?.[1]?.logLines as string[];
+            expect(persistedLines.some((line) => line.startsWith("[error] "))).toBe(false);
+        });
     });
 
     describe("getBackupRepoConfig()", () => {
@@ -536,6 +608,79 @@ services:
                     errorMessage: expect.stringContaining("restore"),
                 }),
             );
+        });
+
+        it("emits done with COMPLETED status on success", async () => {
+            // Gate the "restore started" notification so the test can attach a
+            // "done" listener to the broadcaster before runRestore races to completion
+            // (every other dependency in this suite resolves immediately).
+            let releaseNotify: () => void = () => {};
+            const gate = new Promise<void>((resolve) => {
+                releaseNotify = resolve;
+            });
+            mockNotificationService.notify.mockImplementationOnce(() => gate);
+
+            const promise = service.runRestore("stack-1", snapshotId);
+            const emitter = await vi.waitFor(() => {
+                const e = getBackupBroadcaster("backup-1");
+                if (!e) throw new Error("broadcaster not registered yet");
+                return e;
+            });
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+            releaseNotify();
+
+            await promise;
+
+            expect(onDone).toHaveBeenCalledWith("COMPLETED");
+        });
+
+        it("emits done with FAILED status on restore failure", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restore failed"));
+
+            let releaseNotify: () => void = () => {};
+            const gate = new Promise<void>((resolve) => {
+                releaseNotify = resolve;
+            });
+            mockNotificationService.notify.mockImplementationOnce(() => gate);
+
+            const promise = service.runRestore("stack-1", snapshotId);
+            const emitter = await vi.waitFor(() => {
+                const e = getBackupBroadcaster("backup-1");
+                if (!e) throw new Error("broadcaster not registered yet");
+                return e;
+            });
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+            releaseNotify();
+
+            await promise;
+
+            expect(onDone).toHaveBeenCalledWith("FAILED");
+        });
+
+        it("persists a [error] logLines entry containing the rejection message on failure", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restore: corrupted data"));
+
+            await service.runRestore("stack-1", snapshotId);
+
+            const failedUpdate = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "FAILED",
+            );
+            const persistedLines = failedUpdate?.[1]?.logLines as string[];
+            expect(persistedLines[persistedLines.length - 1]).toMatch(/^\[error\] /);
+            expect(persistedLines[persistedLines.length - 1]).toContain("restore: corrupted data");
+        });
+
+        it("persists a non-empty logLines array when restore rejects before any onLine call", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restore binary not found"));
+
+            await service.runRestore("stack-1", snapshotId);
+
+            const failedUpdate = mockBackupRepository.update.mock.calls.find(
+                (call: any[]) => call[1]?.status === "FAILED",
+            );
+            expect(failedUpdate?.[1]?.logLines.length).toBeGreaterThan(0);
         });
     });
 

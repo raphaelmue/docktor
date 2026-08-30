@@ -168,8 +168,8 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
                     reply.raw.write(`data: ${JSON.stringify({line})}\n\n`)
                 }
 
-                const onDone = (): void => {
-                    reply.raw.write(`data: ${JSON.stringify({done: true})}\n\n`)
+                const onDone = (finalStatus?: string): void => {
+                    reply.raw.write(`data: ${JSON.stringify({done: true, status: finalStatus ?? backup.status})}\n\n`)
                     reply.raw.end()
                     resolve()
                 }
