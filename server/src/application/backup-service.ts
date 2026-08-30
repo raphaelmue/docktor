@@ -493,6 +493,44 @@ export class BackupService {
     }
 
     /**
+     * Ends an IN_PROGRESS backup that never reached restic — e.g. a missing
+     * dependency in the manual-trigger or scheduled fire-and-forget fetch.
+     * Marks the row FAILED with the given reason, transitions the stack to
+     * ERROR so it can be acted on again, and sends a backup_failure
+     * notification. Idempotent: a no-op on an unknown backup id or a backup
+     * that has already reached a terminal status (COMPLETED/FAILED), so it
+     * never clobbers a row that runBackup already finished.
+     */
+    async abortBackup(backupId: string, stackId: string, errorMessage: string): Promise<void> {
+        const backup = await this.backupRepo.findById(backupId)
+        if (!backup || backup.status !== "IN_PROGRESS") return
+
+        await this.backupRepo.update(backupId, {
+            status: "FAILED",
+            completedAt: new Date(),
+            errorMessage,
+            logLines: [`[error] ${errorMessage}`],
+        })
+
+        await this.stackRepo.update(stackId, {status: "ERROR"})
+
+        let displayName = stackId
+        try {
+            const stack = await this.stackRepo.findByIdOrThrow(stackId)
+            displayName = stack.displayName ?? stackId
+        } catch {
+            // Stack row unreadable — fall back to the stack id in the notification text
+        }
+
+        await this.notificationService.notify({
+            type: "backup_failure",
+            stackId,
+            subject: `Backup failed: ${displayName}`,
+            message: `Backup failed for stack "${displayName}". Error: ${errorMessage}`,
+        })
+    }
+
+    /**
      * Recovers in-progress backups on server startup by marking them FAILED.
      * Called from jobs/index.ts startJobs().
      */

@@ -43,15 +43,29 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
                         backupService.getBackupRepoConfig(),
                     ])
                     console.log(`[backups] Dependencies fetched. repoConfig exists: ${!!repoConfig}`)
-                    if (repoConfig) {
-                        console.log(`[backups] Starting runBackup for ${backup.id}`)
-                        await backupService.runBackup(backupRecord, stack, repoConfig)
-                        console.log(`[backups] runBackup completed for ${backup.id}`)
-                    } else {
+                    if (!repoConfig) {
                         console.error(`[backups] No repoConfig - backup repository not configured`)
+                        await backupService.abortBackup(
+                            backup.id,
+                            id,
+                            "No backup repository is configured. Configure one in Settings > Backup.",
+                        )
+                        return
                     }
+                    console.log(`[backups] Starting runBackup for ${backup.id}`)
+                    await backupService.runBackup(backupRecord, stack, repoConfig)
+                    console.log(`[backups] runBackup completed for ${backup.id}`)
                 } catch (err) {
                     app.log.error({err}, "[backups] fire-and-forget runBackup failed")
+                    try {
+                        await backupService.abortBackup(
+                            backup.id,
+                            id,
+                            err instanceof Error ? err.message : String(err),
+                        )
+                    } catch (abortErr) {
+                        app.log.error({err: abortErr}, "[backups] abortBackup failed")
+                    }
                 }
             })()
 

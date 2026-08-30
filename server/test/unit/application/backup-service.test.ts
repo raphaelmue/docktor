@@ -684,6 +684,75 @@ services:
         });
     });
 
+    describe("abortBackup()", () => {
+        it("sets an IN_PROGRESS row to FAILED with completedAt, errorMessage, and a single [error] logLines entry", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+
+            await service.abortBackup("backup-1", "stack-1", "No backup repository is configured.");
+
+            expect(mockBackupRepository.update).toHaveBeenCalledWith(
+                "backup-1",
+                expect.objectContaining({
+                    status: "FAILED",
+                    completedAt: expect.any(Date),
+                    errorMessage: "No backup repository is configured.",
+                    logLines: ["[error] No backup repository is configured."],
+                }),
+            );
+        });
+
+        it("transitions the stack to ERROR", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockStackRepository.update).toHaveBeenCalledWith(
+                "stack-1",
+                expect.objectContaining({status: "ERROR"}),
+            );
+        });
+
+        it("calls notificationService.notify with type backup_failure and the stack id", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockNotificationService.notify).toHaveBeenCalledWith(
+                expect.objectContaining({type: "backup_failure", stackId: "stack-1"}),
+            );
+        });
+
+        it("is a no-op on a row that is already COMPLETED", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "COMPLETED"});
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockBackupRepository.update).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
+            expect(mockNotificationService.notify).not.toHaveBeenCalled();
+        });
+
+        it("is a no-op on a row that is already FAILED", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "FAILED"});
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockBackupRepository.update).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
+            expect(mockNotificationService.notify).not.toHaveBeenCalled();
+        });
+
+        it("is a no-op and does not throw on an unknown backup id", async () => {
+            mockBackupRepository.findById.mockResolvedValue(null);
+
+            await expect(service.abortBackup("unknown-id", "stack-1", "boom")).resolves.toBeUndefined();
+
+            expect(mockBackupRepository.update).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
+            expect(mockNotificationService.notify).not.toHaveBeenCalled();
+        });
+    });
+
     describe("runPreHook() / runPostHook()", () => {
         it("executes shell command via spawn and collects output", async () => {
             const output = await (service as any).runHook("echo hello", "/stacks/myapp");

@@ -19,12 +19,14 @@ function createMockBackupService() {
         initiateBackup: vi.fn().mockResolvedValue(undefined),
         runBackup: vi.fn().mockResolvedValue(undefined),
         getBackupRepoConfig: vi.fn().mockResolvedValue(null),
+        abortBackup: vi.fn().mockResolvedValue(undefined),
     };
 }
 
 function createMockStackRepository() {
     return {
         findAllWithSchedule: vi.fn().mockResolvedValue([]),
+        findByIdOrThrow: vi.fn(),
     };
 }
 
@@ -34,22 +36,31 @@ function createMockSettingsService() {
     };
 }
 
+function createMockBackupRepository() {
+    return {
+        findByIdOrThrow: vi.fn(),
+    };
+}
+
 describe("BackupScheduler", () => {
     let scheduler: BackupScheduler;
     let mockBackupService: ReturnType<typeof createMockBackupService>;
     let mockStackRepository: ReturnType<typeof createMockStackRepository>;
     let mockSettingsService: ReturnType<typeof createMockSettingsService>;
+    let mockBackupRepository: ReturnType<typeof createMockBackupRepository>;
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockBackupService = createMockBackupService();
         mockStackRepository = createMockStackRepository();
         mockSettingsService = createMockSettingsService();
+        mockBackupRepository = createMockBackupRepository();
 
         scheduler = new BackupScheduler(
             mockBackupService as any,
             mockStackRepository as any,
             mockSettingsService as any,
+            mockBackupRepository as any,
         );
 
         // Default: schedule() returns a mock task
@@ -157,6 +168,84 @@ describe("BackupScheduler", () => {
             await scheduler.loadAll();
 
             expect(mockSchedule).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("runScheduledBackup()", () => {
+        function fireCronCallback(): void {
+            const lastCall = mockSchedule.mock.calls[mockSchedule.mock.calls.length - 1];
+            const cronCallback = lastCall?.[1] as (() => void) | undefined;
+            cronCallback?.();
+        }
+
+        const stackRecord = {
+            id: "stack-1",
+            status: "BACKING_UP",
+            previousStatus: "RUNNING",
+            backupPreHook: null,
+            backupPostHook: null,
+            backupSchedule: null,
+            backupRetention: null,
+        };
+
+        const repoConfig = {repoType: "local" as const, password: "secret"};
+
+        it("calls runBackup with three defined arguments when all three resolve", async () => {
+            mockBackupService.initiateBackup.mockResolvedValue({id: "backup-1"});
+            mockBackupRepository.findByIdOrThrow.mockResolvedValue({id: "backup-1", stackId: "stack-1", logLines: []});
+            mockStackRepository.findByIdOrThrow.mockResolvedValue(stackRecord);
+            mockBackupService.getBackupRepoConfig.mockResolvedValue(repoConfig);
+
+            scheduler.upsert("stack-1", "0 2 * * *");
+            fireCronCallback();
+
+            await vi.waitFor(() => {
+                expect(mockBackupService.runBackup).toHaveBeenCalled();
+            });
+
+            const [backupRecordArg, stackArg, repoConfigArg] = mockBackupService.runBackup.mock.calls[0]!;
+            expect(backupRecordArg).toBeDefined();
+            expect(stackArg).toBeDefined();
+            expect(repoConfigArg).toBeDefined();
+            expect(mockBackupService.abortBackup).not.toHaveBeenCalled();
+        });
+
+        it("calls abortBackup and does not call runBackup when getBackupRepoConfig() resolves null", async () => {
+            mockBackupService.initiateBackup.mockResolvedValue({id: "backup-1"});
+            mockBackupRepository.findByIdOrThrow.mockResolvedValue({id: "backup-1", stackId: "stack-1", logLines: []});
+            mockStackRepository.findByIdOrThrow.mockResolvedValue(stackRecord);
+            mockBackupService.getBackupRepoConfig.mockResolvedValue(null);
+
+            scheduler.upsert("stack-1", "0 2 * * *");
+            fireCronCallback();
+
+            await vi.waitFor(() => {
+                expect(mockBackupService.abortBackup).toHaveBeenCalled();
+            });
+
+            expect(mockBackupService.runBackup).not.toHaveBeenCalled();
+            expect(mockBackupService.abortBackup).toHaveBeenCalledWith("backup-1", "stack-1", expect.any(String));
+        });
+
+        it("calls abortBackup and lets no rejection escape the cron callback when the backup-record lookup rejects", async () => {
+            mockBackupService.initiateBackup.mockResolvedValue({id: "backup-1"});
+            mockBackupRepository.findByIdOrThrow.mockRejectedValue(new Error("db unavailable"));
+            mockStackRepository.findByIdOrThrow.mockResolvedValue(stackRecord);
+            mockBackupService.getBackupRepoConfig.mockResolvedValue(repoConfig);
+
+            scheduler.upsert("stack-1", "0 2 * * *");
+
+            expect(() => fireCronCallback()).not.toThrow();
+
+            await vi.waitFor(() => {
+                expect(mockBackupService.abortBackup).toHaveBeenCalled();
+            });
+
+            expect(mockBackupService.abortBackup).toHaveBeenCalledWith(
+                "backup-1",
+                "stack-1",
+                expect.stringContaining("db unavailable"),
+            );
         });
     });
 });

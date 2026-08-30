@@ -10,6 +10,7 @@ export interface BackupSchedulerService {
         repoConfig: {repoType: "local" | "sftp" | "s3"; password: string; repoPath?: string; sftpHost?: string; sftpUser?: string; sftpKey?: string; s3Endpoint?: string; s3Bucket?: string; s3AccessKey?: string; s3SecretKey?: string},
     ): Promise<void>
     getBackupRepoConfig(): Promise<{repoType: "local" | "sftp" | "s3"; password: string; repoPath?: string; sftpHost?: string; sftpUser?: string; sftpKey?: string; s3Endpoint?: string; s3Bucket?: string; s3AccessKey?: string; s3SecretKey?: string} | null>
+    abortBackup(backupId: string, stackId: string, errorMessage: string): Promise<void>
 }
 
 export interface BackupSchedulerStackRepo {
@@ -124,15 +125,29 @@ export class BackupScheduler {
                         this.service.getBackupRepoConfig(),
                     ])
                     console.log(`[BackupScheduler] Dependencies fetched. repoConfig exists: ${!!repoConfig}`)
-                    if (repoConfig) {
-                        console.log(`[BackupScheduler] Starting runBackup for ${result.id}`)
-                        await this.service.runBackup(backupRecord, stack, repoConfig)
-                        console.log(`[BackupScheduler] runBackup completed for ${result.id}`)
-                    } else {
+                    if (!repoConfig) {
                         console.error(`[BackupScheduler] No repoConfig - backup repository not configured`)
+                        await this.service.abortBackup(
+                            result.id,
+                            stackId,
+                            "No backup repository is configured. Configure one in Settings > Backup.",
+                        )
+                        return
                     }
+                    console.log(`[BackupScheduler] Starting runBackup for ${result.id}`)
+                    await this.service.runBackup(backupRecord, stack, repoConfig)
+                    console.log(`[BackupScheduler] runBackup completed for ${result.id}`)
                 } catch (err) {
                     console.error(`[BackupScheduler] Scheduled backup execution failed for ${result.id}:`, err)
+                    try {
+                        await this.service.abortBackup(
+                            result.id,
+                            stackId,
+                            err instanceof Error ? err.message : String(err),
+                        )
+                    } catch (abortErr) {
+                        console.error(`[BackupScheduler] abortBackup failed for ${result.id}:`, abortErr)
+                    }
                 }
             })()
         } catch (err) {
