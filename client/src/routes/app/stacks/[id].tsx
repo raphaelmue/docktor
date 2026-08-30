@@ -211,9 +211,9 @@ export default function StackDetailPage() {
 
             <PageContent>
                 {stack.configChanged && (
-                    <Alert>
+                    <Alert className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-800">
                         <AlertTriangle className="h-4 w-4"/>
-                        <AlertDescription>
+                        <AlertDescription className="text-yellow-800 dark:text-yellow-200">
                             Configuration has changed since last deployment.
                             Re-deploy to apply changes.
                         </AlertDescription>

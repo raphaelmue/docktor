@@ -75,7 +75,9 @@ export function useStack(id: string) {
                 return {...prev, status: event.stackStatus};
             });
         } else if (event.type === "config_changed") {
-            toast.info('Configuration file changed externally');
+            toast.warning('Configuration file changed externally', {
+                className: "!bg-yellow-100 !text-yellow-800 dark:!bg-yellow-900 dark:!text-yellow-200",
+            });
             void fetchStack("background");
         } else if (event.type === "update_available") {
             void fetchStack("background");

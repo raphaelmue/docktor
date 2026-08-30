@@ -1,6 +1,7 @@
 import * as React from "react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {act, render, renderHook, screen, waitFor} from "@testing-library/react";
+import {toast} from "sonner";
 import {useStack} from "../../../src/hooks/use-stack";
 import {getStack} from "@/lib/stacks-api";
 import type {StateEvent} from "@/hooks/use-container-events";
@@ -18,11 +19,11 @@ vi.mock("@/hooks/use-container-events", () => ({
     }),
 }));
 
-// The config_changed branch calls toast.info — mock sonner so it never reaches
+// The config_changed branch calls toast.warning — mock sonner so it never reaches
 // a real (unmounted) toaster.
 vi.mock("sonner", () => ({
     toast: {
-        info: vi.fn(),
+        warning: vi.fn(),
     },
 }));
 
@@ -114,6 +115,26 @@ describe("useStack", () => {
         await waitFor(() => expect(result.current.isRefreshing).toBe(false));
         expect(result.current.loading).toBe(false);
         expect(result.current.stack).toEqual(updatedStack);
+    });
+
+    it("a config_changed event shows a warning-styled (yellow) toast, matching the config-changed badge elsewhere", async () => {
+        const initialStack = {id: "my-app", displayName: "My App v1"};
+        mockGetStack.mockResolvedValueOnce(initialStack as any);
+        mockGetStack.mockResolvedValueOnce(initialStack as any);
+
+        renderHook(() => useStack("my-app"));
+        await waitFor(() => expect(mockGetStack).toHaveBeenCalledTimes(1));
+
+        act(() => {
+            capturedHandler!({type: "config_changed", stackId: "my-app"});
+        });
+
+        expect(toast.warning).toHaveBeenCalledWith(
+            "Configuration file changed externally",
+            expect.objectContaining({
+                className: expect.stringContaining("yellow"),
+            }),
+        );
     });
 
     it("an update_available event behaves like config_changed, without touching loading", async () => {
