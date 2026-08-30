@@ -134,7 +134,7 @@ Plans:
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
 
-**Plans**: 15 plans
+**Plans**: 14/15 plans executed
 
 Plans:
 **Wave 1**
@@ -147,7 +147,7 @@ Plans:
 - [x] 04-12-PLAN.md — Gap closure: stackPath undefined handling
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
-- [ ] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
+- [x] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -217,6 +217,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. MVP Completion | 6/7 | In Progress|  |
 | 2. Observability | 16/16 | Complete    | 2026-08-30 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
-| 4. Backup & Restore | 5/6 | In Progress|  |
+| 4. Backup & Restore | 14/15 | In Progress|  |
 | 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
 | 6. Proxy Configuration | 0/? | Not started | - |

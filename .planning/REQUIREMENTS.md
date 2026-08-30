@@ -42,7 +42,7 @@
 - [x] **NOTF-02**: SMTP password is stored AES-encrypted in the DB
 - [x] **NOTF-03**: Notification sent when a stack enters ERROR or UNHEALTHY state (includes stack name, state, timestamp, last log lines)
 - [x] **NOTF-04**: Notification sent when disk space drops below 10% or 2 GB
-- [ ] **NOTF-05**: Notification sent when a backup fails
+- [x] **NOTF-05**: Notification sent when a backup fails
 - [x] **NOTF-06**: Each notification trigger can be individually enabled/disabled in Settings
 
 ### Backup & Restore
@@ -88,11 +88,13 @@
 ## v2 Requirements
 
 ### Marketplace
+
 - **MKT-01**: Bundled templates for common self-hosting apps (Nextcloud, Vaultwarden, Gitea, Immich, etc.)
 - **MKT-02**: Remote template index fetched from marketplace.docktor.io
 - **MKT-03**: Community templates display a review warning before deployment
 
 ### Registry Credentials
+
 - **REG-01**: User can add authenticated private registry credentials (URL, username, password, encrypted)
 - **REG-02**: Registered credentials are used automatically for image pulls and update checks
 
@@ -139,7 +141,7 @@
 | NOTF-02 | Phase 3 | Complete |
 | NOTF-03 | Phase 3 | Complete |
 | NOTF-04 | Phase 3 | Complete |
-| NOTF-05 | Phase 3 | Pending |
+| NOTF-05 | Phase 3 | Complete |
 | NOTF-06 | Phase 3 | Complete |
 | BCK-01 | Phase 4 | Complete |
 | BCK-02 | Phase 4 | Complete |
@@ -171,6 +173,7 @@
 | PRXY-05 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 50 total
 - Mapped to phases: 50
 - Unmapped: 0 ✓

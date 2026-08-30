@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-current_phase: 1
-current_phase_name: MVP Completion
+current_phase: 04
+current_phase_name: Backup & Restore
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Phase 02 complete, ready to plan Phase 1
-last_updated: "2026-08-30T17:09:58.820Z"
-state_head: 422500780ac90499012b8498554efc64077c80b3
+stopped_at: Completed 04-15-PLAN.md
+last_updated: "2026-08-30T17:21:51.336Z"
+state_head: a798394029eacf684728ab7f41a72d88613fee57
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 49
+  completed_plans: 50
 milestone_name: milestone
 ---
 
@@ -22,12 +22,12 @@ milestone_name: milestone
 See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 1 — MVP Completion
+**Current focus:** Phase 04 — Backup & Restore
 
 ## Current Position
 
-Phase: 1 — MVP Completion
-Plan: Not started
+Phase: 04 (Backup & Restore) — EXECUTING
+Plan: 2 of 15
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -98,6 +98,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 02-observability P14 | 15min | 2 tasks | 3 files |
 | Phase 02-observability P15 | 19min | 2 tasks | 7 files |
 | Phase 02-observability P16 | 25min | 2 tasks | 8 files |
+| Phase 04-backup-restore P15 | 15min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -190,6 +191,8 @@ Recent decisions affecting current work:
 - [Phase 02]: [Phase 02-observability P16]: useStackEvents mirrors useStack's fetchMode('initial'|'background') split — SSE-triggered refreshes never clear loaded entries or touch loading/error
 - [Phase 02]: [Phase 02-observability P16]: describeStackEvent() badge variants spread across all three Badge variants (default/secondary/destructive) so every event type is visually distinct from every other, not just error standing out from a pair
 - [Phase 02]: [Phase 02-observability P16]: EventLogCard's error UI gates on events===null (not the error flag alone) since background failures never clear error — a successful retry flips the card out of the error view once entries exist
+- [Phase 04]: [Phase 04-15]: abortBackup() targets stack status ERROR (not previousStatus), matching runBackup's existing catch-block behavior and BCK-11
+- [Phase 04]: [Phase 04-15]: UAT Test 22's reported single-argument runBackup crash is judged stale re-test data predating plan 04-11 — as of 04-11, runScheduledBackup already calls runBackup with three defined arguments via Promise.all in every path
 
 ### Quick Tasks Completed
 
@@ -238,6 +241,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-30T16:23:19.326Z
-Stopped at: Phase 02 complete, ready to plan Phase 1
+Last session: 2026-08-30T17:21:51.209Z
+Stopped at: Completed 04-15-PLAN.md
 Resume file: None
