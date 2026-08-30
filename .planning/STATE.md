@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 04
 current_phase_name: Backup & Restore
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 04-16-PLAN.md
-last_updated: "2026-08-30T18:09:41.209Z"
-state_head: 2c378aa64bb8e6fbd84447afa8238e52dde2c394
+stopped_at: Completed 04-17-PLAN.md
+last_updated: "2026-08-30T18:34:28.469Z"
+state_head: 4473742cedb7974bd8db50eae75beaaa9cfd0501
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 52
-  completed_plans: 51
+  completed_plans: 52
 milestone_name: milestone
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 
 ## Current Position
 
-Phase: 04 (Backup & Restore) — READY TO EXECUTE
-Plan: 3 of 15
+Phase: 04 (Backup & Restore) — EXECUTING
+Plan: 2 of 16
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -100,6 +100,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 02-observability P16 | 25min | 2 tasks | 8 files |
 | Phase 04-backup-restore P15 | 15min | 2 tasks | 5 files |
 | Phase 04-backup-restore P16 | 10min | 2 tasks | 4 files |
+| Phase 04-backup-restore P17 | 35min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -197,6 +198,9 @@ Recent decisions affecting current work:
 - [Phase 04]: [Phase 04-16]: loadBackup(mode, isCancelled) shared by mount and resync effects — each effect owns its own cancellation closure rather than a shared mounted ref
 - [Phase 04]: [Phase 04-16]: a rejected resync is swallowed (console.warn) and never touches error state — the page keeps rendering the previously fetched record instead of flipping to its full-page error branch
 - [Phase 04]: [Phase 04-16]: disconnected is treated identically to completed/failed by the resync effect — a dropped SSE connection is never trusted as a claim about the backup's outcome, the server is always re-read
+- [Phase 04]: [Phase 04-17]: abortBackup's post-guard body runs in try/finally (not try/catch) — a rejected notify() still propagates, but the terminal done emit and broadcaster disposal always run
+- [Phase 04]: [Phase 04-17]: EVENT_SOURCE_CLOSED is inlined (not read off EventSource.CLOSED) in use-backup-stream.ts because the hook's unit test substitutes a mock EventSource with no static members
+- [Phase 04]: [Phase 04-17]: BACKUP_RESYNC_POLL_INTERVAL_MS/BACKUP_RESYNC_MAX_POLLS stay module-private in the backup detail page; tests hardcode mirrored literal values rather than importing them
 
 ### Quick Tasks Completed
 
@@ -245,6 +249,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-30T17:30:11.707Z
-Stopped at: Completed 04-16-PLAN.md
+Last session: 2026-08-30T18:34:28.301Z
+Stopped at: Completed 04-17-PLAN.md
 Resume file: None

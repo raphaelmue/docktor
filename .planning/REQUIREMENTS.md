@@ -49,15 +49,15 @@
 
 - [ ] **BCK-01**: User can configure a restic repository (local path, SFTP, or S3-compatible) and password via Settings
 - [ ] **BCK-02**: Restic password is stored AES-encrypted in the DB
-- [ ] **BCK-03**: User can trigger a manual backup for any stack from the stack detail page
+- [x] **BCK-03**: User can trigger a manual backup for any stack from the stack detail page
 - [ ] **BCK-04**: User can configure a per-stack backup schedule (cron expression)
 - [ ] **BCK-05**: User can configure per-stack retention policy (daily/weekly/monthly counts)
 - [ ] **BCK-06**: Backup includes the entire stack directory (docker-compose.yml, .env, volumes/) excluding logs/
 - [ ] **BCK-07**: Absolute-path volumes outside the stack directory are excluded from backup with a visible warning
 - [ ] **BCK-08**: User can view a list of available restic snapshots for a stack
-- [ ] **BCK-09**: User can restore a stack from a selected snapshot (stop → restore → redeploy → health check)
+- [x] **BCK-09**: User can restore a stack from a selected snapshot (stop → restore → redeploy → health check)
 - [ ] **BCK-10**: Restic CLI is invoked using spawn (not execFile) to support streaming progress output
-- [ ] **BCK-11**: Stack transitions to BACKING_UP state during backup and returns to previous state on completion or ERROR on failure
+- [x] **BCK-11**: Stack transitions to BACKING_UP state during backup and returns to previous state on completion or ERROR on failure
 
 ### First-Run Wizard
 
@@ -145,15 +145,15 @@
 | NOTF-06 | Phase 3 | Complete |
 | BCK-01 | Phase 4 | Gaps Found |
 | BCK-02 | Phase 4 | Gaps Found |
-| BCK-03 | Phase 4 | Gaps Found |
+| BCK-03 | Phase 4 | Complete |
 | BCK-04 | Phase 4 | Gaps Found |
 | BCK-05 | Phase 4 | Gaps Found |
 | BCK-06 | Phase 4 | Gaps Found |
 | BCK-07 | Phase 4 | Gaps Found |
 | BCK-08 | Phase 4 | Gaps Found |
-| BCK-09 | Phase 4 | Gaps Found |
+| BCK-09 | Phase 4 | Complete |
 | BCK-10 | Phase 4 | Gaps Found |
-| BCK-11 | Phase 4 | Gaps Found |
+| BCK-11 | Phase 4 | Complete |
 | WIZ-01 | Phase 5 | Complete |
 | WIZ-02 | Phase 5 | Complete |
 | WIZ-03 | Phase 5 | Complete |
