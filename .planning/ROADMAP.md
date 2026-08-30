@@ -134,7 +134,7 @@ Plans:
   4. User can view a list of available snapshots for a stack and restore the stack from any selected snapshot
   5. A backup failure transitions the stack to ERROR state and triggers a notification if SMTP is configured
 
-**Plans**: 14/15 plans executed
+**Plans**: 15/16 plans executed
 
 Plans:
 **Wave 1**
@@ -148,6 +148,7 @@ Plans:
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 - [x] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
+- [ ] 04-17-PLAN.md — Gap closure: broadcaster registered at backup-creation time (CR-02), bounded SSE reconnect plus a self-terminating record poll while disconnected (CR-01), non-blank backup title on IN_PROGRESS (CR-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
