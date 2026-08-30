@@ -1,11 +1,13 @@
 import {useState, useEffect, useRef} from "react"
 
+export type BackupStreamStatus = "streaming" | "completed" | "failed" | "disconnected"
+
 export function useBackupStream(
     backupId: string | null,
     active: boolean,
-): {lines: string[]; status: "streaming" | "done" | "error"} {
+): {lines: string[]; status: BackupStreamStatus} {
     const [lines, setLines] = useState<string[]>([])
-    const [status, setStatus] = useState<"streaming" | "done" | "error">("streaming")
+    const [status, setStatus] = useState<BackupStreamStatus>("streaming")
     const esRef = useRef<EventSource | null>(null)
 
     useEffect(() => {
@@ -25,7 +27,7 @@ export function useBackupStream(
                     setLines((prev) => [...prev, data.line!])
                 }
                 if (data.done) {
-                    setStatus(data.status === "COMPLETED" ? "done" : "error")
+                    setStatus(data.status === "COMPLETED" ? "completed" : "failed")
                     es.close()
                 }
             } catch {
@@ -34,7 +36,7 @@ export function useBackupStream(
         }
 
         es.onerror = () => {
-            setStatus("error")
+            setStatus("disconnected")
             es.close()
         }
 
