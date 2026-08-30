@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {Link, useParams} from "react-router";
 
 import {getBackup, type BackupRecord} from "@/lib/backups-api";
@@ -56,31 +56,65 @@ export default function BackupDetailPage() {
         isStreaming ?? false,
     );
 
+    // A resync (stream reached a terminal state) must never disturb the
+    // loading/error branches that swap out the whole mounted tree — only the
+    // initial mount load may set them. Mirrors use-stack.ts's initial/background split.
+    const loadBackup = useCallback(
+        (mode: "initial" | "resync", isCancelled: () => boolean) => {
+            if (mode === "initial") {
+                setLoading(true);
+                setError(null);
+            }
+
+            getBackup(backupId)
+                .then((data) => {
+                    if (isCancelled()) return;
+                    setBackup(data);
+                })
+                .catch((err: unknown) => {
+                    if (isCancelled()) return;
+                    if (mode === "initial") {
+                        setError(err instanceof Error ? err.message : "Failed to load backup");
+                    } else {
+                        console.warn("Background backup refresh failed", err);
+                    }
+                })
+                .finally(() => {
+                    if (isCancelled()) return;
+                    if (mode === "initial") setLoading(false);
+                });
+        },
+        [backupId],
+    );
+
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        setError(null);
-
-        getBackup(backupId)
-            .then((data) => {
-                if (!cancelled) setBackup(data);
-            })
-            .catch((err: unknown) => {
-                if (!cancelled) {
-                    setError(err instanceof Error ? err.message : "Failed to load backup");
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
-
+        loadBackup("initial", () => cancelled);
         return () => {
             cancelled = true;
         };
-    }, [backupId]);
+    }, [backupId, loadBackup]);
+
+    // One-shot resync: fires when the stream leaves "streaming" for a terminal
+    // outcome (completed, failed, or disconnected) while a stream is active. Once
+    // the refetched record is terminal, isStreaming goes false and this guard
+    // short-circuits — so this cannot become a request loop against GET /api/backups/:id.
+    useEffect(() => {
+        if (!isStreaming || streamStatus === "streaming") return;
+
+        let cancelled = false;
+        loadBackup("resync", () => cancelled);
+        return () => {
+            cancelled = true;
+        };
+    }, [isStreaming, streamStatus, loadBackup]);
 
     const displayLines = isStreaming ? streamLines : (backup?.logLines ?? []);
     const isStillStreaming = isStreaming && streamStatus === "streaming";
+    const outputEmptyMessage =
+        backup?.status === "FAILED" && displayLines.length === 0
+            ? "No log output was captured for this backup."
+            : "No output yet...";
 
     const shortId = (backup?.resticSnapshotId ?? backupId).slice(0, 8);
     const titlePrefix = backup?.trigger === "RESTORE" ? "Restore" : "Backup";
@@ -223,7 +257,7 @@ export default function BackupDetailPage() {
                         <LogOutput
                             lines={displayLines}
                             autoScroll={isStillStreaming}
-                            emptyMessage="No output yet..."
+                            emptyMessage={outputEmptyMessage}
                         />
                     </CardContent>
                 </Card>
