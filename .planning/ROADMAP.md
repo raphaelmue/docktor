@@ -137,13 +137,9 @@ Plans:
 **Plans**: 15 plans
 
 Plans:
+**Wave 1**
 
 - [x] 04-01-PLAN.md — Prisma schema (RESTORE trigger + logLines) + shared Zod schemas + RED test scaffolds
-- [x] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
-- [x] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
-- [x] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
-- [x] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
-- [x] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
 - [x] 04-07-PLAN.md — Gap closure: logLines database column sync + backup record validation
 - [x] 04-08-PLAN.md — Gap closure: ResticExecutor throw on non-zero exit codes
 - [x] 04-10-PLAN.md — Gap closure: stderr capture in backup logs
@@ -152,7 +148,24 @@ Plans:
 - [x] 04-13-PLAN.md — Gap closure: Windows path handling + repository field UI clarity
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 - [ ] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
+- [x] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
 - [ ] 04-16-PLAN.md — Gap closure: backup detail page resyncs its record when the stream ends; stream status distinguishes failed from disconnected
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 04-03-PLAN.md — BackupService (backup/restore orchestration + NOTF-05) + BackupScheduler (per-stack cron)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 04-04-PLAN.md — Backup routes (trigger, restore, SSE stream, snapshots, settings endpoints)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 04-06-PLAN.md — Stack detail action bar refactor + Backups tab + backup detail page + route registration
 
 ### Phase 5: Onboarding
 
