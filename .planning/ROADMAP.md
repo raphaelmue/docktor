@@ -153,7 +153,7 @@ Plans:
 
 - [x] 04-02-PLAN.md — ResticExecutor (spawn wrapper) + BackupRepository (Backup CRUD)
 - [x] 04-05-PLAN.md — Client API client + SSE hook + Settings Backup tab + NOTF-05 toggle
-- [ ] 04-16-PLAN.md — Gap closure: backup detail page resyncs its record when the stream ends; stream status distinguishes failed from disconnected
+- [x] 04-16-PLAN.md — Gap closure: backup detail page resyncs its record when the stream ends; stream status distinguishes failed from disconnected
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 04
 current_phase_name: Backup & Restore
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 04-15-PLAN.md
-last_updated: "2026-08-30T17:21:51.336Z"
-state_head: a798394029eacf684728ab7f41a72d88613fee57
+stopped_at: Completed 04-16-PLAN.md
+last_updated: "2026-08-30T17:30:11.832Z"
+state_head: fb9a4e73ce090c4823f4c7abd9cecb7d3b9e5c42
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 50
+  completed_plans: 51
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 04 (Backup & Restore) — EXECUTING
-Plan: 2 of 15
+Plan: 3 of 15
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -99,6 +99,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 02-observability P15 | 19min | 2 tasks | 7 files |
 | Phase 02-observability P16 | 25min | 2 tasks | 8 files |
 | Phase 04-backup-restore P15 | 15min | 2 tasks | 5 files |
+| Phase 04-backup-restore P16 | 10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -193,6 +194,9 @@ Recent decisions affecting current work:
 - [Phase 02]: [Phase 02-observability P16]: EventLogCard's error UI gates on events===null (not the error flag alone) since background failures never clear error — a successful retry flips the card out of the error view once entries exist
 - [Phase 04]: [Phase 04-15]: abortBackup() targets stack status ERROR (not previousStatus), matching runBackup's existing catch-block behavior and BCK-11
 - [Phase 04]: [Phase 04-15]: UAT Test 22's reported single-argument runBackup crash is judged stale re-test data predating plan 04-11 — as of 04-11, runScheduledBackup already calls runBackup with three defined arguments via Promise.all in every path
+- [Phase 04]: [Phase 04-16]: loadBackup(mode, isCancelled) shared by mount and resync effects — each effect owns its own cancellation closure rather than a shared mounted ref
+- [Phase 04]: [Phase 04-16]: a rejected resync is swallowed (console.warn) and never touches error state — the page keeps rendering the previously fetched record instead of flipping to its full-page error branch
+- [Phase 04]: [Phase 04-16]: disconnected is treated identically to completed/failed by the resync effect — a dropped SSE connection is never trusted as a claim about the backup's outcome, the server is always re-read
 
 ### Quick Tasks Completed
 
@@ -241,6 +245,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-30T17:21:51.209Z
-Stopped at: Completed 04-15-PLAN.md
+Last session: 2026-08-30T17:30:11.707Z
+Stopped at: Completed 04-16-PLAN.md
 Resume file: None
