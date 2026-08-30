@@ -1,14 +1,17 @@
+completed: 2026-08-30
 ---
 created: 2026-08-30T00:00:00Z
 title: Server fails to start when DB isn't reachable yet — recoverInProgressBackups() has no fault isolation
 area: backup-restore
 severity: blocker
 files:
+
   - server/src/jobs/index.ts
   - server/src/application/backup-service.ts
   - server/src/app.ts
   - server/src/index.ts
   - docker-compose.yml
+
 ---
 
 ## Problem
