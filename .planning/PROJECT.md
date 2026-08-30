@@ -30,6 +30,9 @@ Users can deploy, monitor, and manage Docker Compose stacks through a browser UI
 - ✓ Stack detail shows a "config changed" alert when compose file differs from last deploy — existing
 - ✓ Database schema covers all planned models (Stack, Service, Backup, Settings, etc.) — existing
 - ✓ Shared Zod validation schemas used by both client and server — existing
+- ✓ File watcher detects external compose edits (chokidar + 60s polling fallback), flags "config changed" — Validated in Phase 02: Observability
+- ✓ Update checker polls registries for newer images (semver/date/digest comparison), exposes per-service upgrade with a version picker — Validated in Phase 02: Observability
+- ✓ StackEvent audit trail (config_changed, config_error, update_available) queryable per stack and shown in a dedicated Event Log card, distinct from the status-transition log — Validated in Phase 02: Observability (emerged from UAT gap G-02-16)
 
 ### Active
 
@@ -41,8 +44,8 @@ Users can deploy, monitor, and manage Docker Compose stacks through a browser UI
 - [ ] Basic settings page: instance name, base URL, timezone — stored in DB Settings model
 
 **Post-MVP — Reliability & Observability:**
-- [ ] File watcher detects external compose edits (chokidar + 60s polling fallback), flags "config changed"
-- [ ] Update checker polls registries for newer images (semver/digest comparison), exposes update button
+- [x] File watcher detects external compose edits (chokidar + 60s polling fallback), flags "config changed" — Validated in Phase 02: Observability
+- [x] Update checker polls registries for newer images (semver/digest comparison), exposes update button — Validated in Phase 02: Observability
 
 **Post-MVP — Notifications:**
 - [x] SMTP notification for stack entering ERROR or UNHEALTHY state — Validated in Phase 03: Notifications
@@ -112,6 +115,7 @@ Key architectural constraints:
 | PostgreSQL via Prisma | Robust production DB, multi-file schema, type-safe queries | — Pending |
 | SSE for log streaming (not WebSockets) | Simpler unidirectional streaming; sufficient for log display | — Pending |
 | Restic for backups | Encrypted, deduplicated, supports local/SFTP/S3 targets | — Pending |
+| Digest-based update detection (not pull-output text scraping) | Docker Compose CLI's stdout/stderr vocabulary for "already up to date" isn't a stable interface; comparing local image digests before/after pull is | Shipped Phase 02 — resolved UAT gap G-02-11 |
 
 ---
-*Last updated: 2026-03-20 after Phase 03 completion*
+*Last updated: 2026-08-30 after Phase 02 completion*

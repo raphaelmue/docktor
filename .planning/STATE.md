@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-current_phase: 02
-current_phase_name: Observability
-status: Phase 02 gap-closure complete — all 12 plans done (02-08 through 02-12 verified on real deployments)
-stopped_at: Completed 02-16-PLAN.md
-last_updated: "2026-08-28T20:42:56.242Z"
-state_head: b572434672875a4314010bbcb9544b4653b8e352
+current_phase: 1
+current_phase_name: MVP Completion
+status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
+stopped_at: Phase 02 complete, ready to plan Phase 1
+last_updated: "2026-08-30T16:23:19.326Z"
+state_head: 31ee5662dc75fb46053d445d13924e7c9ab5be8a
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 49
   completed_plans: 49
 milestone_name: milestone
@@ -19,21 +19,21 @@ milestone_name: milestone
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-10)
+See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 02 — Observability
+**Current focus:** Phase 1 — MVP Completion
 
 ## Current Position
 
-Phase: 02 (Observability) — EXECUTING
-Plan: 4 of 4
+Phase: 1 — MVP Completion
+Plan: Not started
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 16
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -41,7 +41,7 @@ Plan: 4 of 4
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 02 | 16 | - | - |
 
 **Recent Trend:**
 
@@ -229,11 +229,13 @@ Recent decisions affecting current work:
 - Phase 1: dockerode log stream on SSE client disconnect — RESOLVED in P06: request.raw.on('close', () => streams.forEach(s => s.destroy())) wired in /api/stacks/:id/logs route
 - Phase 4: S3/SFTP restic backend auth has non-trivial patterns — may need /gsd:research-phase during Phase 4 planning
 - Phase 6: NPM API is undocumented and version-sensitive — needs /gsd:research-phase before Phase 6 implementation begins
-- [Phase 02-observability P10]: `ImageUpdateCheck.availableTags String?` was added to schema.prisma and `prisma generate` was run, but `yarn db:push` could not be run against a reachable database in the execution sandbox — must be run against the real dev/prod database before the next deploy, or `upsert` calls touching this column will fail at runtime (not at boot, since Prisma doesn't validate live schema at startup).
-- [Phase 02-observability P12]: RESOLVED — Task 5 checkpoint approved 2026-08-28 after live verification against a real registry and Docker daemon. Verification itself surfaced and got two real registry-logic bugs fixed inline (RegistryClient pagination, selectUpgradeCandidates version-shape matching — commit f200351); several smaller gaps found along the way were deferred as todos instead (see Pending Todos).
+- [Phase 02]: A fresh `docker compose up` could crash the server entirely on cold start — `BackupService.recoverInProgressBackups()` hitting the DB before it was ready (ECONNREFUSED) propagated through an unguarded `startJobs()`, taking down the whole process. RESOLVED 2026-08-30 (commit 302eaec): each job's startup is now individually try/caught, so one job failing no longer blocks the HTTP server or the other jobs.
+- [Phase 02]: `.env.example`'s `DOCKTOR_STACKS_DIR=./dev-data/stacks` silently overrides the correct docker-compose `/stacks` default via `.env.local`'s `env_file`, so app-created stacks can write to a non-persisted container path with no error. Not yet fixed (blocked on `.env*` file access in this session) — see `.planning/todos/pending/2026-08-30-env-example-stacks-dir-breaks-docker-compose.md`.
+- [Phase 02]: Code review + goal-backward verification flagged 3 non-blocking hygiene items, unresolved as of phase close: `routes/stacks.ts` bypasses `StackService` in a few GET handlers (layering violation, no correctness impact); `semver` is used directly but only resolves as a phantom transitive dependency; `update-checker.ts`'s `triggerUpdate()` is unreachable dead code with an unexplained `as any` cast. See `02-REVIEW.md` and `02-VERIFICATION.md` Anti-Patterns.
+- [Phase 02]: `config_error` still has no client-side UI indicator (only visible as an Event Log row) — confirmed still open by both UAT (test 18) and the UI audit (top priority fix). Deliberately out of Phase 02's scope; tracked as `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md`.
 
 ## Session Continuity
 
-Last session: 2026-08-28T20:42:55.793Z
-Stopped at: Completed 02-16-PLAN.md
+Last session: 2026-08-30T16:23:19.326Z
+Stopped at: Phase 02 complete, ready to plan Phase 1
 Resume file: None

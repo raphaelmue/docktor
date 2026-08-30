@@ -1,0 +1,43 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": "v1.0",
+  "phases": [
+    {
+      "number": "1",
+      "name": "MVP Completion",
+      "status": "in_progress"
+    },
+    {
+      "number": "2",
+      "name": "Observability",
+      "status": "complete"
+    },
+    {
+      "number": "3",
+      "name": "Notifications",
+      "status": "complete"
+    },
+    {
+      "number": "4",
+      "name": "Backup & Restore",
+      "status": "in_progress"
+    },
+    {
+      "number": "5",
+      "name": "Onboarding",
+      "status": "complete"
+    },
+    {
+      "number": "6",
+      "name": "Proxy Configuration",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step (verify)",
+    "reason": "Phase 1 of 6 · ready to verify"
+  },
+  "updated_at": "2026-08-30T16:23:19.340Z"
+}
