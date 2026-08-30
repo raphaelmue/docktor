@@ -171,5 +171,18 @@ None. All 4 roadmap Success Criteria and all 7 phase requirements (FW-01/02/03, 
 
 ---
 
+## Acknowledged Gaps
+
+Phase advancement was confirmed by the user with the following two open items outstanding — recorded here rather than treated as blockers, since neither is a code defect:
+
+| Item | Why acknowledged, not blocking |
+|------|-------------------------------|
+| `02-UAT.md` test 15 (skipped) — "UpdateChecker Works When Stack Is Stopped or in Error" | No stopped/error-state stack was available on the tester's machine to exercise this against. Not a roadmap Success Criterion; the underlying UpdateChecker polling logic has no state-dependent branching removed or added by this phase, so this is a test-fixture gap, not a behavior gap. |
+| `02-UAT.md` test 18 (skipped) — "Config Error UI Indication" | Confirmed still absent client-side; already tracked as `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md` and independently flagged as the top UI-review priority fix. Explicitly out of this phase's declared scope per plan 02-16's own prohibitions. Deferred, not forgotten. |
+
+Acknowledged: 2026-08-30.
+
+---
+
 _Verified: 2026-08-30T16:20:25Z_
 _Verifier: Claude (gsd-verifier)_
