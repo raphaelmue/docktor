@@ -1,15 +1,15 @@
 ---
-status: diagnosed
+status: partial
 phase: 02-observability
-source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md, 02-12-SUMMARY.md]
+source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md, 02-12-SUMMARY.md, 02-13-SUMMARY.md, 02-14-SUMMARY.md, 02-15-SUMMARY.md, 02-16-SUMMARY.md]
 started: 2026-08-28T14:17:56Z
-updated: 2026-08-28T14:35:00Z
+updated: 2026-08-30T00:00:00Z
 ---
 
 ## Current Test
 <!-- OVERWRITE each test - shows where we are -->
 
-[testing complete]
+[testing paused — 3 items outstanding: server does not come up on this machine, see out-of-phase blocker below]
 
 ## Tests
 
@@ -54,17 +54,19 @@ result: pass
 expected: While a stack is BACKING_UP, RESTORING, DEPLOYING, UPDATING, or MIGRATING, the per-service upgrade action is disabled (visible but not clickable), not hidden.
 result: pass
 
-### 11. Bulk "Update Images" Shows Contextual Feedback
+### 11. Bulk "Update Images" Shows Contextual Feedback (regression retest — was: issue, fix: 02-13-PLAN.md)
 expected: Click "Update Images" in the stack detail page actions. If no images had updates, a toast says images are already up to date. If images were pulled and updated, a toast confirms images were updated successfully — distinct messages for each case.
-result: issue
-reported: "the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
-severity: major
+result: blocked
+blocked_by: server
+reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
+previously_reported: "the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
 
-### 12. SSE Live Updates for Config Changes
-expected: With the stack detail page open, modify the compose file on disk. Within seconds, a config_changed SSE event triggers a refetch and the UI shows the yellow "config changed" state without a manual page refresh.
-result: issue
-reported: "pass, however it looks like the page was refreshed. Can this be prevented?"
-severity: minor
+### 12. SSE Live Updates for Config Changes (regression retest — was: issue, fix: 02-14-PLAN.md)
+expected: With the stack detail page open, modify the compose file on disk. Within seconds, a config_changed SSE event triggers a background refresh and the UI shows the yellow "config changed" state — without the page/tab state resetting or looking like a full page reload.
+result: blocked
+blocked_by: server
+reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
+previously_reported: "pass, however it looks like the page was refreshed. Can this be prevented?"
 
 ### 13. SSE Live Updates for Image Updates
 expected: With the stack detail page open, when UpdateChecker finds a newer image, an update_available SSE event triggers a refetch and the blue update badge appears on the affected service without a manual page refresh.
@@ -79,11 +81,12 @@ expected: UpdateChecker still polls and detects updates for stacks in STOPPED or
 result: skipped
 reason: "User was not able to test it (no stopped/error stack available to test against)."
 
-### 16. Stack Event Audit Trail
-expected: config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type.
-result: issue
-reported: "I dont see no config_changed in the \"Status Log\". Only in the server logs."
-severity: major
+### 16. Stack Event Audit Trail (regression retest — was: issue, fix: 02-15-PLAN.md, 02-16-PLAN.md)
+expected: config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type, visible in a new "Event Log" card on the stack detail page — separate from the "Status Log" card.
+result: blocked
+blocked_by: server
+reason: "Server crashes/never becomes ready on cold start on this machine — see out-of-phase bug noted below. Cannot retest until the server is up."
+previously_reported: "I dont see no config_changed in the \"Status Log\". Only in the server logs."
 
 ### 17. Manual Reconcile / Cron Fallback
 expected: Even without live file-watch events, the periodic reconcile loop still re-hashes stack compose files on its schedule and catches any drift.
@@ -98,15 +101,18 @@ reason: "Deferred follow-up: already created a todo for this (see .planning/todo
 
 total: 18
 passed: 13
-issues: 3
+issues: 0
 pending: 0
 skipped: 2
+blocked: 3
 
 ## Gaps
 
 - gap_id: G-02-11
   truth: "Click \"Update Images\" in the stack detail page actions. If no images had updates, a toast says images are already up to date."
-  status: failed
+  status: resolved
+  resolved_by: 02-13-PLAN.md
+  resolved_at: 2026-08-30
   reason: "User reported: the toast does not say \"no updates available\" - probably related to the issue that the badge is not removed if there are no newer images."
   severity: major
   test: 11
@@ -123,7 +129,9 @@ skipped: 2
 
 - gap_id: G-02-12
   truth: "A config_changed SSE event triggers a data refetch without a manual page refresh."
-  status: failed
+  status: resolved
+  resolved_by: 02-14-PLAN.md
+  resolved_at: 2026-08-30
   reason: "User reported: pass, however it looks like the page was refreshed. Can this be prevented?"
   severity: minor
   test: 12
@@ -140,7 +148,9 @@ skipped: 2
 
 - gap_id: G-02-16
   truth: "config_changed, config_error, and update_available events are recorded and queryable per stack with a timestamp and event type, visible in the UI's Status Log."
-  status: failed
+  status: resolved
+  resolved_by: 02-15-PLAN.md, 02-16-PLAN.md
+  resolved_at: 2026-08-30
   reason: "User reported: I dont see no config_changed in the \"Status Log\". Only in the server logs."
   severity: major
   test: 16
@@ -160,6 +170,18 @@ skipped: 2
     - "Add a UI section to render them — a new Event Log/Activity card, or merge into the existing Status Log card with clear labeling, since these are genuinely different data (product decision)"
     - "Consolidate the duplicate write path: route FileWatcher's config_changed/config_error writes through stackEventRepository instead of the ad-hoc StackRepository.createStackEvent() with its `as any` cast"
   debug_session: ".planning/debug/status-log-missing-config-changed-events.md"
+
+## Out-of-Phase Blocker (session paused 2026-08-30)
+
+While resuming this session to retest gaps G-02-11/12/16 on a different machine, a fresh
+`docker compose up` crashed at server startup with an unrelated Prisma error
+(`PrismaClientKnownRequestError` / `ECONNREFUSED` from `prisma.backup.findMany()`, raised inside
+`BackupService.recoverInProgressBackups()`, called from `startJobs()` at `app.js:101`). This is
+Phase 04 (backup-restore) code, not Phase 02 — but it prevents the server from becoming ready at
+all, which blocks retesting tests 11, 12, and 16 here. Captured as
+`.planning/todos/pending/2026-08-30-backup-recovery-crashes-server-on-db-not-ready.md` for
+investigation (likely `/gsd-debug`) since it's outside this phase's plan set. Resume this UAT
+session (`/gsd-verify-work 02`) once the server starts reliably on that machine.
 
 ## Deferred Follow-Ups
 
