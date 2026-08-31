@@ -51,6 +51,13 @@ async function mockSetupComplete(page: Page) {
     );
 }
 
+/** Mock the session endpoint to return no active session (unauthenticated). */
+async function mockNoSession(page: Page) {
+    await page.route("**/api/auth/get-session", (route) =>
+        route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(null)}),
+    );
+}
+
 /** POST /api/setup/step1 + the better-auth sign-in call triggered by auto-login. */
 async function mockStep1(page: Page) {
     await page.route("**/api/setup/step1", (route) =>
@@ -104,15 +111,14 @@ async function reachBrownfieldStep(page: Page) {
 
 test.describe("Setup Wizard", () => {
     test.describe("First-run wizard flow", () => {
-        // WIZ-01: the server's first-run gate (app.ts) returns 503 + redirectTo
-        // when no users exist, but no client-side code currently reads that
-        // response and navigates to /setup — main.tsx / ProtectedRoute have no
-        // such handling. This is a real feature gap uncovered while fixing
-        // CR-05, not something this fixer should silently paper over with a
-        // fabricated assertion. Left skipped (with this explanation, not a
-        // blind TODO) until the redirect is actually implemented.
+        // WIZ-01: first boot lands on the wizard, not the login form.
         test("should redirect to /setup when no users exist", async ({page}) => {
-            test.skip(true, "Client has no handling of the 503 first-run-gate response yet (see app.ts) — not implemented");
+            await mockNoSession(page);
+            await mockSetupIncomplete(page);
+            await page.goto("/");
+
+            await expect(page).toHaveURL(/\/setup$/);
+            await expect(page.getByRole("button", {name: /step 1: account/i})).toHaveAttribute("aria-current", "step");
         });
 
         test("should show 5-step stepper with Account as first step", async ({page}) => {
