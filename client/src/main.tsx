@@ -51,7 +51,14 @@ function App() {
                         </FirstRunGate>
                     }
                 />
-                <Route path="/signup" element={<SignupPage />} />
+                <Route
+                    path="/signup"
+                    element={
+                        <FirstRunGate>
+                            <SignupPage />
+                        </FirstRunGate>
+                    }
+                />
                 <Route path="/setup" element={<SetupPage />} />
                 <Route
                     element={
