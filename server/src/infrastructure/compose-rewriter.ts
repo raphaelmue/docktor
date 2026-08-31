@@ -41,28 +41,52 @@ export class ComposeRewriter {
 
 			// Rewrite volume paths
 			if (Array.isArray(svc.volumes)) {
-				svc.volumes = svc.volumes.map((vol: string | object) => {
-					if (typeof vol !== "string") return vol; // Skip long-form syntax
+				svc.volumes = svc.volumes.map((vol: string | Record<string, unknown>) => {
+					if (typeof vol === "string") {
+						const parts = vol.split(":");
+						const hostPath = parts[0];
+						const rest = parts.slice(1);
 
-					const parts = vol.split(":");
-					const hostPath = parts[0];
-					const rest = parts.slice(1);
-
-					// Check if this is a named volume reference
-					if (!hostPath.startsWith(".") && !hostPath.startsWith("/")) {
-						const shouldConvert = namedVolumeSelections.get(hostPath);
-						if (shouldConvert) {
-							// Convert named volume to bind mount
-							return [`./volumes/${hostPath}`, ...rest].join(":");
+						// Check if this is a named volume reference
+						if (!hostPath.startsWith(".") && !hostPath.startsWith("/")) {
+							const shouldConvert = namedVolumeSelections.get(hostPath);
+							if (shouldConvert) {
+								// Convert named volume to bind mount
+								return [`./volumes/${hostPath}`, ...rest].join(":");
+							}
+							// Keep as named volume (will mark as external below)
+							return vol;
 						}
-						// Keep as named volume (will mark as external below)
+
+						// Rewrite bind mount path if selected for conversion
+						const newPath = pathRewrites.get(hostPath);
+						if (newPath) {
+							return [newPath, ...rest].join(":");
+						}
+
 						return vol;
 					}
 
-					// Rewrite bind mount path if selected for conversion
-					const newPath = pathRewrites.get(hostPath);
-					if (newPath) {
-						return [newPath, ...rest].join(":");
+					// CR-03: long-form volume entries ({type, source, target}) were
+					// previously skipped entirely, so migrated data was copied to the
+					// new bind-mount location while the compose file kept pointing at
+					// the stale original path. Rewrite `source` the same way as the
+					// short-form case above.
+					const entry = vol as {type?: unknown; source?: unknown; [key: string]: unknown};
+
+					if (entry.type === "bind" && typeof entry.source === "string") {
+						const newPath = pathRewrites.get(entry.source);
+						return newPath ? {...entry, source: newPath} : entry;
+					}
+
+					if (entry.type === "volume" && typeof entry.source === "string") {
+						const shouldConvert = namedVolumeSelections.get(entry.source);
+						if (shouldConvert) {
+							// Convert named-volume long-form entry to a bind mount
+							return {...entry, type: "bind", source: `./volumes/${entry.source}`};
+						}
+						// Keep as named volume (will mark as external below)
+						return entry;
 					}
 
 					return vol;
