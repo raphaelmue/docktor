@@ -82,7 +82,30 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
         async (request, reply) => {
             const {id} = request.params
             const {snapshotId} = request.body
-            const backup = await backupService.runRestore(id, snapshotId)
+            const backup = await backupService.initiateRestore(id, snapshotId)
+
+            // Fire-and-forget: run the restore asynchronously (mirrors the backup route above)
+            void (async () => {
+                try {
+                    const [backupRecord, stack] = await Promise.all([
+                        backupRepository.findByIdOrThrow(backup.id),
+                        stackRepository.findByIdOrThrow(id),
+                    ])
+                    await backupService.runRestoreProcess(backupRecord, stack, snapshotId)
+                } catch (err) {
+                    app.log.error({err}, "[backups] fire-and-forget runRestoreProcess failed")
+                    try {
+                        await backupService.abortBackup(
+                            backup.id,
+                            id,
+                            err instanceof Error ? err.message : String(err),
+                        )
+                    } catch (abortErr) {
+                        app.log.error({err: abortErr}, "[backups] abortBackup failed")
+                    }
+                }
+            })()
+
             return reply.status(202).send({backupId: backup.id})
         },
     )

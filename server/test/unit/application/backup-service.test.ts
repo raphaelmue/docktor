@@ -530,8 +530,10 @@ describe("BackupService", () => {
             expect(getBackupLogBuffer(backupRecord.id)).toBeUndefined();
         });
 
-        it("while runRestore is mid-run, getBackupLogBuffer(backup.id) contains every line already handed to the executor's line callback, in arrival order (restore parity)", async () => {
+        it("while runRestoreProcess is mid-run, getBackupLogBuffer(backup.id) contains every line already handed to the executor's line callback, in arrival order (restore parity)", async () => {
             const snapshotId = "abc123def456";
+            const backupRecord = {id: "backup-1", stackId: "stack-1", trigger: "RESTORE", logLines: []};
+            const stack = {id: "stack-1", displayName: "My App", status: "RESTORING", previousStatus: "RUNNING", hostPath: null};
 
             let assertedInsideCallback = false;
             mockResticExecutor.run.mockImplementation(
@@ -544,7 +546,7 @@ describe("BackupService", () => {
                 },
             );
 
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             expect(assertedInsideCallback).toBe(true);
         });
@@ -632,11 +634,11 @@ services:
         });
     });
 
-    describe("runRestore()", () => {
+    describe("initiateRestore()", () => {
         const snapshotId = "abc123def456";
 
         it("creates Backup record with trigger RESTORE and status IN_PROGRESS", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.initiateRestore("stack-1", snapshotId);
 
             expect(mockBackupRepository.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -649,7 +651,7 @@ services:
         });
 
         it("transitions stack to RESTORING", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.initiateRestore("stack-1", snapshotId);
 
             expect(mockStackRepository.update).toHaveBeenCalledWith(
                 "stack-1",
@@ -657,15 +659,39 @@ services:
             );
         });
 
+        it("registers a broadcaster for the new backup before initiateRestore returns (mirrors initiateBackup, BCK-09)", async () => {
+            await service.initiateRestore("stack-1", snapshotId);
+
+            expect(getBackupBroadcaster("backup-1")).toBeInstanceOf(EventEmitter);
+        });
+    });
+
+    describe("runRestoreProcess()", () => {
+        const snapshotId = "abc123def456";
+        const backupRecord = {
+            id: "backup-1",
+            stackId: "stack-1",
+            trigger: "RESTORE",
+            resticSnapshotId: snapshotId,
+            logLines: [],
+        };
+        const stack = {
+            id: "stack-1",
+            displayName: "My App",
+            status: "RESTORING",
+            previousStatus: "RUNNING",
+            hostPath: null,
+        };
+
         it("stops the stack before restoring", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             // Should call docker.stop before restore
             expect(mockDockerExecutor.stop).toHaveBeenCalledWith("stack-1");
         });
 
         it("calls resticExecutor.run with restore args and --target .", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             expect(mockResticExecutor.run).toHaveBeenCalledWith(
                 expect.arrayContaining(["restore", snapshotId, "--target", "."]),
@@ -676,7 +702,7 @@ services:
         });
 
         it("redeploys stack after successful restore", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             // Should call docker.up after restore
             expect(mockDockerExecutor.up).toHaveBeenCalledWith("stack-1");
@@ -687,14 +713,14 @@ services:
         });
 
         it("clears configChanged flag after successful restore", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             // Should call clearConfigChanged to remove "Configuration has changed" warning
             expect(mockStackRepository.clearConfigChanged).toHaveBeenCalledWith("stack-1");
         });
 
         it("syncs database with restored compose file", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             // Should update hash and services to match restored compose
             expect(mockStackRepository.updateStackHash).toHaveBeenCalledWith(
@@ -709,7 +735,7 @@ services:
         it("transitions stack to ERROR on restore failure", async () => {
             mockResticExecutor.run.mockRejectedValue(new Error("restore failed"));
 
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             expect(mockStackRepository.update).toHaveBeenCalledWith(
                 "stack-1",
@@ -720,7 +746,7 @@ services:
         it("stores log lines and error message on failure", async () => {
             mockResticExecutor.run.mockRejectedValue(new Error("restore: corrupted data"));
 
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             expect(mockBackupRepository.update).toHaveBeenCalledWith(
                 expect.any(String),
@@ -732,24 +758,13 @@ services:
         });
 
         it("emits done with COMPLETED status on success", async () => {
-            // Gate the "restore started" notification so the test can attach a
-            // "done" listener to the broadcaster before runRestore races to completion
-            // (every other dependency in this suite resolves immediately).
-            let releaseNotify: () => void = () => {};
-            const gate = new Promise<void>((resolve) => {
-                releaseNotify = resolve;
-            });
-            mockNotificationService.notify.mockImplementationOnce(() => gate);
-
-            const promise = service.runRestore("stack-1", snapshotId);
-            const emitter = await vi.waitFor(() => {
-                const e = getBackupBroadcaster("backup-1");
-                if (!e) throw new Error("broadcaster not registered yet");
-                return e;
-            });
+            // ensureBackupBroadcaster runs synchronously before the first await
+            // inside runRestoreProcess, so the emitter is already registered by
+            // the time this call returns control to the caller.
+            const promise = service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
+            const emitter = getBackupBroadcaster("backup-1");
             const onDone = vi.fn();
-            emitter.on("done", onDone);
-            releaseNotify();
+            emitter?.on("done", onDone);
 
             await promise;
 
@@ -759,21 +774,10 @@ services:
         it("emits done with FAILED status on restore failure", async () => {
             mockResticExecutor.run.mockRejectedValue(new Error("restore failed"));
 
-            let releaseNotify: () => void = () => {};
-            const gate = new Promise<void>((resolve) => {
-                releaseNotify = resolve;
-            });
-            mockNotificationService.notify.mockImplementationOnce(() => gate);
-
-            const promise = service.runRestore("stack-1", snapshotId);
-            const emitter = await vi.waitFor(() => {
-                const e = getBackupBroadcaster("backup-1");
-                if (!e) throw new Error("broadcaster not registered yet");
-                return e;
-            });
+            const promise = service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
+            const emitter = getBackupBroadcaster("backup-1");
             const onDone = vi.fn();
-            emitter.on("done", onDone);
-            releaseNotify();
+            emitter?.on("done", onDone);
 
             await promise;
 
@@ -783,7 +787,7 @@ services:
         it("persists a [error] logLines entry containing the rejection message on failure", async () => {
             mockResticExecutor.run.mockRejectedValue(new Error("restore: corrupted data"));
 
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             const failedUpdate = mockBackupRepository.update.mock.calls.find(
                 (call: any[]) => call[1]?.status === "FAILED",
@@ -796,7 +800,7 @@ services:
         it("persists a non-empty logLines array when restore rejects before any onLine call", async () => {
             mockResticExecutor.run.mockRejectedValue(new Error("restore binary not found"));
 
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
             const failedUpdate = mockBackupRepository.update.mock.calls.find(
                 (call: any[]) => call[1]?.status === "FAILED",
@@ -805,12 +809,12 @@ services:
         });
 
         it("registers its emitter through ensureBackupBroadcaster and removes it through disposeBackupBroadcaster, same as runBackup (BCK-09)", async () => {
-            await service.runRestore("stack-1", snapshotId);
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
 
-            // By the time runRestore resolves, its broadcaster has already gone
-            // through the same register/dispose pair runBackup uses — verified by
-            // the absence of a leftover entry (disposeBackupBroadcaster ran) and by
-            // the "emits done" cases above (ensureBackupBroadcaster ran, since
+            // By the time runRestoreProcess resolves, its broadcaster has already
+            // gone through the same register/dispose pair runBackup uses — verified
+            // by the absence of a leftover entry (disposeBackupBroadcaster ran) and
+            // by the "emits done" cases above (ensureBackupBroadcaster ran, since
             // those attach a listener to the emitter it returns).
             expect(getBackupBroadcaster("backup-1")).toBeUndefined();
         });

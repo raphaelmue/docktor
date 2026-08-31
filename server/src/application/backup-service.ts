@@ -287,11 +287,18 @@ export class BackupService {
     }
 
     /**
-     * Orchestrates a restore: stop → restic restore → redeploy.
-     * Transitions stack to RESTORING, runs the sequence, then to RUNNING (or ERROR).
-     * Logs restore events to notification system.
+     * Creates an IN_PROGRESS restore Backup record, registers the broadcaster,
+     * and transitions the stack to RESTORING. Returns the new backup id.
+     *
+     * Mirrors initiateBackup/runBackup's split: the route awaits only this
+     * method before replying 202, then runs runRestoreProcess() fire-and-forget.
+     * Without this split, the route synchronously awaited the entire restore —
+     * the record was always already terminal by the time a client could open
+     * the SSE stream, and a failed restore's error was invisible to the caller
+     * of this method (the client's "Restore started" toast always fired,
+     * whether or not the restore actually succeeded).
      */
-    async runRestore(stackId: string, snapshotId: string): Promise<{id: string}> {
+    async initiateRestore(stackId: string, snapshotId: string): Promise<{id: string}> {
         const stack = await this.stackRepo.findByIdOrThrow(stackId)
 
         const backup = await this.backupRepo.create({
@@ -302,22 +309,37 @@ export class BackupService {
             resticSnapshotId: snapshotId,
         })
 
+        // Register the broadcaster now — before this method returns — so a
+        // client that learns the backup id from the 202 response always finds
+        // a live emitter, even if it subscribes before runRestoreProcess starts.
+        ensureBackupBroadcaster(backup.id)
+
         await this.stackRepo.update(stackId, {
             status: "RESTORING",
             previousStatus: stack.status,
         })
 
-        const emitter = ensureBackupBroadcaster(backup.id)
+        return {id: backup.id}
+    }
 
-        const lines = ensureBackupLogBuffer(backup.id)
+    /**
+     * Orchestrates a restore: stop → restic restore → redeploy.
+     * Accepts the pre-fetched backup record and stack record (mirrors runBackup).
+     * Handles success/failure state transitions, log accumulation, SSE broadcasting,
+     * and sends restore notifications.
+     */
+    async runRestoreProcess(backupRecord: BackupRecord, stack: StackRecord, snapshotId: string): Promise<void> {
+        const emitter = ensureBackupBroadcaster(backupRecord.id)
+
+        const lines = ensureBackupLogBuffer(backupRecord.id)
         let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
 
         // Send restore start notification
         await this.notificationService.notify({
             type: "backup_failure", // Reuse backup_failure type for restore events
-            stackId,
-            subject: `Restore started: ${stack.displayName ?? stackId}`,
-            message: `Restore started for stack "${stack.displayName ?? stackId}" from snapshot ${snapshotId}`,
+            stackId: stack.id,
+            subject: `Restore started: ${stack.displayName ?? stack.id}`,
+            message: `Restore started for stack "${stack.displayName ?? stack.id}" from snapshot ${snapshotId}`,
         })
 
         try {
@@ -332,9 +354,9 @@ export class BackupService {
             }
 
             // Step 1: Stop containers before restoring files
-            console.log(`[BackupService] Stopping stack ${stackId} before restore`)
+            console.log(`[BackupService] Stopping stack ${stack.id} before restore`)
             try {
-                await this.docker.stop(stackId)
+                await this.docker.stop(stack.id)
             } catch (err) {
                 console.warn(`[BackupService] Stop failed (stack may already be stopped):`, err)
                 // Continue anyway — stack might already be stopped
@@ -345,32 +367,32 @@ export class BackupService {
             await this.resticExecutor.run(["restore", snapshotId, "--target", "."], env, onLine, stackPath)
 
             // Step 3: Redeploy containers with restored configuration
-            console.log(`[BackupService] Redeploying stack ${stackId} after restore`)
-            await this.docker.up(stackId)
+            console.log(`[BackupService] Redeploying stack ${stack.id} after restore`)
+            await this.docker.up(stack.id)
 
             // Step 4: Sync database with restored compose file to prevent "config changed" warning
             console.log(`[BackupService] Syncing database with restored compose file`)
             const composePath = path.join(stackPath, "docker-compose.yml")
             const restoredContent = await readFile(composePath, "utf-8")
             const composeConfig = createComposeConfig(restoredContent)
-            await this.stackRepo.updateStackHash({stackId, hash: composeConfig.hash})
-            await this.stackRepo.replaceServices(stackId, composeConfig)
+            await this.stackRepo.updateStackHash({stackId: stack.id, hash: composeConfig.hash})
+            await this.stackRepo.replaceServices(stack.id, composeConfig)
 
-            await this.backupRepo.update(backup.id, {
+            await this.backupRepo.update(backupRecord.id, {
                 status: "COMPLETED",
                 completedAt: new Date(),
                 logLines: lines,
             })
 
-            await this.stackRepo.update(stackId, {status: "RUNNING"})
-            await this.stackRepo.clearConfigChanged(stackId)
+            await this.stackRepo.update(stack.id, {status: "RUNNING"})
+            await this.stackRepo.clearConfigChanged(stack.id)
 
             // Send restore success notification
             await this.notificationService.notify({
                 type: "backup_failure", // Reuse backup_failure type
-                stackId,
-                subject: `Restore completed: ${stack.displayName ?? stackId}`,
-                message: `Restore completed successfully for stack "${stack.displayName ?? stackId}" from snapshot ${snapshotId}`,
+                stackId: stack.id,
+                subject: `Restore completed: ${stack.displayName ?? stack.id}`,
+                message: `Restore completed successfully for stack "${stack.displayName ?? stack.id}" from snapshot ${snapshotId}`,
             })
             finalStatus = "COMPLETED"
         } catch (err) {
@@ -381,35 +403,33 @@ export class BackupService {
             lines.push(errorLine)
             emitter.emit("line", errorLine)
 
-            await this.backupRepo.update(backup.id, {
+            await this.backupRepo.update(backupRecord.id, {
                 status: "FAILED",
                 completedAt: new Date(),
                 logLines: lines,
                 errorMessage,
             })
 
-            await this.stackRepo.update(stackId, {status: "ERROR"})
+            await this.stackRepo.update(stack.id, {status: "ERROR"})
 
             await this.notificationService.notify({
                 type: "backup_failure",
-                stackId,
-                subject: `Restore failed: ${stack.displayName ?? stackId}`,
-                message: `Restore failed for stack "${stack.displayName ?? stackId}". Snapshot: ${snapshotId}. Error: ${errorMessage}`,
+                stackId: stack.id,
+                subject: `Restore failed: ${stack.displayName ?? stack.id}`,
+                message: `Restore failed for stack "${stack.displayName ?? stack.id}". Snapshot: ${snapshotId}. Error: ${errorMessage}`,
             })
 
             // Attempt to restart containers even if restore failed partially
             try {
-                console.log(`[BackupService] Attempting to restart stack ${stackId} after restore failure`)
-                await this.docker.up(stackId)
+                console.log(`[BackupService] Attempting to restart stack ${stack.id} after restore failure`)
+                await this.docker.up(stack.id)
             } catch (restartErr) {
                 console.error(`[BackupService] Failed to restart stack after restore failure:`, restartErr)
             }
         } finally {
             emitter.emit("done", finalStatus)
-            disposeBackupBroadcaster(backup.id)
+            disposeBackupBroadcaster(backupRecord.id)
         }
-
-        return {id: backup.id}
     }
 
     /**
