@@ -46,8 +46,9 @@ export default function SetupPage() {
       markStepComplete(1);
       setCurrentStep(2);
       toast.success("Account created successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create account");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create account";
+      toast.error(message);
     } finally {
       setStepLoading(false);
     }
@@ -60,8 +61,9 @@ export default function SetupPage() {
       markStepComplete(2);
       setCurrentStep(3);
       toast.success("Settings saved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save settings");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save settings";
+      toast.error(message);
     } finally {
       setStepLoading(false);
     }
@@ -74,8 +76,9 @@ export default function SetupPage() {
       markStepComplete(3);
       setCurrentStep(4);
       toast.success("Backup settings saved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save backup settings");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save backup settings";
+      toast.error(message);
     } finally {
       setStepLoading(false);
     }
@@ -88,8 +91,9 @@ export default function SetupPage() {
       markStepComplete(4);
       setCurrentStep(5);
       toast.success("Notification settings saved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save notification settings");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save notification settings";
+      toast.error(message);
     } finally {
       setStepLoading(false);
     }

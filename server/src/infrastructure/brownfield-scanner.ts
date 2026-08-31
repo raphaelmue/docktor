@@ -72,10 +72,13 @@ export class BrownfieldScanner {
                 });
 
                 foundFiles.push(...files);
-            } catch (err: any) {
-                if (err.code === "EACCES" || err.code === "EPERM" || err.code === "ENOENT") {
+            } catch (err: unknown) {
+                // Safe: fs.access/fast-glob only ever throw NodeJS.ErrnoException
+                // (a standard Error subtype with a `code` field) on this path.
+                const code = err instanceof Error ? (err as NodeJS.ErrnoException).code : undefined;
+                if (code === "EACCES" || code === "EPERM" || code === "ENOENT") {
                     skippedCount++;
-                    console.warn(`[BrownfieldScanner] Skipped directory: ${dir} (${err.code})`);
+                    console.warn(`[BrownfieldScanner] Skipped directory: ${dir} (${code})`);
                 } else {
                     throw err; // Re-throw unexpected errors
                 }
@@ -104,9 +107,10 @@ export class BrownfieldScanner {
                     inlineEnvVars: analysis.inlineEnvVars.length > 0,
                     unsupportedFeatures: analysis.unsupportedFeatures,
                 });
-            } catch (err: any) {
+            } catch (err: unknown) {
                 // Skip files that can't be read or parsed
-                console.warn(`[BrownfieldScanner] Could not analyze ${filePath}: ${err.message}`);
+                const message = err instanceof Error ? err.message : String(err);
+                console.warn(`[BrownfieldScanner] Could not analyze ${filePath}: ${message}`);
             }
         }
 

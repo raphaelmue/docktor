@@ -19,6 +19,14 @@ import {prisma} from "./lib/db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// WR-01: shape of a single validation issue attached to FastifyError by
+// fastify-type-provider-zod (Zod-style `path`) or ajv (`instancePath`).
+interface ValidationIssue {
+    path?: Array<string | number>;
+    instancePath?: string;
+    message: string;
+}
+
 const envToLogger: Record<string, object | boolean> = {
     development: {
         transport: {
@@ -81,7 +89,11 @@ export async function buildApp() {
         }
         // Zod validation errors (from type-provider-zod validator compiler)
         if (error.statusCode === 400 && "validation" in error) {
-            const issues: any[] = (error as any).validation ?? []
+            // Safe: fastify-type-provider-zod attaches a `validation` array to
+            // FastifyError on validation failures; the base FastifyError type
+            // doesn't declare this field, but its shape is documented by the
+            // plugin (Zod issues use `path`, ajv-style issues use `instancePath`).
+            const issues = (error as FastifyError & {validation?: ValidationIssue[]}).validation ?? []
             const fields: Record<string, string> = {}
             for (const issue of issues) {
                 // Zod issues: { path: ["fieldName", ...], message: "..." }

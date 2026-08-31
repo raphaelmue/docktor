@@ -203,9 +203,10 @@ export class MigrationService {
 
 			return {success: true, stackId, originalPath: originalDir};
 
-		} catch (err: any) {
+		} catch (err: unknown) {
 			// Rollback on failure
-			console.error(`[MigrationService] Migration failed, rolling back: ${err.message}`);
+			const errMessage = err instanceof Error ? err.message : String(err);
+			console.error(`[MigrationService] Migration failed, rolling back: ${errMessage}`);
 
 			try {
 				// Delete incomplete stack directory
@@ -225,8 +226,9 @@ export class MigrationService {
 				// Restore original files from backup
 				await fs.rm(originalDir, {recursive: true, force: true});
 				await fs.cp(backupDir, originalDir, {recursive: true});
-			} catch (restoreErr: any) {
-				console.error(`[MigrationService] Restore failed: ${restoreErr.message}`);
+			} catch (restoreErr: unknown) {
+				const restoreMessage = restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+				console.error(`[MigrationService] Restore failed: ${restoreMessage}`);
 			}
 
 			try {
@@ -245,7 +247,7 @@ export class MigrationService {
 
 			return {
 				success: false,
-				error: `Migration failed: ${err.message}. Rollback complete.`,
+				error: `Migration failed: ${errMessage}. Rollback complete.`,
 				originalPath: originalDir,
 			};
 		}
