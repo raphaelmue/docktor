@@ -61,21 +61,21 @@
 
 ### First-Run Wizard
 
-- [x] **WIZ-01**: On first boot with no user in the DB, the UI shows a setup wizard instead of the login page
-- [x] **WIZ-02**: Wizard step 1: create admin account (email + password)
-- [x] **WIZ-03**: Wizard step 2: set instance name, base URL, and timezone (writes to Settings)
-- [x] **WIZ-04**: Wizard step 3 (optional): configure restic backup repository and password
-- [x] **WIZ-05**: Wizard step 4 (optional): configure SMTP notifications
-- [x] **WIZ-06**: Wizard step 5 (optional): trigger brownfield stack scan
-- [x] **WIZ-07**: After wizard completion, user is redirected to the dashboard
+- [ ] **WIZ-01**: On first boot with no user in the DB, the UI shows a setup wizard instead of the login page
+- [ ] **WIZ-02**: Wizard step 1: create admin account (email + password)
+- [ ] **WIZ-03**: Wizard step 2: set instance name, base URL, and timezone (writes to Settings)
+- [ ] **WIZ-04**: Wizard step 3 (optional): configure restic backup repository and password
+- [ ] **WIZ-05**: Wizard step 4 (optional): configure SMTP notifications
+- [ ] **WIZ-06**: Wizard step 5 (optional): trigger brownfield stack scan
+- [ ] **WIZ-07**: After wizard completion, user is redirected to the dashboard
 
 ### Brownfield Import
 
-- [x] **BF-01**: User can trigger a scan of the host filesystem for docker-compose.yml files
-- [x] **BF-02**: Scan results show: directory path, service names, images, container state, and compatibility assessment (named volumes, inline env vars, non-standard paths)
-- [x] **BF-03**: User can adopt a discovered stack in-place: registers it in the DB without moving files (zero downtime, zero risk)
-- [x] **BF-04**: User can run a full migration wizard: stop → copy to /stacks/<id>/ → convert named volumes to bind mounts → extract env vars to .env → rewrite paths → restart
-- [x] **BF-05**: Full migration includes rollback on failure and user-initiated cleanup of old files after confirming success
+- [ ] **BF-01**: User can trigger a scan of the host filesystem for docker-compose.yml files
+- [ ] **BF-02**: Scan results show: directory path, service names, images, container state, and compatibility assessment (named volumes, inline env vars, non-standard paths)
+- [ ] **BF-03**: User can adopt a discovered stack in-place: registers it in the DB without moving files (zero downtime, zero risk)
+- [ ] **BF-04**: User can run a full migration wizard: stop → copy to /stacks/<id>/ → convert named volumes to bind mounts → extract env vars to .env → rewrite paths → restart
+- [ ] **BF-05**: Full migration includes rollback on failure and user-initiated cleanup of old files after confirming success
 
 ### Proxy Configuration
 
@@ -154,18 +154,18 @@
 | BCK-09 | Phase 4 | Complete |
 | BCK-10 | Phase 4 | Complete |
 | BCK-11 | Phase 4 | Complete |
-| WIZ-01 | Phase 5 | Complete |
-| WIZ-02 | Phase 5 | Complete |
-| WIZ-03 | Phase 5 | Complete |
-| WIZ-04 | Phase 5 | Complete |
-| WIZ-05 | Phase 5 | Complete |
-| WIZ-06 | Phase 5 | Complete |
-| WIZ-07 | Phase 5 | Complete |
-| BF-01 | Phase 5 | Complete |
-| BF-02 | Phase 5 | Complete |
-| BF-03 | Phase 5 | Complete |
-| BF-04 | Phase 5 | Complete |
-| BF-05 | Phase 5 | Complete |
+| WIZ-01 | Phase 5 | Gaps Found |
+| WIZ-02 | Phase 5 | Gaps Found |
+| WIZ-03 | Phase 5 | Gaps Found |
+| WIZ-04 | Phase 5 | Gaps Found |
+| WIZ-05 | Phase 5 | Gaps Found |
+| WIZ-06 | Phase 5 | Gaps Found |
+| WIZ-07 | Phase 5 | Gaps Found |
+| BF-01 | Phase 5 | Gaps Found |
+| BF-02 | Phase 5 | Gaps Found |
+| BF-03 | Phase 5 | Gaps Found |
+| BF-04 | Phase 5 | Gaps Found |
+| BF-05 | Phase 5 | Gaps Found |
 | PRXY-01 | Phase 6 | Pending |
 | PRXY-02 | Phase 6 | Pending |
 | PRXY-03 | Phase 6 | Pending |
