@@ -129,6 +129,16 @@ test.describe("Setup Wizard", () => {
             await expect(page).toHaveURL(/\/setup$/);
         });
 
+        // CR-01: /signup must be gated the same way / and /login are, so a
+        // zero-user instance can't be claimed via the generic sign-up form.
+        test("should redirect /signup to /setup when no users exist", async ({page}) => {
+            await mockNoSession(page);
+            await mockSetupIncomplete(page);
+            await page.goto("/signup");
+
+            await expect(page).toHaveURL(/\/setup$/);
+        });
+
         test("should keep /login on an instance that already has users", async ({page}) => {
             await mockNoSession(page);
             await mockSetupComplete(page);
