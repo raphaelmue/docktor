@@ -182,14 +182,14 @@ Plans:
   4. User can adopt a discovered stack in-place with zero downtime, and it immediately appears in the dashboard with live status
   5. User can run the full migration wizard to move a stack into Docktor's directory structure, with automatic rollback on failure
 
-**Plans**: 10 plans (8 original + 2 gap closure)
+**Plans**: 10/10 plans executed (8 original + 2 gap closure)
 
 Plans:
 **Wave 1**
 
 - [x] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
-- [ ] 05-09-PLAN.md — Gap closure: client first-run gate so a fresh install lands on /setup, not /login (WIZ-01) (Wave 1)
-- [ ] 05-10-PLAN.md — Gap closure: executed coverage for migration rollback (BF-05) and the WR-07 concurrent-admin lock (Wave 1)
+- [x] 05-09-PLAN.md — Gap closure: client first-run gate so a fresh install lands on /setup, not /login (WIZ-01) (Wave 1)
+- [x] 05-10-PLAN.md — Gap closure: executed coverage for migration rollback (BF-05) and the WR-07 concurrent-admin lock (Wave 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -232,5 +232,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Observability | 16/16 | Complete    | 2026-08-30 |
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 17/17 | Complete    | 2026-08-31 |
-| 5. Onboarding | 8/8 | Complete   | 2026-04-08 |
+| 5. Onboarding | 10/10 | In Progress|  |
 | 6. Proxy Configuration | 0/? | Not started | - |
