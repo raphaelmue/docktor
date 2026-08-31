@@ -63,7 +63,11 @@ export async function buildApp() {
     app.addHook("onRequest", async (request, reply) => {
         // Skip for setup routes, auth routes, and static assets
         if (
-            request.url.startsWith("/api/setup") ||
+            // WR-08: exact-prefix match (with trailing slash) so a
+            // hypothetical "/api/setupanything" route can't be accidentally
+            // exempted from this security-relevant gate by a loose prefix.
+            request.url.startsWith("/api/setup/") ||
+            request.url === "/api/setup" ||
             request.url.startsWith("/api/auth/") ||
             request.url === "/setup" ||
             !request.url.startsWith("/api/")
