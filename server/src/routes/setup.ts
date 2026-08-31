@@ -18,15 +18,19 @@ import {
 const SETUP_STEP1_LOCK_KEY = "setup.step1Lock";
 
 const setupRoutes: FastifyPluginAsyncZod = async (app) => {
-    // CR-01: every /api/setup/* route beyond step 1 must stop being reachable
-    // once setup is complete — otherwise an unauthenticated caller can rewrite
-    // backup/SMTP credentials or trigger filesystem scans/migrations forever.
+    // CR-01/T-05-09: every /api/setup/* route beyond step 1 must stop being
+    // reachable once the wizard is genuinely finished — otherwise an
+    // unauthenticated caller can rewrite backup/SMTP credentials or trigger
+    // filesystem scans/migrations forever. Gate on the durable
+    // `isWizardComplete()` marker, NOT on `userCount > 0`: step1 creates the
+    // admin, so userCount becomes 1 the instant step1 succeeds — long before
+    // steps 2-5/adopt/migrate are actually done. Gating on userCount alone
+    // 410s the just-created admin out of their own wizard after step 1.
     app.addHook("preHandler", async (request, reply) => {
         if (request.method === "GET" && request.url === "/api/setup/status") return;
         if (request.url === "/api/setup/step1") return;
 
-        const userCount = await prisma.user.count();
-        if (userCount > 0) {
+        if (await onboardingService.isWizardComplete()) {
             return reply.status(410).send({error: "Setup already complete"});
         }
     });
@@ -209,6 +213,23 @@ const setupRoutes: FastifyPluginAsyncZod = async (app) => {
             return result;
         },
     );
+
+    // T-05-09: mark the wizard as fully complete. Called once by the client
+    // at the very end of the wizard (Finish, or Skip on the final step).
+    // After this succeeds, the preHandler above permanently closes every
+    // /api/setup/* route beyond /status, same as the old (broken)
+    // "userCount > 0" gate intended.
+    app.post("/api/setup/complete", async (_request, reply) => {
+        const userCount = await prisma.user.count();
+        if (userCount === 0) {
+            return reply
+                .status(400)
+                .send({error: "Cannot complete setup before creating an admin account"});
+        }
+
+        await onboardingService.completeWizard();
+        return reply.send({success: true});
+    });
 };
 
 export default setupRoutes;

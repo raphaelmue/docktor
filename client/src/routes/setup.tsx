@@ -2,7 +2,7 @@ import {useState, useEffect} from "react";
 import {useNavigate, Link} from "react-router";
 import {toast} from "sonner";
 import {signIn} from "@/lib/auth-client";
-import {checkSetupStatus, submitStep1, submitStep2, submitStep3, submitStep4} from "@/lib/setup-api";
+import {checkSetupStatus, completeSetup, submitStep1, submitStep2, submitStep3, submitStep4} from "@/lib/setup-api";
 import {WizardStepper} from "@/routes/setup/components/wizard-stepper";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
@@ -112,17 +112,32 @@ export default function SetupPage() {
     }
   };
 
-  const handleSkip = (step: number) => {
+  // T-05-09: notify the server that the wizard is genuinely finished, so it
+  // can permanently close /api/setup/* (beyond /status) again. The user has
+  // already completed the wizard UI flow at this point, so a failure here
+  // is surfaced but must not block navigation to the dashboard.
+  const notifyWizardComplete = async () => {
+    try {
+      await completeSetup();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to finalize setup";
+      toast.error(message);
+    }
+  };
+
+  const handleSkip = async (step: number) => {
     markStepComplete(step);
     if (step === 5) {
+      await notifyWizardComplete();
       navigate("/");
     } else {
       setCurrentStep(step + 1);
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     markStepComplete(5);
+    await notifyWizardComplete();
     navigate("/");
   };
 

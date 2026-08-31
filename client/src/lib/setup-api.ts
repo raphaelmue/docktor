@@ -53,6 +53,15 @@ export function checkSetupStatus() {
   return apiFetch<SetupStatus>("/api/setup/status");
 }
 
+// T-05-09: marks the wizard as fully complete so the server can permanently
+// close /api/setup/* (beyond /status) again. Must be called once, at the
+// very end of the wizard — see handleFinish/handleSkip(5) in setup.tsx.
+export function completeSetup() {
+  return apiFetch<{success: boolean}>("/api/setup/complete", {
+    method: "POST",
+  });
+}
+
 export function submitStep1(input: WizardStep1Input) {
   return apiFetch<Step1Result>("/api/setup/step1", {
     method: "POST",

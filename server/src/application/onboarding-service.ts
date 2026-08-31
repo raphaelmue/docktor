@@ -18,6 +18,15 @@ export interface Step1Result {
     sessionToken: string;
 }
 
+// T-05-09: durable "wizard finished" signal, deliberately independent from
+// `userCount`. Step1 creates the admin, so `userCount > 0` becomes true the
+// instant step1 succeeds — long before steps 2-5/adopt/migrate are actually
+// done. routes/setup.ts's preHandler gates on this marker instead, so the
+// just-created admin can keep using the rest of the wizard, while the
+// routes still become permanently unreachable once the wizard genuinely
+// finishes. See completeWizard()/isWizardComplete() below.
+export const SETUP_WIZARD_COMPLETE_KEY = "setup.wizardComplete";
+
 export class OnboardingService {
     constructor(
         private readonly authClient: typeof auth.api,
@@ -174,6 +183,25 @@ export class OnboardingService {
         });
 
         return {id: stack.id};
+    }
+
+    /**
+     * T-05-09: has the wizard been marked fully complete?
+     * Read by routes/setup.ts's preHandler to decide whether wizard routes
+     * (steps 2-5, adopt, migrate) are still reachable.
+     */
+    async isWizardComplete(): Promise<boolean> {
+        return (await this.settingsRepo.get(SETUP_WIZARD_COMPLETE_KEY)) !== null;
+    }
+
+    /**
+     * T-05-09: mark the wizard as fully complete. Called once, at the very
+     * end of the wizard (Finish, or Skip on the final step) — after this,
+     * every /api/setup/* route beyond /status becomes permanently
+     * unreachable again.
+     */
+    async completeWizard(): Promise<void> {
+        await this.settingsRepo.upsert(SETUP_WIZARD_COMPLETE_KEY, "true");
     }
 }
 
