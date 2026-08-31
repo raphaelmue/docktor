@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 current_phase: 04
-current_phase_name: backup-restore
+current_phase_name: Backup & Restore
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 04-17-PLAN.md
-last_updated: "2026-08-31T07:29:09.023Z"
-state_head: c5ceaf759aa42c0fc06ed051006b807473b38c8c
+stopped_at: Completed 04-18-PLAN.md
+last_updated: "2026-08-31T07:49:20.927Z"
+state_head: 31231be3d5faa512d0f1d680da0bf5b03e2faa70
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 53
-  completed_plans: 52
+  completed_plans: 53
 milestone_name: milestone
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 
 ## Current Position
 
-Phase: 04 (backup-restore) — READY TO EXECUTE
-Plan: 2 of 16
+Phase: 04 (Backup & Restore) — EXECUTING
+Plan: 2 of 17
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -101,6 +101,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 04-backup-restore P15 | 15min | 2 tasks | 5 files |
 | Phase 04-backup-restore P16 | 10min | 2 tasks | 4 files |
 | Phase 04-backup-restore P17 | 35min | 3 tasks | 7 files |
+| Phase 04 P18 | 14min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -201,6 +202,9 @@ Recent decisions affecting current work:
 - [Phase 04]: [Phase 04-17]: abortBackup's post-guard body runs in try/finally (not try/catch) — a rejected notify() still propagates, but the terminal done emit and broadcaster disposal always run
 - [Phase 04]: [Phase 04-17]: EVENT_SOURCE_CLOSED is inlined (not read off EventSource.CLOSED) in use-backup-stream.ts because the hook's unit test substitutes a mock EventSource with no static members
 - [Phase 04]: [Phase 04-17]: BACKUP_RESYNC_POLL_INTERVAL_MS/BACKUP_RESYNC_MAX_POLLS stay module-private in the backup detail page; tests hardcode mirrored literal values rather than importing them
+- [Phase 04]: [Phase 04-18] Server-side replay chosen over client-side clear-gating to close WR-01 — the alternative would trade WR-01 for a log-duplication bug when the backup finishes during the disconnect window
+- [Phase 04]: [Phase 04-18] backupLogBuffers reuses the same array runBackup/runRestore already persist as logLines — zero memory delta, freed by the existing disposeBackupBroadcaster call
+- [Phase 04]: [Phase 04-18] streamLiveBackupLog's replay snapshot, replay writes, and listener attachment run in one synchronous block with no await, so Node cannot interleave an emit across the replay/live boundary
 
 ### Quick Tasks Completed
 
@@ -249,6 +253,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-30T18:34:28.301Z
-Stopped at: Completed 04-17-PLAN.md
+Last session: 2026-08-31T07:49:20.243Z
+Stopped at: Completed 04-18-PLAN.md
 Resume file: None

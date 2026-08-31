@@ -149,7 +149,7 @@ Plans:
 - [x] 04-14-PLAN.md — Fix circular backup issue causing snapshot corruption
 - [x] 04-15-PLAN.md — Gap closure: SSE done payload carries terminal status, guaranteed `[error]` log line, abortBackup so a half-started backup cannot wedge the stack
 - [x] 04-17-PLAN.md — Gap closure: broadcaster registered at backup-creation time (CR-02), bounded SSE reconnect plus a self-terminating record poll while disconnected (CR-01), non-blank backup title on IN_PROGRESS (CR-03)
-- [ ] 04-18-PLAN.md — Gap closure: SSE live branch replays the accumulated log to every new subscriber so a reconnect no longer blanks the visible backup log (WR-01)
+- [x] 04-18-PLAN.md — Gap closure: SSE live branch replays the accumulated log to every new subscriber so a reconnect no longer blanks the visible backup log (WR-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

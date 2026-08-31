@@ -49,7 +49,7 @@
 
 - [ ] **BCK-01**: User can configure a restic repository (local path, SFTP, or S3-compatible) and password via Settings
 - [ ] **BCK-02**: Restic password is stored AES-encrypted in the DB
-- [ ] **BCK-03**: User can trigger a manual backup for any stack from the stack detail page
+- [x] **BCK-03**: User can trigger a manual backup for any stack from the stack detail page
 - [ ] **BCK-04**: User can configure a per-stack backup schedule (cron expression)
 - [ ] **BCK-05**: User can configure per-stack retention policy (daily/weekly/monthly counts)
 - [ ] **BCK-06**: Backup includes the entire stack directory (docker-compose.yml, .env, volumes/) excluding logs/
@@ -145,7 +145,7 @@
 | NOTF-06 | Phase 3 | Complete |
 | BCK-01 | Phase 4 | Gaps Found |
 | BCK-02 | Phase 4 | Gaps Found |
-| BCK-03 | Phase 4 | Gaps Found |
+| BCK-03 | Phase 4 | Complete |
 | BCK-04 | Phase 4 | Gaps Found |
 | BCK-05 | Phase 4 | Gaps Found |
 | BCK-06 | Phase 4 | Gaps Found |
