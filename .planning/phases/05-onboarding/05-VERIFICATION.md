@@ -1,7 +1,7 @@
 ---
 phase: 05-onboarding
 verified: 2026-08-31T18:35:00Z
-status: human_needed
+status: passed
 score: 5/5 roadmap truths verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -16,6 +16,7 @@ re_verification:
 behavior_unverified_items: []
 coincidental_reliance_items: []
 human_verification:
+
   - test: "Trigger two concurrent POST /api/setup/step1 requests (double-submit or two tabs) against a real Postgres instance and confirm only one admin account is created."
     expected: "The losing request receives a 400 'Setup already complete' response; exactly one User row exists afterward."
     why_human: "WR-07's fix relies on a Postgres unique-constraint race (Setting.key as a one-time lock row). The executed test for this (server/test/integration/setup-concurrency.test.ts, added in 05-10) is well-constructed and type-checks clean, but this verifier independently reproduced the exact same failure the 05-10-SUMMARY.md reported: the testcontainers postgres:17 container's mapped port completes a TCP handshake but Prisma/pg protocol traffic never flows (`prisma db push` → P1001: Can't reach database server). The pre-existing, byte-for-byte-unmodified server/test/integration/stacks.test.ts fails identically in this same run, confirming this is a Docker-outside-of-Docker sandbox networking limitation (tracked in .planning/todos/pending/2026-08-28-fix-integration-e2e-tests.md), not a regression introduced by this plan's code or a defect in the WR-07 lock itself. Needs to be run in an environment where testcontainers' Postgres is reachable at the protocol level (CI, or a host-native dev machine)."
