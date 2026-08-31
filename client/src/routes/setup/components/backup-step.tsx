@@ -1,11 +1,12 @@
-import {useState} from "react";
+import {useForm} from "react-hook-form";
+import {standardSchemaResolver} from "@hookform/resolvers/standard-schema";
+import {wizardStep3Schema, type WizardStep3Input} from "@docktor/shared";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
-import {Label} from "@/components/ui/label";
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import type {WizardStep3Input} from "@docktor/shared";
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/components/ui/form";
 
 interface BackupStepProps {
   onNext: (data: WizardStep3Input) => Promise<void>;
@@ -15,34 +16,25 @@ interface BackupStepProps {
 }
 
 export function BackupStep({onNext, onBack, onSkip, loading}: Readonly<BackupStepProps>) {
-  const [repoType, setRepoType] = useState<"local" | "sftp" | "s3" | "">("");
-  const [repoPath, setRepoPath] = useState("");
-  const [sftpHost, setSftpHost] = useState("");
-  const [sftpUser, setSftpUser] = useState("");
-  const [s3Endpoint, setS3Endpoint] = useState("");
-  const [s3Bucket, setS3Bucket] = useState("");
-  const [s3AccessKey, setS3AccessKey] = useState("");
-  const [s3SecretKey, setS3SecretKey] = useState("");
-  const [password, setPassword] = useState("");
+  // WR-02: use react-hook-form + the shared Zod resolver (matching
+  // AccountStep/SettingsStep) so server-side validation failures surface as
+  // field-level errors instead of a single generic toast.
+  const form = useForm<WizardStep3Input>({
+    resolver: standardSchemaResolver(wizardStep3Schema),
+    defaultValues: {
+      repoType: "local",
+      repoPath: "",
+      sftpHost: "",
+      sftpUser: "",
+      s3Endpoint: "",
+      s3Bucket: "",
+      s3AccessKey: "",
+      s3SecretKey: "",
+      password: "",
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!repoType) {
-      onSkip();
-      return;
-    }
-    await onNext({
-      repoType: repoType || null,
-      repoPath: repoPath || null,
-      sftpHost: sftpHost || null,
-      sftpUser: sftpUser || null,
-      s3Endpoint: s3Endpoint || null,
-      s3Bucket: s3Bucket || null,
-      s3AccessKey: s3AccessKey || null,
-      s3SecretKey: s3SecretKey || null,
-      password: password || null,
-    });
-  };
+  const repoType = form.watch("repoType");
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -53,85 +45,168 @@ export function BackupStep({onNext, onBack, onSkip, loading}: Readonly<BackupSte
           You can skip this and configure it later in Settings.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="repoType">Repository Type</Label>
-            <Select value={repoType} onValueChange={(v) => setRepoType(v as "local" | "sftp" | "s3")}>
-              <SelectTrigger id="repoType">
-                <SelectValue placeholder="Select type (optional)..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">Local</SelectItem>
-                <SelectItem value="sftp">SFTP</SelectItem>
-                <SelectItem value="s3">S3-compatible</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onNext)}>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="repoType"
+              render={({field}) => (
+                <FormItem>
+                  <FormLabel>Repository Type</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger id="repoType">
+                        <SelectValue placeholder="Select type..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="local">Local</SelectItem>
+                      <SelectItem value="sftp">SFTP</SelectItem>
+                      <SelectItem value="s3">S3-compatible</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {repoType === "local" && (
-            <Alert>
-              <AlertDescription>
-                Backups are stored in a <code className="text-sm">backups/</code> subdirectory within each stack's directory.
-              </AlertDescription>
-            </Alert>
-          )}
+            {repoType === "local" && (
+              <Alert>
+                <AlertDescription>
+                  Backups are stored in a <code className="text-sm">backups/</code> subdirectory within each stack's directory.
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {repoType === "sftp" && (
-            <>
-              <div className="space-y-1">
-                <Label htmlFor="repoPath">Repository Path</Label>
-                <Input id="repoPath" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/backups" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sftpHost">Host</Label>
-                <Input id="sftpHost" value={sftpHost} onChange={(e) => setSftpHost(e.target.value)} placeholder="backup.example.com" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sftpUser">Username</Label>
-                <Input id="sftpUser" value={sftpUser} onChange={(e) => setSftpUser(e.target.value)} placeholder="backup-user" />
-              </div>
-            </>
-          )}
+            {repoType === "sftp" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="repoPath"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Repository Path</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="/backups" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sftpHost"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Host</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="backup.example.com" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sftpUser"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="backup-user" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
-          {repoType === "s3" && (
-            <>
-              <div className="space-y-1">
-                <Label htmlFor="s3Endpoint">Endpoint URL</Label>
-                <Input id="s3Endpoint" value={s3Endpoint} onChange={(e) => setS3Endpoint(e.target.value)} placeholder="https://s3.amazonaws.com" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="s3Bucket">Bucket Name</Label>
-                <Input id="s3Bucket" value={s3Bucket} onChange={(e) => setS3Bucket(e.target.value)} placeholder="my-backup-bucket" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="s3AccessKey">Access Key ID</Label>
-                <Input id="s3AccessKey" value={s3AccessKey} onChange={(e) => setS3AccessKey(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="s3SecretKey">Secret Access Key</Label>
-                <Input id="s3SecretKey" type="password" value={s3SecretKey} onChange={(e) => setS3SecretKey(e.target.value)} />
-              </div>
-            </>
-          )}
+            {repoType === "s3" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="s3Endpoint"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Endpoint URL</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="https://s3.amazonaws.com" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3Bucket"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Bucket Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="my-backup-bucket" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3AccessKey"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Access Key ID</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ""} placeholder="AKIAIOSFODNN7EXAMPLE" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3SecretKey"
+                  render={({field}) => (
+                    <FormItem>
+                      <FormLabel>Secret Access Key</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
-          {repoType && (
-            <div className="space-y-1">
-              <Label htmlFor="resticPassword">Restic Password</Label>
-              <Input id="resticPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Encryption password" />
+            {repoType && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({field}) => (
+                  <FormItem>
+                    <FormLabel>Restic Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} value={field.value ?? ""} placeholder="Encryption password" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button type="button" variant="outline" onClick={onBack}>Back</Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onSkip}>Skip</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Next"}
+              </Button>
             </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button type="button" variant="outline" onClick={onBack}>Back</Button>
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={onSkip}>Skip</Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Next"}
-            </Button>
-          </div>
-        </CardFooter>
-      </form>
+          </CardFooter>
+        </form>
+      </Form>
     </Card>
   );
 }
