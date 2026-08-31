@@ -2,6 +2,7 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 import {render, screen} from "@testing-library/react";
 import {MemoryRouter, Route, Routes} from "react-router";
 import {FirstRunGate} from "../../../../../src/components/domain/auth/first-run-gate";
+import {resetSetupStatusCacheForTests} from "@/hooks/use-setup-status";
 import {checkSetupStatus} from "@/lib/setup-api";
 
 vi.mock("@/lib/setup-api", () => ({
@@ -12,6 +13,9 @@ const mockCheckSetupStatus = vi.mocked(checkSetupStatus);
 
 beforeEach(() => {
     mockCheckSetupStatus.mockReset();
+    // useSetupStatus caches the resolved status at module scope — reset it
+    // so each test's mock resolution is actually exercised.
+    resetSetupStatusCacheForTests();
 });
 
 function renderGate() {
