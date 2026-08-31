@@ -3,7 +3,7 @@ import {StackRepository} from "../repositories/stack-repository.js";
 import {SettingsRepository} from "../repositories/settings-repository.js";
 import {encrypt} from "../lib/crypto.js";
 import {slugify} from "../lib/slugify.js";
-import {ConflictError} from "../lib/errors.js";
+import {AppError, BadRequestError, ConflictError} from "../lib/errors.js";
 import {createComposeConfig} from "../domain/compose-config.js";
 import type {
     WizardStep1Input,
@@ -39,7 +39,9 @@ export class OnboardingService {
         });
 
         if (!result.user || !result.token) {
-            throw new Error("Signup succeeded but no session returned");
+            // WR-03: unexpected upstream auth state, not a client input
+            // problem — keep the default 500 but use the typed hierarchy.
+            throw new AppError("Signup succeeded but no session returned");
         }
 
         return {
@@ -137,7 +139,8 @@ export class OnboardingService {
     ): Promise<{id: string}> {
         const id = slugify(displayName);
         if (!id) {
-            throw new Error("Display name produces an empty slug");
+            // WR-03: an empty slug is a client input problem — 400, not 500.
+            throw new BadRequestError("Display name produces an empty slug");
         }
 
         if (await this.stackRepo.exists(id)) {
