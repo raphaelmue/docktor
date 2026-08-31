@@ -12,6 +12,11 @@ import {
     wizardStep5Schema,
 } from "@docktor/shared";
 
+// WR-07: unique-key row used as an atomic "first admin" lock — see step1
+// handler below. `Setting.key` is the table's primary key, so Postgres
+// itself guarantees only one concurrent insert can ever win.
+const SETUP_STEP1_LOCK_KEY = "setup.step1Lock";
+
 const setupRoutes: FastifyPluginAsyncZod = async (app) => {
     // CR-01: every /api/setup/* route beyond step 1 must stop being reachable
     // once setup is complete — otherwise an unauthenticated caller can rewrite
@@ -47,8 +52,30 @@ const setupRoutes: FastifyPluginAsyncZod = async (app) => {
                 return reply.status(400).send({error: "Setup already complete"});
             }
 
-            const result = await onboardingService.handleWizardStep1(request.body);
-            return result;
+            // WR-07: the count-then-create sequence above is not atomic — two
+            // concurrent requests (double-clicked "Next", two browser tabs)
+            // could both observe userCount === 0 and both proceed. Atomically
+            // claim a one-time lock row before creating the account; the
+            // unique primary key on Setting.key means Postgres guarantees
+            // only one concurrent insert can win, so a losing request is
+            // rejected here before it ever reaches signUpEmail. The lock is
+            // always released afterward (`finally`) — it only needs to
+            // survive the race window, since `userCount > 0` becomes the
+            // durable "already complete" guard for every request from then on.
+            try {
+                await prisma.setting.create({
+                    data: {key: SETUP_STEP1_LOCK_KEY, value: new Date().toISOString()},
+                });
+            } catch {
+                return reply.status(400).send({error: "Setup already complete"});
+            }
+
+            try {
+                const result = await onboardingService.handleWizardStep1(request.body);
+                return result;
+            } finally {
+                await prisma.setting.delete({where: {key: SETUP_STEP1_LOCK_KEY}}).catch(() => {});
+            }
         },
     );
 
