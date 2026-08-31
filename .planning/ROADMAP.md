@@ -185,17 +185,27 @@ Plans:
 **Plans**: 10 plans (8 original + 2 gap closure)
 
 Plans:
+**Wave 1**
 
 - [x] 05-01-PLAN.md — Shared wizard schemas + RED test scaffolds + E2E test scaffold (Wave 1)
-- [x] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure (Wave 2)
-- [x] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
-- [x] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService (Wave 3)
-- [x] 05-05-PLAN.md — Setup API client + WizardStepper + setup page shell (Wave 3)
-- [x] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
-- [x] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
-- [x] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
 - [ ] 05-09-PLAN.md — Gap closure: client first-run gate so a fresh install lands on /setup, not /login (WIZ-01) (Wave 1)
 - [ ] 05-10-PLAN.md — Gap closure: executed coverage for migration rollback (BF-05) and the WR-07 concurrent-admin lock (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 05-02-PLAN.md — BrownfieldScanner + ComposeAnalyzer infrastructure (Wave 2)
+- [x] 05-03-PLAN.md — OnboardingService + setup routes + middleware redirect (Wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 05-04-PLAN.md — ComposeRewriter + VolumeMigrator + MigrationService (Wave 3)
+- [x] 05-05-PLAN.md — Setup API client + WizardStepper + setup page shell (Wave 3)
+- [x] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
+- [x] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
 
 ### Phase 6: Proxy Configuration
 

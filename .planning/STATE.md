@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-current_phase: 1
-current_phase_name: MVP Completion
+current_phase: 05
+current_phase_name: onboarding
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
 stopped_at: Phase 04 complete, ready to plan Phase 1
-last_updated: "2026-08-31T09:12:10.161Z"
-state_head: 422b046b2cd4b7a4b5b4dd74296a503d1b14c6eb
+last_updated: "2026-08-31T13:08:56.765Z"
+state_head: 26eb76650855af86dc0bc68229d997241e080576
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 53
+  total_plans: 55
   completed_plans: 53
 milestone_name: milestone
 ---
@@ -22,12 +22,12 @@ milestone_name: milestone
 See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 04 — Backup & Restore
+**Current focus:** Phase 05 — Onboarding
 
 ## Current Position
 
-Phase: 1 — MVP Completion
-Plan: Not started
+Phase: 05 (onboarding) — READY TO EXECUTE
+Plan: 1 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
