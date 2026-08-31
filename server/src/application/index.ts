@@ -52,4 +52,4 @@ export const backupService = new BackupService(
     docker,
 );
 
-export {getBackupBroadcaster} from "./backup-service.js";
+export {getBackupBroadcaster, getBackupLogBuffer} from "./backup-service.js";

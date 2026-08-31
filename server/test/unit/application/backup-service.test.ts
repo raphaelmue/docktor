@@ -4,6 +4,8 @@ import {
     getBackupBroadcaster,
     ensureBackupBroadcaster,
     disposeBackupBroadcaster,
+    ensureBackupLogBuffer,
+    getBackupLogBuffer,
 } from "../../../src/application/backup-service.js";
 import {EventEmitter} from "node:events";
 import path from "node:path";
@@ -479,6 +481,72 @@ describe("BackupService", () => {
             await service.runBackup(backupRecord as any, stack as any, repoConfig);
 
             expect(getBackupBroadcaster(backupRecord.id)).toBeUndefined();
+        });
+    });
+
+    describe("log buffer (WR-01 — live SSE replay)", () => {
+        it("getBackupLogBuffer returns undefined for a backup id no run has started", () => {
+            expect(getBackupLogBuffer("no-run-started-for-this-id")).toBeUndefined();
+        });
+
+        it("ensureBackupLogBuffer returns the same array instance on repeated calls for one id", () => {
+            const first = ensureBackupLogBuffer("backup-1");
+            const second = ensureBackupLogBuffer("backup-1");
+
+            expect(first).toBe(second);
+        });
+
+        it("while runBackup is mid-run, getBackupLogBuffer(backupRecord.id) contains every line already handed to the executor's line callback, in arrival order", async () => {
+            const backupRecord = {id: "backup-1", stackId: "stack-1", trigger: "MANUAL", logLines: []};
+            const stack = {id: "stack-1", status: "BACKING_UP", previousStatus: "RUNNING", backupRetention: null};
+            const repoConfig = {repoType: "local" as const, repoPath: "/backups", password: "plaintext-password"};
+
+            let assertedInsideCallback = false;
+            mockResticExecutor.run.mockImplementation(
+                async (_args: string[], _env: object, onLine?: (line: string) => void) => {
+                    onLine?.("line one");
+                    onLine?.("line two");
+                    // Assert from inside the mocked executor's callback — the point
+                    // at which lines have been emitted but the run has not finished —
+                    // so mid-run visibility is real, not inferred from the terminal state.
+                    expect(getBackupLogBuffer(backupRecord.id)).toEqual(["line one", "line two"]);
+                    assertedInsideCallback = true;
+                    return {exitCode: 0, stderr: ""};
+                },
+            );
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(assertedInsideCallback).toBe(true);
+        });
+
+        it("getBackupLogBuffer(backupRecord.id) is undefined after runBackup reaches a terminal state", async () => {
+            const backupRecord = {id: "backup-1", stackId: "stack-1", trigger: "MANUAL", logLines: []};
+            const stack = {id: "stack-1", status: "BACKING_UP", previousStatus: "RUNNING", backupRetention: null};
+            const repoConfig = {repoType: "local" as const, repoPath: "/backups", password: "plaintext-password"};
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(getBackupLogBuffer(backupRecord.id)).toBeUndefined();
+        });
+
+        it("while runRestore is mid-run, getBackupLogBuffer(backup.id) contains every line already handed to the executor's line callback, in arrival order (restore parity)", async () => {
+            const snapshotId = "abc123def456";
+
+            let assertedInsideCallback = false;
+            mockResticExecutor.run.mockImplementation(
+                async (_args: string[], _env: object, onLine?: (line: string) => void) => {
+                    onLine?.("restore line one");
+                    onLine?.("restore line two");
+                    expect(getBackupLogBuffer("backup-1")).toEqual(["restore line one", "restore line two"]);
+                    assertedInsideCallback = true;
+                    return {exitCode: 0, stderr: ""};
+                },
+            );
+
+            await service.runRestore("stack-1", snapshotId);
+
+            expect(assertedInsideCallback).toBe(true);
         });
     });
 

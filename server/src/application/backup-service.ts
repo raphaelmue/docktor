@@ -17,6 +17,7 @@ import type {DockerExecutor} from "../infrastructure/docker-executor.js"
 // ─── Module-level broadcaster map ────────────────────────────────────────────
 
 const backupBroadcasters = new Map<string, EventEmitter>()
+const backupLogBuffers = new Map<string, string[]>()
 
 export function getBackupBroadcaster(backupId: string): EventEmitter | undefined {
     return backupBroadcasters.get(backupId)
@@ -38,6 +39,31 @@ export function ensureBackupBroadcaster(backupId: string): EventEmitter {
 }
 
 /**
+ * Returns the live line accumulator for `backupId`, creating and registering
+ * one if absent. This is the same array `runBackup`/`runRestore` push every
+ * emitted line into, so a subscriber that arrives mid-run can be sent the
+ * lines it missed. Companion of `ensureBackupBroadcaster`; freed by
+ * `disposeBackupBroadcaster`. The only function permitted to write to
+ * `backupLogBuffers`.
+ */
+export function ensureBackupLogBuffer(backupId: string): string[] {
+    const existing = backupLogBuffers.get(backupId)
+    if (existing) return existing
+    const lines: string[] = []
+    backupLogBuffers.set(backupId, lines)
+    return lines
+}
+
+/**
+ * Returns the live line accumulator for `backupId`, or `undefined` if no run
+ * has started one. `readonly` because only the service writes to it — the
+ * route only reads it.
+ */
+export function getBackupLogBuffer(backupId: string): readonly string[] | undefined {
+    return backupLogBuffers.get(backupId)
+}
+
+/**
  * Drops all listeners and removes `backupId` from the map. The only function
  * permitted to remove from `backupBroadcasters`.
  */
@@ -45,6 +71,7 @@ export function disposeBackupBroadcaster(backupId: string): void {
     const existing = backupBroadcasters.get(backupId)
     existing?.removeAllListeners()
     backupBroadcasters.delete(backupId)
+    backupLogBuffers.delete(backupId)
 }
 
 // ─── Dependency interfaces ────────────────────────────────────────────────────
@@ -179,7 +206,7 @@ export class BackupService {
     ): Promise<void> {
         const emitter = ensureBackupBroadcaster(backupRecord.id)
 
-        const lines: string[] = []
+        const lines = ensureBackupLogBuffer(backupRecord.id)
         let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
         console.log(`[BackupService] Starting backup ${backupRecord.id} for stack ${stack.id}`)
 
@@ -282,7 +309,7 @@ export class BackupService {
 
         const emitter = ensureBackupBroadcaster(backup.id)
 
-        const lines: string[] = []
+        const lines = ensureBackupLogBuffer(backup.id)
         let finalStatus: "COMPLETED" | "FAILED" = "FAILED"
 
         // Send restore start notification
