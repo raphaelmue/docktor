@@ -18,19 +18,32 @@ export default function SetupPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [setupComplete, setSetupComplete] = useState(false);
+  // WR-06: a failed status check must not silently fall through to
+  // "setup incomplete" — that would render the full wizard (including
+  // account creation) on an already-configured instance just because of a
+  // transient network blip. Track the failure explicitly and show a
+  // dedicated retry state instead.
+  const [statusError, setStatusError] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [stepLoading, setStepLoading] = useState(false);
 
-  useEffect(() => {
+  const loadSetupStatus = () => {
+    setLoading(true);
+    setStatusError(false);
     checkSetupStatus()
       .then((status) => {
         setSetupComplete(status.setupComplete);
         setLoading(false);
       })
       .catch(() => {
+        setStatusError(true);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadSetupStatus();
   }, []);
 
   const markStepComplete = (step: number) => {
@@ -123,6 +136,25 @@ export default function SetupPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (statusError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Unable to Check Setup Status</CardTitle>
+            <CardDescription>
+              We couldn't reach the server to check whether setup has already
+              been completed. Please check your connection and try again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={loadSetupStatus}>Retry</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
