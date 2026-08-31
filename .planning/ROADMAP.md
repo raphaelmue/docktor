@@ -182,7 +182,7 @@ Plans:
   4. User can adopt a discovered stack in-place with zero downtime, and it immediately appears in the dashboard with live status
   5. User can run the full migration wizard to move a stack into Docktor's directory structure, with automatic rollback on failure
 
-**Plans**: 8 plans
+**Plans**: 10 plans (8 original + 2 gap closure)
 
 Plans:
 
@@ -194,6 +194,8 @@ Plans:
 - [x] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
 - [x] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
 - [x] 05-08-PLAN.md — CompatibilityBadge + DiffViewer components (Wave 3)
+- [ ] 05-09-PLAN.md — Gap closure: client first-run gate so a fresh install lands on /setup, not /login (WIZ-01) (Wave 1)
+- [ ] 05-10-PLAN.md — Gap closure: executed coverage for migration rollback (BF-05) and the WR-07 concurrent-admin lock (Wave 1)
 
 ### Phase 6: Proxy Configuration
 
