@@ -11,7 +11,24 @@ async function mockNoSession(page: Page) {
     );
 }
 
+/**
+ * GET /api/setup/status — setup already finished. `ProtectedRoute` now
+ * consults this endpoint (via `FirstRunGate`) before falling back to
+ * `/login`, so leaving it unstubbed makes these tests depend on whether a
+ * dev API server happens to be reachable on port 3000 and whether its
+ * database has users.
+ */
+async function mockSetupComplete(page: Page) {
+    await page.route("**/api/setup/status", (route) =>
+        route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({setupComplete: true})}),
+    );
+}
+
 test.describe("Authentication", () => {
+    test.beforeEach(async ({page}) => {
+        await mockSetupComplete(page);
+    });
+
     test("login page renders with form elements", async ({page}) => {
         await mockNoSession(page);
         await page.goto("/login");

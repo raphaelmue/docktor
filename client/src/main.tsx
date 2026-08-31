@@ -7,6 +7,7 @@ import SignupPage from "./routes/auth/signup";
 import "./index.css";
 import {AppLayout} from "@/components/app-layout";
 import {Toaster} from "@/components/ui/sonner";
+import {FirstRunGate} from "@/components/domain/auth/first-run-gate";
 import Dashboard from "@/routes/app/dashboard";
 import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
@@ -27,7 +28,11 @@ function ProtectedRoute({children}: Readonly<{children: React.ReactNode}>) {
     }
 
     if (!session) {
-        return <Navigate to="/login" replace />;
+        return (
+            <FirstRunGate>
+                <Navigate to="/login" replace />
+            </FirstRunGate>
+        );
     }
 
     return <>{children}</>;
@@ -38,7 +43,14 @@ function App() {
         <BrowserRouter>
             <Toaster />
             <Routes>
-                <Route path="/login" element={<LoginPage />} />
+                <Route
+                    path="/login"
+                    element={
+                        <FirstRunGate>
+                            <LoginPage />
+                        </FirstRunGate>
+                    }
+                />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/setup" element={<SetupPage />} />
                 <Route
