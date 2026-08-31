@@ -7,7 +7,8 @@ import {
     restoreSnapshotSchema,
 } from "@docktor/shared"
 import {requireAuth} from "../lib/auth-middleware.js"
-import {backupService, getBackupBroadcaster, settingsRepository} from "../application/index.js"
+import {backupService, getBackupBroadcaster, getBackupLogBuffer, settingsRepository} from "../application/index.js"
+import {streamLiveBackupLog} from "../lib/sse-backup-log.js"
 import {backupRepository} from "../repositories/backup-repository.js"
 import {stackRepository} from "../repositories/stack-repository.js"
 import {resticExecutor} from "../infrastructure/restic-executor.js"
@@ -185,25 +186,15 @@ const backupsPlugin: FastifyPluginAsyncZod = async (app) => {
                 return
             }
 
-            await new Promise<void>((resolve) => {
-                const onLine = (line: string): void => {
-                    reply.raw.write(`data: ${JSON.stringify({line})}\n\n`)
-                }
-
-                const onDone = (finalStatus?: string): void => {
-                    reply.raw.write(`data: ${JSON.stringify({done: true, status: finalStatus ?? backup.status})}\n\n`)
-                    reply.raw.end()
-                    resolve()
-                }
-
-                emitter.on("line", onLine)
-                emitter.once("done", onDone)
-
-                request.raw.on("close", () => {
-                    emitter.off("line", onLine)
-                    emitter.off("done", onDone)
-                    resolve()
-                })
+            await streamLiveBackupLog({
+                emitter,
+                buffered: getBackupLogBuffer(id) ?? [],
+                fallbackStatus: backup.status,
+                port: {
+                    write: (frame) => reply.raw.write(frame),
+                    end: () => reply.raw.end(),
+                    onClientClose: (handler) => request.raw.on("close", handler),
+                },
             })
         },
     )
