@@ -11,7 +11,6 @@ import {
     wizardStep4Schema,
     wizardStep5Schema,
 } from "@docktor/shared";
-import fs from "node:fs/promises";
 
 const setupRoutes: FastifyPluginAsyncZod = async (app) => {
     // CR-01: every /api/setup/* route beyond step 1 must stop being reachable
@@ -123,8 +122,9 @@ const setupRoutes: FastifyPluginAsyncZod = async (app) => {
         },
         async (request) => {
             const {composePath, displayName} = request.body;
-            const content = await fs.readFile(composePath, "utf-8");
-            const result = await onboardingService.adoptInPlace(composePath, displayName, content);
+            // WR-05: file I/O now lives in OnboardingService.adoptInPlace —
+            // the route only extracts/validates the body and delegates.
+            const result = await onboardingService.adoptInPlace(composePath, displayName);
             return result;
         },
     );

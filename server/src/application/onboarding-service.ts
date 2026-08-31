@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import {auth} from "../lib/auth.js";
 import {StackRepository} from "../repositories/stack-repository.js";
 import {SettingsRepository} from "../repositories/settings-repository.js";
@@ -23,6 +24,9 @@ export class OnboardingService {
         private readonly settingsRepo: SettingsRepository,
         private readonly cryptoLib: {encrypt: typeof encrypt},
         private readonly stackRepo: StackRepository,
+        // WR-05: injectable so adoptInPlace's file read is unit-testable
+        // without touching the real filesystem.
+        private readonly fsLib: {readFile: typeof fs.readFile} = fs,
     ) {}
 
     /**
@@ -129,13 +133,13 @@ export class OnboardingService {
     }
 
     /**
-     * BF-03: Adopt stack in-place (no file operations)
-     * Creates Stack record pointing to existing directory
+     * BF-03: Adopt stack in-place (no filesystem moves — the stack directory
+     * stays where it is; only the compose file is read to build the config).
+     * Creates Stack record pointing to existing directory.
      */
     async adoptInPlace(
         composePath: string,
         displayName: string,
-        composeContent: string,
     ): Promise<{id: string}> {
         const id = slugify(displayName);
         if (!id) {
@@ -146,6 +150,10 @@ export class OnboardingService {
         if (await this.stackRepo.exists(id)) {
             throw new ConflictError(`Stack "${id}" already exists`);
         }
+
+        // WR-05: file I/O belongs in the application layer, not the route
+        // handler — read the compose file here instead of in routes/setup.ts.
+        const composeContent = await this.fsLib.readFile(composePath, "utf-8");
 
         const hostPath = composePath.replace(
             /[\/\\]docker-compose\.(yml|yaml)$|[\/\\]compose\.yaml$/,

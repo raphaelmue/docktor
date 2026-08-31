@@ -29,11 +29,18 @@ function createMockCrypto() {
     };
 }
 
+function createMockFsLib() {
+    return {
+        readFile: vi.fn(),
+    };
+}
+
 describe("OnboardingService", () => {
     let mockSettingsRepo: ReturnType<typeof createMockSettingsRepo>;
     let mockStackRepo: ReturnType<typeof createMockStackRepo>;
     let mockAuthClient: ReturnType<typeof createMockAuthClient>;
     let mockCrypto: ReturnType<typeof createMockCrypto>;
+    let mockFsLib: ReturnType<typeof createMockFsLib>;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -41,6 +48,7 @@ describe("OnboardingService", () => {
         mockStackRepo = createMockStackRepo();
         mockAuthClient = createMockAuthClient();
         mockCrypto = createMockCrypto();
+        mockFsLib = createMockFsLib();
     });
 
     describe("handleWizardStep1 (WIZ-02)", () => {
@@ -152,14 +160,15 @@ describe("OnboardingService", () => {
 
     describe("adoptInPlace (BF-03)", () => {
         it("should create Stack record with hostPath pointing to discovered path", async () => {
-            // BF-03: adopt in-place, no file operations
+            // BF-03: adopt in-place — no stack-directory move/copy; the compose
+            // file itself is read (WR-05) to build the stored compose config.
             mockStackRepo.exists.mockResolvedValue(false);
             mockStackRepo.create.mockResolvedValue({ id: "existing-stack", displayName: "Existing Stack", hostPath: "/home/user/my-compose-stack" } as any);
-            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any);
+            mockFsLib.readFile.mockResolvedValue("version: '3'\nservices:\n  web:\n    image: nginx");
+            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any, mockFsLib as any);
             const result = await service.adoptInPlace(
                 "/home/user/my-compose-stack/docker-compose.yml",
                 "Existing Stack",
-                "version: '3'\nservices:\n  web:\n    image: nginx"
             );
             expect(result.id).toBe("existing-stack");
             expect(mockStackRepo.create).toHaveBeenCalledWith(
@@ -171,28 +180,30 @@ describe("OnboardingService", () => {
             );
         });
 
-        it("should not move any files during in-place adoption", async () => {
-            // Verify no file system operations happen - just check that create was called
+        it("should read the compose file at composePath but not move/copy the stack directory", async () => {
+            // WR-05: the service now performs the file read (previously done in
+            // the route handler) — verify it reads exactly the given path and
+            // otherwise only calls repo.create (no directory copy/move calls).
             mockStackRepo.exists.mockResolvedValue(false);
             mockStackRepo.create.mockResolvedValue({ id: "stack-to-adopt", hostPath: "/opt/my-stack" } as any);
-            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any);
+            mockFsLib.readFile.mockResolvedValue("version: '3'\nservices:\n  app:\n    image: alpine");
+            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any, mockFsLib as any);
             await service.adoptInPlace(
                 "/opt/my-stack/docker-compose.yml",
                 "Stack to Adopt",
-                "version: '3'\nservices:\n  app:\n    image: alpine"
             );
-            // The service should only call repo.create, no file operations
+            expect(mockFsLib.readFile).toHaveBeenCalledWith("/opt/my-stack/docker-compose.yml", "utf-8");
             expect(mockStackRepo.create).toHaveBeenCalled();
         });
 
-        it("should throw error if stack with same name already exists", async () => {
+        it("should throw error if stack with same name already exists, without reading the compose file", async () => {
             mockStackRepo.exists.mockResolvedValue(true);
-            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any);
+            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any, mockFsLib as any);
             await expect(service.adoptInPlace(
                 "/home/user/stack/docker-compose.yml",
                 "Duplicate Stack",
-                "version: '3'\nservices:\n  web:\n    image: nginx"
             )).rejects.toThrow('Stack "duplicate-stack" already exists');
+            expect(mockFsLib.readFile).not.toHaveBeenCalled();
         });
     });
 });
