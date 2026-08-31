@@ -155,8 +155,12 @@ export class OnboardingService {
         // handler — read the compose file here instead of in routes/setup.ts.
         const composeContent = await this.fsLib.readFile(composePath, "utf-8");
 
+        // WR-10: also strip bare "compose.yml" (no docker- prefix), matching
+        // the full set of file names BrownfieldScanner now recognizes —
+        // otherwise hostPath would retain the filename and break subsequent
+        // `docker compose` invocations that `cwd` into hostPath.
         const hostPath = composePath.replace(
-            /[\/\\]docker-compose\.(yml|yaml)$|[\/\\]compose\.yaml$/,
+            /[\/\\](docker-compose\.(yml|yaml)|compose\.(yml|yaml))$/,
             "",
         );
         const composeConfig = createComposeConfig(composeContent);

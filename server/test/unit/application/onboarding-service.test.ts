@@ -196,6 +196,20 @@ describe("OnboardingService", () => {
             expect(mockStackRepo.create).toHaveBeenCalled();
         });
 
+        it("should strip a bare compose.yml filename (no docker- prefix) from hostPath (WR-10)", async () => {
+            mockStackRepo.exists.mockResolvedValue(false);
+            mockStackRepo.create.mockResolvedValue({ id: "bare-compose", hostPath: "/opt/bare-stack" } as any);
+            mockFsLib.readFile.mockResolvedValue("services:\n  app:\n    image: alpine");
+            const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any, mockFsLib as any);
+            await service.adoptInPlace(
+                "/opt/bare-stack/compose.yml",
+                "Bare Compose",
+            );
+            expect(mockStackRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({hostPath: "/opt/bare-stack"})
+            );
+        });
+
         it("should throw error if stack with same name already exists, without reading the compose file", async () => {
             mockStackRepo.exists.mockResolvedValue(true);
             const service = new OnboardingService(mockAuthClient as any, mockSettingsRepo as any, mockCrypto as any, mockStackRepo as any, mockFsLib as any);

@@ -64,6 +64,18 @@ describe("BrownfieldScanner", () => {
             expect(result.stacks[0].path).toContain("docker-compose.yml");
         });
 
+        it("should find bare compose.yml files (no docker- prefix, WR-10)", async () => {
+            mockFg.mockResolvedValue(["/home/user/projects/myapp/compose.yml"]);
+
+            const scanner = new BrownfieldScanner(mockAnalyzer);
+            const result = await scanner.scan(["/home/user/projects"]);
+
+            expect(result.stacks.length).toBeGreaterThan(0);
+            expect(result.stacks[0].path).toContain("compose.yml");
+            const callPatterns = mockFg.mock.calls[0][0];
+            expect(callPatterns).toContain("**/compose.yml");
+        });
+
         it("should find docker-compose.yaml and compose.yaml files", async () => {
             mockFg.mockResolvedValue(["/opt/stacks/a/docker-compose.yaml", "/opt/stacks/b/compose.yaml"]);
 

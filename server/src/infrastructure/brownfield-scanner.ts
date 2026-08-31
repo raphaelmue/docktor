@@ -25,10 +25,14 @@ export interface ScanResult {
 }
 
 export class BrownfieldScanner {
+    // WR-10: "compose.yml" (no docker- prefix) is a valid Compose file name
+    // too — Docker Compose's own resolution order is compose.yaml ->
+    // compose.yml -> docker-compose.yaml -> docker-compose.yml.
     private readonly COMPOSE_FILE_PATTERNS = [
         "**/docker-compose.yml",
         "**/docker-compose.yaml",
         "**/compose.yaml",
+        "**/compose.yml",
     ];
 
     private readonly SYSTEM_DIR_EXCLUDES = [
