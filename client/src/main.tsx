@@ -43,7 +43,14 @@ function App() {
         <BrowserRouter>
             <Toaster />
             <Routes>
-                <Route path="/login" element={<LoginPage />} />
+                <Route
+                    path="/login"
+                    element={
+                        <FirstRunGate>
+                            <LoginPage />
+                        </FirstRunGate>
+                    }
+                />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/setup" element={<SetupPage />} />
                 <Route

@@ -121,6 +121,23 @@ test.describe("Setup Wizard", () => {
             await expect(page.getByRole("button", {name: /step 1: account/i})).toHaveAttribute("aria-current", "step");
         });
 
+        test("should redirect /login to /setup when no users exist", async ({page}) => {
+            await mockNoSession(page);
+            await mockSetupIncomplete(page);
+            await page.goto("/login");
+
+            await expect(page).toHaveURL(/\/setup$/);
+        });
+
+        test("should keep /login on an instance that already has users", async ({page}) => {
+            await mockNoSession(page);
+            await mockSetupComplete(page);
+            await page.goto("/login");
+
+            await expect(page.getByRole("button", {name: /sign in/i})).toBeVisible();
+            await expect(page).toHaveURL(/\/login$/);
+        });
+
         test("should show 5-step stepper with Account as first step", async ({page}) => {
             // WIZ-07: Wizard UI
             await mockSetupIncomplete(page);
