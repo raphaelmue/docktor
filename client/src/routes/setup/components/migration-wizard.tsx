@@ -8,16 +8,27 @@ import {Checkbox} from "@/components/ui/checkbox";
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {DiffViewer} from "./diff-viewer";
-import {previewMigration, executeMigration, type DiscoveredStack, type VolumeSelection} from "@/lib/setup-api";
+import {previewMigration, type DiscoveredStack, type VolumeSelection} from "@/lib/setup-api";
+
+export interface ConfirmMigrateParams {
+  stack: DiscoveredStack;
+  displayName: string;
+  volumeSelections: VolumeSelection[];
+  namedVolumeSelections: Record<string, boolean>;
+}
 
 interface MigrationWizardProps {
   stack: DiscoveredStack;
   open: boolean;
   onClose: () => void;
-  onComplete: (stackId: string) => void;
+  // WR-09: migration execution (the async fetch + its toasts) now runs in
+  // the parent (BrownfieldStep), which stays mounted for the whole
+  // background migration — the dialog itself closes immediately on confirm
+  // and must never update its own state afterward.
+  onConfirmMigrate: (params: ConfirmMigrateParams) => void;
 }
 
-export function MigrationWizard({stack, open, onClose, onComplete}: Readonly<MigrationWizardProps>) {
+export function MigrationWizard({stack, open, onClose, onConfirmMigrate}: Readonly<MigrationWizardProps>) {
   const [step, setStep] = useState<1 | 2>(1);
   const [displayName, setDisplayName] = useState(stack.directory.split("/").pop() || "");
   const [loading, setLoading] = useState(false);
@@ -75,34 +86,18 @@ export function MigrationWizard({stack, open, onClose, onComplete}: Readonly<Mig
     }
   };
 
-  const handleMigrate = async () => {
-    setLoading(true);
-    toast.info(`Migrating ${displayName}...`);
-    onClose(); // Close modal, migration runs in background
-
-    try {
-      const result = await executeMigration(
-        stack.path,
-        displayName,
-        bindMountSelections,
-        namedVolumeSelections,
-      );
-
-      if (result.success && result.stackId) {
-        toast.success(`Migration complete! ${displayName} is now managed by Docktor`, {
-          action: {
-            label: "View stack",
-            onClick: () => window.location.href = `/stacks/${result.stackId}`,
-          },
-        });
-        onComplete(result.stackId);
-      } else {
-        toast.error(result.error || "Migration failed");
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Migration failed";
-      toast.error(message);
-    }
+  const handleMigrate = () => {
+    // WR-09: hand off to the parent and close immediately — this component
+    // is about to unmount, so it must not perform (or await) any work that
+    // would try to update its own state afterward. The parent stays mounted
+    // for the whole background migration and owns the loading/toast UX.
+    onConfirmMigrate({
+      stack,
+      displayName,
+      volumeSelections: bindMountSelections,
+      namedVolumeSelections,
+    });
+    handleClose();
   };
 
   const handleClose = () => {

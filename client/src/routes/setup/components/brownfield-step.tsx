@@ -9,8 +9,8 @@ import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} f
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/table";
 import {Skeleton} from "@/components/ui/skeleton";
 import {CompatibilityBadge} from "./compatibility-badge";
-import {MigrationWizard} from "./migration-wizard";
-import {scanDirectories, adoptStack, type DiscoveredStack} from "@/lib/setup-api";
+import {MigrationWizard, type ConfirmMigrateParams} from "./migration-wizard";
+import {scanDirectories, adoptStack, executeMigration, type DiscoveredStack} from "@/lib/setup-api";
 
 interface BrownfieldStepProps {
   onBack: () => void;
@@ -81,11 +81,30 @@ export function BrownfieldStep({onBack, onSkip, onFinish}: Readonly<BrownfieldSt
     }
   };
 
-  const handleMigrationComplete = (stackId: string) => {
-    if (migratingStack) {
-      setAdoptedIds((prev) => new Set([...prev, migratingStack.path]));
-    }
-    setMigratingStack(null);
+  // WR-09: migration execution now runs here (in the parent, which stays
+  // mounted for the whole background migration) instead of inside
+  // MigrationWizard, which closes/unmounts as soon as the user confirms.
+  const handleConfirmMigrate = ({stack, displayName, volumeSelections, namedVolumeSelections}: ConfirmMigrateParams) => {
+    toast.info(`Migrating ${displayName}...`);
+
+    executeMigration(stack.path, displayName, volumeSelections, namedVolumeSelections)
+      .then((result) => {
+        if (result.success && result.stackId) {
+          toast.success(`Migration complete! ${displayName} is now managed by Docktor`, {
+            action: {
+              label: "View stack",
+              onClick: () => navigate(`/stacks/${result.stackId}`),
+            },
+          });
+          setAdoptedIds((prev) => new Set([...prev, stack.path]));
+        } else {
+          toast.error(result.error || "Migration failed");
+        }
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : "Migration failed";
+        toast.error(message);
+      });
   };
 
   return (
@@ -239,7 +258,7 @@ export function BrownfieldStep({onBack, onSkip, onFinish}: Readonly<BrownfieldSt
           stack={migratingStack}
           open={true}
           onClose={() => setMigratingStack(null)}
-          onComplete={handleMigrationComplete}
+          onConfirmMigrate={handleConfirmMigrate}
         />
       )}
     </>
