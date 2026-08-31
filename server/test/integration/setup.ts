@@ -59,6 +59,13 @@ export async function getApp(): Promise<FastifyInstance> {
     return app;
 }
 
+export function getPrisma(): PrismaClient {
+    if (!prismaClient) {
+        throw new Error("startContainer() must be called before getPrisma()");
+    }
+    return prismaClient;
+}
+
 export async function cleanDatabase(): Promise<void> {
     const p = prismaClient;
     await p.statusLog.deleteMany();
@@ -70,6 +77,7 @@ export async function cleanDatabase(): Promise<void> {
     await p.session.deleteMany();
     await p.account.deleteMany();
     await p.verification.deleteMany();
+    await p.setting.deleteMany();
     await p.user.deleteMany();
 }
 
