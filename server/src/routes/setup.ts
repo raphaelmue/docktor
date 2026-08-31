@@ -14,6 +14,19 @@ import {
 import fs from "node:fs/promises";
 
 const setupRoutes: FastifyPluginAsyncZod = async (app) => {
+    // CR-01: every /api/setup/* route beyond step 1 must stop being reachable
+    // once setup is complete — otherwise an unauthenticated caller can rewrite
+    // backup/SMTP credentials or trigger filesystem scans/migrations forever.
+    app.addHook("preHandler", async (request, reply) => {
+        if (request.method === "GET" && request.url === "/api/setup/status") return;
+        if (request.url === "/api/setup/step1") return;
+
+        const userCount = await prisma.user.count();
+        if (userCount > 0) {
+            return reply.status(410).send({error: "Setup already complete"});
+        }
+    });
+
     // Check if setup is complete (users exist)
     app.get("/api/setup/status", async () => {
         const userCount = await prisma.user.count();
