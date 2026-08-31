@@ -190,8 +190,16 @@ export class MigrationService {
 			// Step 8: Deploy new stack
 			await this.docker.up(stackId);
 
-			// Clean up backup (keep for now, user can delete old files later)
-			// await fs.rm(backupDir, {recursive: true, force: true});
+			// CR-04: the backup snapshot may contain plaintext secrets (.env
+			// files, database volumes) and was left permanently in the shared,
+			// world-traversable OS temp directory. Remove it now that the new
+			// stack has been confirmed healthy (docker.up succeeded).
+			try {
+				await fs.rm(backupDir, {recursive: true, force: true});
+			} catch (cleanupErr: unknown) {
+				const message = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+				console.error(`[MigrationService] Failed to clean up migration backup at ${backupDir}: ${message}`);
+			}
 
 			return {success: true, stackId, originalPath: originalDir};
 
