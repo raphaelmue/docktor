@@ -28,6 +28,13 @@ export function useBackupStream(
         let torndown = false
 
         function connect(): void {
+            // The server replays the entire log known so far at the start of
+            // every subscription to GET /api/backups/:id/stream — the
+            // terminal-status and missing-broadcaster branches replay the
+            // persisted record, and the live branch replays the in-memory
+            // accumulator (WR-01, BCK-03). A fresh connection is therefore
+            // always authoritative, so clearing here is exactly what stops a
+            // reconnect's replay from showing every line twice.
             setLines([])
 
             const url = `/api/backups/${backupId}/stream`

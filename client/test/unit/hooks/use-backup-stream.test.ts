@@ -278,18 +278,32 @@ describe("useBackupStream", () => {
         expect(instances).toHaveLength(1);
     });
 
-    it("clears lines received before a reconnect when the replacement connection opens", async () => {
+    it("repopulates the full log from the server replay after a reconnect, with every line present exactly once", async () => {
         vi.useFakeTimers();
         const {result} = renderHook(() => useBackupStream("b1", true));
 
-        emit({line: "before-disconnect"});
-        expect(result.current.lines).toEqual(["before-disconnect"]);
+        emit({line: "one"});
+        emit({line: "two"});
+        expect(result.current.lines).toEqual(["one", "two"]);
 
         fireError(READY_STATE_CLOSED);
         await act(async () => {
             await vi.advanceTimersByTimeAsync(BACKUP_STREAM_RECONNECT_DELAYS_MS[0]);
         });
 
-        expect(result.current.lines).toEqual([]);
+        expect(instances).toHaveLength(2);
+
+        const replacement = instances[instances.length - 1];
+        fireOpen(replacement);
+
+        // The server replays the whole log known so far on every subscription
+        // (WR-01), so the replacement connection re-emits "one" and "two"
+        // before the new "three" — these are not duplicate/stray events, they
+        // are the server's replay of what it already accumulated.
+        emit({line: "one"}, replacement);
+        emit({line: "two"}, replacement);
+        emit({line: "three"}, replacement);
+
+        expect(result.current.lines).toEqual(["one", "two", "three"]);
     });
 });
