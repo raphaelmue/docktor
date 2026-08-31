@@ -9,6 +9,28 @@ import {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import {StackRepository, stackRepository} from "../repositories/stack-repository.js";
 import {slugify} from "../lib/slugify.js";
 import {createComposeConfig} from "../domain/compose-config.js";
+import {BadRequestError} from "../lib/errors.js";
+
+// CR-02: Docker volume names are also passed verbatim as the `-v` source to
+// `docker run`; a name containing `/` is interpreted by Docker as a host bind
+// path rather than a named volume, so names must be constrained to Docker's
+// own allowed volume-name character set before ever reaching the CLI.
+const VOLUME_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+
+/**
+ * CR-02: Resolve `target` against `base` and reject the result unless it is
+ * `base` itself or a strict descendant of it. Prevents `..` segments (or an
+ * absolute path) in attacker-controlled `newPath`/volume-name values from
+ * escaping the managed stack/volumes directory.
+ */
+function assertWithin(base: string, target: string): string {
+	const resolvedBase = path.resolve(base);
+	const resolved = path.resolve(base, target);
+	if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + path.sep)) {
+		throw new BadRequestError(`Path escapes managed directory: ${target}`);
+	}
+	return resolved;
+}
 
 export interface MigrationInput {
 	composePath: string;
@@ -88,7 +110,13 @@ export class MigrationService {
 			// Step 4: Copy named volumes to bind mounts
 			for (const [volName, shouldConvert] of namedVolumeSelections) {
 				if (shouldConvert) {
-					const destPath = path.join(volumesDir, volName);
+					// CR-02: volName is attacker-controlled (request body key) and is
+					// also used as the Docker `-v` source below — validate it against
+					// Docker's volume-name charset and confine destPath to volumesDir.
+					if (!VOLUME_NAME_PATTERN.test(volName)) {
+						throw new BadRequestError(`Invalid volume name: ${volName}`);
+					}
+					const destPath = assertWithin(volumesDir, volName);
 					await this.migrator.copyVolumeToBindMount(volName, destPath);
 				}
 			}
@@ -99,7 +127,9 @@ export class MigrationService {
 					const srcPath = path.isAbsolute(sel.originalPath)
 						? sel.originalPath
 						: path.join(originalDir, sel.originalPath);
-					const destPath = path.join(newStackPath, sel.newPath);
+					// CR-02: sel.newPath is fully attacker-controlled — confine the
+					// resolved destination to be a strict descendant of newStackPath.
+					const destPath = assertWithin(newStackPath, sel.newPath);
 
 					try {
 						await fs.access(srcPath);
