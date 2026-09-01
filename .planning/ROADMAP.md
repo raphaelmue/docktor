@@ -207,6 +207,24 @@ Plans:
 - [x] 05-06-PLAN.md — BrownfieldStep + MigrationWizard modal + adopt-in-place (Wave 4)
 - [x] 05-07-PLAN.md — Wizard step components (AccountStep, SettingsStep, BackupStep, NotificationsStep) (Wave 3)
 
+### Phase 05.1: Stabilization: fix blockers and majors surfaced during testing (INSERTED)
+
+**Goal:** Fix the blockers and majors surfaced during Phase 1-5 testing/UAT that block a clean, safe self-hosted deployment, so Phase 6 (Proxy Configuration) starts from a working, documented, verifiable base. Scope is exactly 10 items: 3 blockers (broken integration/e2e tests, no schema sync on container startup, Docker-outside-of-Docker bind-mount path mismatch), 6 majors (deployment config documentation, `config_error` UI, missing SSE broadcasts on manual actions, backup-without-repo wedging a stack, env edits not flagging config-changed, unreachable post-setup brownfield import) and 1 minor (restic pinned to an outdated version).
+**Requirements**: n/a — this phase is scoped by the todo list above, not by REQUIREMENTS.md IDs
+**Depends on:** Phase 5
+**Plans:** 8 plans
+
+Plans:
+
+- [ ] 05.1-01-PLAN.md — Repair the server integration and Playwright e2e suites (B1)
+- [ ] 05.1-02-PLAN.md — Broadcast SSE status on manual stack actions; flag env writes as config-changed (M3, M5a)
+- [ ] 05.1-03-PLAN.md — Mount the stacks directory at an identical host/container path; pin restic (B3, N1)
+- [ ] 05.1-04-PLAN.md — Reject backups without a configured repo; broadcast backup/restore status (M4, M3)
+- [ ] 05.1-05-PLAN.md — Guarded `prisma db push` on container startup (B2)
+- [ ] 05.1-06-PLAN.md — Persist and surface `config_error`; watch `.env` for external edits (M2, M5b)
+- [ ] 05.1-07-PLAN.md — Authenticated post-setup brownfield import routes and UI (M6)
+- [ ] 05.1-08-PLAN.md — Documented `.env.example`, self-host compose file, and deployment docs (M1)
+
 ### Phase 6: Proxy Configuration
 
 **Goal**: Users can configure domain and TLS exposure for any service directly from the stack detail page, without touching Nginx configuration manually
