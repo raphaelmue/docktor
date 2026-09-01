@@ -21,8 +21,14 @@ describe("Setup wizard flow (T-05-09)", () => {
     }, 60_000);
 
     afterAll(async () => {
-        await cleanDatabase();
-        await stopContainer();
+        // try/finally: stopContainer() must run even if cleanDatabase() throws
+        // (e.g. startContainer() failed partway and left prismaClient unset) —
+        // otherwise a failed run strands the testcontainers Postgres container.
+        try {
+            await cleanDatabase();
+        } finally {
+            await stopContainer();
+        }
     });
 
     beforeEach(async () => {

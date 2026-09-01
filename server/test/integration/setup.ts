@@ -56,11 +56,39 @@ export async function startContainer(): Promise<void> {
 }
 
 export async function stopContainer(): Promise<void> {
-    if (app) {
-        await app.close();
+    // Tolerant of partial initialisation: startContainer() may have thrown
+    // after assigning `container` but before `app`/`prismaClient` were set
+    // (e.g. the schema-push step failed). Every resource that WAS acquired
+    // must still be released, and a failure releasing one resource must
+    // never prevent the other two from being released.
+    const errors: unknown[] = [];
+
+    if (prismaClient) {
+        try {
+            await prismaClient.$disconnect();
+        } catch (err) {
+            errors.push(err);
+        }
     }
+
+    if (app) {
+        try {
+            await app.close();
+        } catch (err) {
+            errors.push(err);
+        }
+    }
+
     if (container) {
-        await container.stop();
+        try {
+            await container.stop();
+        } catch (err) {
+            errors.push(err);
+        }
+    }
+
+    if (errors.length > 0) {
+        throw new AggregateError(errors, "stopContainer(): one or more teardown steps failed");
     }
 }
 
