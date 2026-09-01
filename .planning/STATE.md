@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-current_phase: 1
-current_phase_name: MVP Completion
+current_phase: 05.1
+current_phase_name: "Stabilization: fix blockers and majors surfaced during testing"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
 stopped_at: Phase 05 complete, ready to plan Phase 1
-last_updated: "2026-08-31T17:33:10.441Z"
-state_head: c5115591096cd9ae7d23c4cc05c39ecaaf263b3d
+last_updated: "2026-09-01T11:15:47.324Z"
+state_head: 3df60dafc811e31e51ed0aa142c49bbfa2208cee
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 5
-  total_plans: 55
+  total_plans: 63
   completed_plans: 55
 milestone_name: milestone
 ---
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 
 ## Current Position
 
-Phase: 1 — MVP Completion
+Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing) — READY TO EXECUTE
 Plan: Not started
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
@@ -252,6 +252,10 @@ Recent decisions affecting current work:
 - [Phase 02]: `.env.example`'s `DOCKTOR_STACKS_DIR=./dev-data/stacks` silently overrides the correct docker-compose `/stacks` default via `.env.local`'s `env_file`, so app-created stacks can write to a non-persisted container path with no error. Not yet fixed (blocked on `.env*` file access in this session) — see `.planning/todos/pending/2026-08-30-env-example-stacks-dir-breaks-docker-compose.md`.
 - [Phase 02]: Code review + goal-backward verification flagged 3 non-blocking hygiene items, unresolved as of phase close: `routes/stacks.ts` bypasses `StackService` in a few GET handlers (layering violation, no correctness impact); `semver` is used directly but only resolves as a phantom transitive dependency; `update-checker.ts`'s `triggerUpdate()` is unreachable dead code with an unexplained `as any` cast. See `02-REVIEW.md` and `02-VERIFICATION.md` Anti-Patterns.
 - [Phase 02]: `config_error` still has no client-side UI indicator (only visible as an Event Log row) — confirmed still open by both UAT (test 18) and the UI audit (top priority fix). Deliberately out of Phase 02's scope; tracked as `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md`.
+
+### Roadmap Evolution
+
+- Phase 05.1 inserted after Phase 5: Stabilization phase for 11 bugs/gaps found during testing (4 blockers, 6 majors, 1 minor: restic version pin) — inserted before Phase 6 (Proxy Configuration) (URGENT)
 
 ## Session Continuity
 

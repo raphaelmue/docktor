@@ -215,14 +215,21 @@ Plans:
 **Plans:** 8 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 05.1-01-PLAN.md — Repair the server integration and Playwright e2e suites (B1)
 - [ ] 05.1-02-PLAN.md — Broadcast SSE status on manual stack actions; flag env writes as config-changed (M3, M5a)
 - [ ] 05.1-03-PLAN.md — Mount the stacks directory at an identical host/container path; pin restic (B3, N1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 05.1-04-PLAN.md — Reject backups without a configured repo; broadcast backup/restore status (M4, M3)
 - [ ] 05.1-05-PLAN.md — Guarded `prisma db push` on container startup (B2)
 - [ ] 05.1-06-PLAN.md — Persist and surface `config_error`; watch `.env` for external edits (M2, M5b)
 - [ ] 05.1-07-PLAN.md — Authenticated post-setup brownfield import routes and UI (M6)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 05.1-08-PLAN.md — Documented `.env.example`, self-host compose file, and deployment docs (M1)
 
 ### Phase 6: Proxy Configuration
