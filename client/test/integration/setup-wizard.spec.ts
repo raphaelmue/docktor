@@ -204,9 +204,16 @@ test.describe("Setup Wizard", () => {
             // WIZ-07: Post-wizard redirect
             await reachBrownfieldStep(page);
 
+            await page.route("**/api/setup/complete", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({success: true})}),
+            );
+
             // Dashboard requires an authenticated session once navigated to.
             await page.route("**/api/auth/get-session", (route) =>
                 route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(mockAuthSession)}),
+            );
+            await page.route("**/api/stacks", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify([])}),
             );
 
             await page.getByRole("button", {name: "Finish Setup"}).click();
@@ -321,6 +328,41 @@ test.describe("Setup Wizard", () => {
                 route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({id: "app"})}),
             );
 
+            // Navigating to the adopted stack's detail page renders the full
+            // stack detail view — stub what it fetches.
+            await page.route("**/api/auth/get-session", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(mockAuthSession)}),
+            );
+            await page.route("**/api/stacks/app", (route) =>
+                route.fulfill({
+                    status: 200,
+                    contentType: "application/json",
+                    body: JSON.stringify({
+                        id: "app",
+                        displayName: "app",
+                        description: null,
+                        hostPath: greenStack.directory,
+                        status: "RUNNING",
+                        configChanged: false,
+                        lastKnownHash: "abc123",
+                        createdAt: "2026-01-01T00:00:00Z",
+                        updatedAt: "2026-01-01T00:00:00Z",
+                        services: [],
+                        deployments: [],
+                        statusLogs: [],
+                    }),
+                }),
+            );
+            await page.route("**/api/stacks/app/compose", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: "services:"})}),
+            );
+            await page.route("**/api/stacks/app/env", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
+            );
+            await page.route("**/api/stacks/app/events", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify([])}),
+            );
+
             await page.getByRole("button", {name: "Adopt"}).click();
             await page.getByRole("button", {name: /view stack/i}).click();
 
@@ -378,7 +420,7 @@ test.describe("Setup Wizard", () => {
 
             await expect(page.getByText("Review Changes")).toBeVisible();
             await expect(page.getByText("Original")).toBeVisible();
-            await expect(page.getByText("Migrated")).toBeVisible();
+            await expect(page.getByText("Migrated", {exact: true})).toBeVisible();
         });
 
         test("should start background migration on confirm", async ({page}) => {

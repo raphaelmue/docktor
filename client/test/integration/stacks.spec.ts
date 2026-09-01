@@ -91,6 +91,17 @@ async function mockStacksList(page: Page, stacks = mockStacks) {
     });
 }
 
+/**
+ * Mock the stack detail page's Overview > Event Log card
+ * (GET /api/stacks/:id/events, via useStackEvents). Every test that renders
+ * a stack detail page triggers this call.
+ */
+async function mockStackEvents(page: Page, stackId: string) {
+    await page.route(`**/api/stacks/${stackId}/events`, (route) =>
+        route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify([])}),
+    );
+}
+
 test.describe("Stacks", () => {
     test("stacks list page shows all stacks", async ({page}) => {
         await mockAuthenticated(page);
@@ -166,6 +177,7 @@ test.describe("Stacks", () => {
         await page.route("**/api/stacks/new-stack/env", (route) =>
             route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
         );
+        await mockStackEvents(page, "new-stack");
 
         await page.goto("/stacks/create");
 
@@ -197,6 +209,7 @@ test.describe("Stacks", () => {
         await page.route("**/api/stacks/my-app/env", (route) =>
             route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
         );
+        await mockStackEvents(page, "my-app");
 
         await page.goto("/stacks/my-app");
 
@@ -214,7 +227,7 @@ test.describe("Stacks", () => {
         await expect(page.getByRole("tab", {name: "Environment"})).toBeVisible();
     });
 
-    test("stack detail page shows deploy and stop buttons for running stack", async ({page}) => {
+    test("stack detail page shows deploy button and stop/restart in the actions menu for a running stack", async ({page}) => {
         await mockAuthenticated(page);
         await page.route("**/api/stacks/my-app", (route) => {
             if (route.request().url().endsWith("/compose") || route.request().url().endsWith("/env")) {
@@ -228,12 +241,18 @@ test.describe("Stacks", () => {
         await page.route("**/api/stacks/my-app/env", (route) =>
             route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
         );
+        await mockStackEvents(page, "my-app");
 
         await page.goto("/stacks/my-app");
 
+        // Deploy primary + ellipsis dropdown for the rest (04-CONTEXT locked
+        // decision) — Stop/Restart live inside the "Stack actions" menu, not
+        // as standalone visible buttons.
         await expect(page.getByRole("button", {name: /deploy/i})).toBeVisible();
-        await expect(page.getByRole("button", {name: /stop/i})).toBeVisible();
-        await expect(page.getByRole("button", {name: /restart/i})).toBeVisible();
+
+        await page.getByRole("button", {name: "Stack actions"}).click();
+        await expect(page.getByRole("menuitem", {name: /stop/i})).toBeVisible();
+        await expect(page.getByRole("menuitem", {name: /restart/i})).toBeVisible();
     });
 
     test("stack detail compose tab shows editor", async ({page}) => {
@@ -254,6 +273,7 @@ test.describe("Stacks", () => {
         await page.route("**/api/stacks/my-app/env", (route) =>
             route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: "FOO=bar"})}),
         );
+        await mockStackEvents(page, "my-app");
 
         await page.goto("/stacks/my-app");
 
@@ -290,12 +310,16 @@ test.describe("Stacks", () => {
         await page.route("**/api/stacks/my-app/env", (route) =>
             route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
         );
+        await mockStackEvents(page, "my-app");
 
         await page.goto("/stacks/my-app");
 
-        // Breadcrumb should show "Stacks > My App"
+        // Breadcrumb preserves tab context (04-CONTEXT locked decision):
+        // "Stacks" and the stack name are links, the active tab label
+        // ("Overview" here, the default tab) is the current page.
         await expect(page.getByLabel("breadcrumb").getByRole("link", {name: "Stacks"})).toBeVisible();
-        await expect(page.locator("[aria-current='page']", {hasText: "My App"})).toBeVisible();
+        await expect(page.getByLabel("breadcrumb").getByRole("link", {name: "My App"})).toBeVisible();
+        await expect(page.locator("[aria-current='page']", {hasText: "Overview"})).toBeVisible();
     });
 
     test("stack detail shows 404 for non-existent stack", async ({page}) => {

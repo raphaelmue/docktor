@@ -29,45 +29,61 @@ const mockStack = {
             updatedAt: "2026-01-01T00:00:00Z",
         },
     ],
+    // [id].tsx dereferences these unconditionally (Overview tab's
+    // Deployments/Status Log cards) — omitting them crashes the whole page.
+    deployments: [] as unknown[],
+    statusLogs: [] as unknown[],
 };
 
+// Matches StackBackupConfig (client/src/lib/backups-api.ts) — both toggles
+// default to false so the override fields (the ones tests assert on) render.
 const mockBackupConfig = {
+    useGlobalSchedule: false,
     schedule: "0 2 * * *",
-    retention: {days: 7, weeks: 4, months: 6, years: 1},
+    useGlobalRetention: false,
+    retention: {keepDaily: 7, keepWeekly: 4, keepMonthly: 6},
     preHook: "docker compose stop",
     postHook: "docker compose start",
+    globalSchedule: "0 3 * * *",
+    globalRetention: {keepDaily: 7, keepWeekly: 4, keepMonthly: 12},
 };
 
+// Matches BackupRecord — statuses are IN_PROGRESS/COMPLETED/FAILED, not
+// SUCCESS/RUNNING, and size lives on `sizeBytes` (string), not `size`.
 const mockBackups = [
     {
         id: "backup-1",
         stackId: "test-stack",
+        resticSnapshotId: "snap-123",
         trigger: "MANUAL",
-        status: "SUCCESS",
+        status: "COMPLETED",
         startedAt: "2026-03-19T10:00:00Z",
         completedAt: "2026-03-19T10:05:00Z",
-        size: 1024000,
-        snapshotId: "snap-123",
+        sizeBytes: "1024000",
         errorMessage: null,
-        logLines: 50,
+        logLines: ["Backup completed successfully"],
+        createdAt: "2026-03-19T10:00:00Z",
     },
     {
         id: "backup-2",
         stackId: "test-stack",
+        resticSnapshotId: "",
         trigger: "SCHEDULED",
-        status: "RUNNING",
+        status: "IN_PROGRESS",
         startedAt: "2026-03-19T11:00:00Z",
         completedAt: null,
-        size: null,
-        snapshotId: null,
+        sizeBytes: null,
         errorMessage: null,
-        logLines: 25,
+        logLines: [],
+        createdAt: "2026-03-19T11:00:00Z",
     },
 ];
 
+// Matches ResticSnapshot — the UI renders `short_id.slice(0, 8)`, not `id`.
 const mockSnapshots = [
     {
         id: "snap-123",
+        short_id: "snap-123",
         time: "2026-03-19T10:00:00Z",
         hostname: "docktor-host",
         paths: ["/stacks/test-stack"],
@@ -75,6 +91,7 @@ const mockSnapshots = [
     },
     {
         id: "snap-456",
+        short_id: "snap-456",
         time: "2026-03-18T10:00:00Z",
         hostname: "docktor-host",
         paths: ["/stacks/test-stack"],
@@ -82,26 +99,50 @@ const mockSnapshots = [
     },
 ];
 
-const mockSettings = {
-    repositoryType: "LOCAL",
-    repositoryPath: "/backup/repo",
-    repositoryPassword: "encrypted-password",
+// Matches BackupSettings (repo-level) — field names have no "repository"
+// prefix, and there is no sftpPort/s3Region; SFTP uses repoPath + sftpHost/
+// sftpUser, S3 uses s3Endpoint/s3Bucket/s3AccessKey.
+const mockBackupSettings = {
+    repoType: "local" as const,
+    repoPath: null,
     sftpHost: null,
-    sftpPort: null,
     sftpUser: null,
-    sftpPath: null,
+    s3Endpoint: null,
     s3Bucket: null,
-    s3Region: null,
-    s3AccessKeyId: null,
-    s3SecretAccessKey: null,
-    defaults: {
-        schedule: "0 3 * * *",
-        retention: {days: 7, weeks: 4, months: 6, years: 1},
-    },
+    s3AccessKey: null,
+    hasPassword: true,
+    hasSftpKey: false,
+    hasS3SecretKey: false,
+};
+
+const mockResticStatus = {available: true, version: "0.17.0"};
+
+// Matches BackupDefaults — a separate endpoint from BackupSettings, with its
+// own RetentionPolicy shape (keepDaily/keepWeekly/keepMonthly, no "years").
+const mockBackupDefaults = {
+    defaultSchedule: "0 3 * * *",
+    defaultRetention: {keepDaily: 7, keepWeekly: 4, keepMonthly: 12},
+};
+
+const mockGeneralSettings = {instanceName: "Docktor", baseUrl: "", timezone: "UTC"};
+const mockSmtpSettings = {
+    host: "",
+    port: 587,
+    encryption: "starttls" as const,
+    username: "",
+    hasPassword: false,
+    from: "",
+};
+const mockNotificationTriggers = {
+    stackError: true,
+    diskWarning: true,
+    diskThresholdPercent: 90,
+    diskThresholdBytes: 0,
+    backupFailure: true,
 };
 
 async function mockApiRoutes(page: Page) {
-    await page.route("**/api/auth/session", async (route) => {
+    await page.route("**/api/auth/get-session", async (route) => {
         await route.fulfill({json: mockSession});
     });
 
@@ -109,7 +150,25 @@ async function mockApiRoutes(page: Page) {
         await route.fulfill({json: mockStack});
     });
 
-    await page.route("**/api/stacks/test-stack/backups/config", async (route) => {
+    await page.route("**/api/stacks/test-stack/events", async (route) => {
+        await route.fulfill({json: []});
+    });
+
+    await page.route("**/api/stacks/test-stack/volume-warnings", async (route) => {
+        await route.fulfill({json: {warnings: []}});
+    });
+
+    // The stack detail page's Compose/Environment tabs fetch on mount
+    // regardless of which tab is active (see stacks.spec.ts's stack detail
+    // tests for the same pattern).
+    await page.route("**/api/stacks/test-stack/compose", async (route) => {
+        await route.fulfill({json: {content: "services:\n  web:\n    image: nginx:latest"}});
+    });
+    await page.route("**/api/stacks/test-stack/env", async (route) => {
+        await route.fulfill({json: {content: ""}});
+    });
+
+    await page.route("**/api/stacks/test-stack/backup-config", async (route) => {
         if (route.request().method() === "GET") {
             await route.fulfill({json: mockBackupConfig});
         } else if (route.request().method() === "PUT") {
@@ -117,24 +176,60 @@ async function mockApiRoutes(page: Page) {
         }
     });
 
+    await page.route("**/api/stacks/test-stack/backup", async (route) => {
+        if (route.request().method() === "POST") {
+            await route.fulfill({json: {backupId: "backup-new"}});
+        }
+    });
+
     await page.route("**/api/stacks/test-stack/backups", async (route) => {
         if (route.request().method() === "GET") {
             await route.fulfill({json: mockBackups});
-        } else if (route.request().method() === "POST") {
-            await route.fulfill({json: {id: "backup-new", ...mockBackups[1]}});
         }
+    });
+
+    await page.route("**/api/backups/backup-1", async (route) => {
+        await route.fulfill({json: mockBackups[0]});
     });
 
     await page.route("**/api/stacks/test-stack/snapshots", async (route) => {
         await route.fulfill({json: mockSnapshots});
     });
 
-    await page.route("**/api/settings/backups", async (route) => {
+    await page.route("**/api/settings/backup", async (route) => {
         if (route.request().method() === "GET") {
-            await route.fulfill({json: mockSettings});
+            await route.fulfill({json: mockBackupSettings});
         } else if (route.request().method() === "PUT") {
-            await route.fulfill({json: {...mockSettings, ...JSON.parse(route.request().postData() || "{}")}});
+            await route.fulfill({json: {...mockBackupSettings, ...JSON.parse(route.request().postData() || "{}")}});
         }
+    });
+
+    await page.route("**/api/settings/backup/status", async (route) => {
+        await route.fulfill({json: mockResticStatus});
+    });
+
+    await page.route("**/api/settings/backup-defaults", async (route) => {
+        if (route.request().method() === "GET") {
+            await route.fulfill({json: mockBackupDefaults});
+        } else if (route.request().method() === "PUT") {
+            await route.fulfill({json: {...mockBackupDefaults, ...JSON.parse(route.request().postData() || "{}")}});
+        }
+    });
+
+    // The Settings page mounts General/Notifications/Backup cards
+    // simultaneously regardless of the active tab, so every "Settings Backup
+    // tab" test needs these stubbed too, not just the backup-specific ones.
+    await page.route("**/api/settings/general", async (route) => {
+        await route.fulfill({json: mockGeneralSettings});
+    });
+    await page.route("**/api/settings/smtp", async (route) => {
+        await route.fulfill({json: mockSmtpSettings});
+    });
+    await page.route("**/api/settings/notification-triggers", async (route) => {
+        await route.fulfill({json: mockNotificationTriggers});
+    });
+    await page.route("**/api/notifications", async (route) => {
+        await route.fulfill({json: []});
     });
 }
 
@@ -147,11 +242,11 @@ test.describe("Backup UI", () => {
         await page.goto("/stacks/test-stack");
 
         // Wait for page to load
-        await expect(page.getByText("Test Stack")).toBeVisible();
+        await expect(page.getByRole("heading", {name: "Test Stack"})).toBeVisible();
 
-        // Find and click the dropdown trigger (ellipsis button)
-        const dropdownTrigger = page.locator('button[aria-haspopup="menu"]').filter({hasText: /⋯|•••/});
-        await dropdownTrigger.click();
+        // Find and click the dropdown trigger (icon-only button, identified by
+        // its aria-label rather than visible text).
+        await page.getByRole("button", {name: "Stack actions"}).click();
 
         // Verify dropdown menu items
         await expect(page.getByRole("menuitem", {name: /stop/i})).toBeVisible();
@@ -168,16 +263,17 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backups/i}).click();
 
         // Verify three main sections are visible
-        await expect(page.getByText(/backup configuration/i)).toBeVisible();
-        await expect(page.getByText(/backup history/i)).toBeVisible();
-        await expect(page.getByText(/snapshots/i)).toBeVisible();
+        await expect(page.getByText("Backup Configuration")).toBeVisible();
+        await expect(page.getByRole("heading", {name: "History"})).toBeVisible();
+        await expect(page.getByRole("heading", {name: "Snapshots"})).toBeVisible();
     });
 
     test("shows backup configuration form with schedule and retention", async ({page}) => {
         await page.goto("/stacks/test-stack");
         await page.getByRole("tab", {name: /backups/i}).click();
 
-        // Verify schedule field shows the cron expression
+        // Verify schedule override field shows the cron expression
+        // (useGlobalSchedule: false in the mock, so the override input renders)
         await expect(page.locator('input[value="0 2 * * *"]')).toBeVisible();
 
         // Verify pre/post hook fields
@@ -193,13 +289,14 @@ test.describe("Backup UI", () => {
         await page.goto("/stacks/test-stack");
         await page.getByRole("tab", {name: /backups/i}).click();
 
-        // Wait for backup history to load
-        await expect(page.getByText(/SUCCESS/i)).toBeVisible();
-        await expect(page.getByText(/RUNNING/i)).toBeVisible();
+        // Wait for backup history to load — status badge labels are
+        // "Completed"/"In Progress" (BackupStatusBadge), not the raw enum.
+        await expect(page.getByText("Completed", {exact: true})).toBeVisible();
+        await expect(page.getByText("In Progress", {exact: true})).toBeVisible();
 
         // Verify trigger types are displayed
-        await expect(page.getByText(/MANUAL/i)).toBeVisible();
-        await expect(page.getByText(/SCHEDULED/i)).toBeVisible();
+        await expect(page.getByText(/manual/i)).toBeVisible();
+        await expect(page.getByText(/scheduled/i)).toBeVisible();
 
         // Verify "View details" links exist
         const viewLinks = page.getByRole("link", {name: /view details/i});
@@ -210,7 +307,7 @@ test.describe("Backup UI", () => {
         await page.goto("/stacks/test-stack");
         await page.getByRole("tab", {name: /backups/i}).click();
 
-        // Wait for snapshots to load
+        // Wait for snapshots to load (rendered as short_id, truncated to 8 chars)
         await expect(page.getByText(/snap-123/i)).toBeVisible();
         await expect(page.getByText(/snap-456/i)).toBeVisible();
 
@@ -227,13 +324,13 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backups/i}).click();
 
         // Wait for snapshots and click first restore button
-        await page.waitForSelector('text=/snap-123/i');
+        await page.waitForSelector("text=/snap-123/i");
         const restoreBtn = page.getByRole("button", {name: /restore/i}).first();
         await restoreBtn.click();
 
         // Verify dialog appears
         await expect(page.getByRole("alertdialog")).toBeVisible();
-        await expect(page.getByText(/type.*stack name/i)).toBeVisible();
+        await expect(page.getByText(/type\s+test stack\s+to confirm/i)).toBeVisible();
 
         // Verify restore button is initially disabled
         const confirmBtn = page.getByRole("button", {name: /restore snapshot/i});
@@ -245,7 +342,7 @@ test.describe("Backup UI", () => {
         await expect(confirmBtn).toBeDisabled();
 
         // Type correct stack name - button should enable
-        await nameInput.fill("test-stack");
+        await nameInput.fill("Test Stack");
         await expect(confirmBtn).toBeEnabled();
 
         // Verify destructive styling (red button)
@@ -263,10 +360,10 @@ test.describe("Backup UI", () => {
         await expect(page).toHaveURL(/\/stacks\/test-stack\/backups\/backup-1/);
 
         // Verify backup status badge is visible
-        await expect(page.getByText(/SUCCESS/i)).toBeVisible();
+        await expect(page.getByText("Completed", {exact: true})).toBeVisible();
 
         // Verify trigger type is displayed
-        await expect(page.getByText(/MANUAL/i)).toBeVisible();
+        await expect(page.getByText(/manual/i)).toBeVisible();
     });
 
     test("Settings Backup tab shows repository configuration", async ({page}) => {
@@ -276,13 +373,10 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backup/i}).click();
 
         // Verify Repository card is visible
-        await expect(page.getByText(/repository configuration/i)).toBeVisible();
+        await expect(page.getByText("Backup Repository")).toBeVisible();
 
-        // Verify repository type selector shows LOCAL
-        await expect(page.getByText(/LOCAL/i)).toBeVisible();
-
-        // Verify path field for local repository
-        await expect(page.locator('input[value="/backup/repo"]')).toBeVisible();
+        // Verify repository type selector shows Local
+        await expect(page.getByText("Local", {exact: true})).toBeVisible();
     });
 
     test("Settings Backup tab shows conditional fields for SFTP", async ({page}) => {
@@ -290,15 +384,16 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backup/i}).click();
 
         // Change repository type to SFTP
-        const typeSelect = page.locator('button[role="combobox"]').first();
+        const typeSelect = page.locator("#repoType");
         await typeSelect.click();
         await page.getByRole("option", {name: /SFTP/i}).click();
 
-        // Verify SFTP-specific fields appear
+        // Verify SFTP-specific fields appear (there is no dedicated "port"
+        // field in the real form — SFTP uses repoPath/host/username/key)
+        await expect(page.getByLabel(/repository path/i)).toBeVisible();
         await expect(page.getByLabel(/host/i)).toBeVisible();
-        await expect(page.getByLabel(/port/i)).toBeVisible();
-        await expect(page.getByLabel(/user/i)).toBeVisible();
-        await expect(page.getByLabel(/path/i)).toBeVisible();
+        await expect(page.getByLabel(/username/i)).toBeVisible();
+        await expect(page.getByLabel(/private key/i)).toBeVisible();
 
         // Verify S3 fields are NOT visible
         await expect(page.getByLabel(/bucket/i)).not.toBeVisible();
@@ -309,18 +404,19 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backup/i}).click();
 
         // Change repository type to S3
-        const typeSelect = page.locator('button[role="combobox"]').first();
+        const typeSelect = page.locator("#repoType");
         await typeSelect.click();
-        await page.getByRole("option", {name: /S3/i}).click();
+        await page.getByRole("option", {name: /S3-compatible/i}).click();
 
-        // Verify S3-specific fields appear
-        await expect(page.getByLabel(/bucket/i)).toBeVisible();
-        await expect(page.getByLabel(/region/i)).toBeVisible();
-        await expect(page.getByLabel(/access key/i)).toBeVisible();
-        await expect(page.getByLabel(/secret key/i)).toBeVisible();
+        // Verify S3-specific fields appear (there is no "region" field in the
+        // real form — S3 uses endpoint/bucket/access key/secret key)
+        await expect(page.getByLabel(/endpoint url/i)).toBeVisible();
+        await expect(page.getByLabel(/bucket name/i)).toBeVisible();
+        await expect(page.getByLabel(/access key id/i)).toBeVisible();
+        await expect(page.getByLabel(/secret access key/i)).toBeVisible();
 
         // Verify SFTP fields are NOT visible
-        await expect(page.getByLabel(/sftp host/i)).not.toBeVisible();
+        await expect(page.getByLabel(/^host$/i)).not.toBeVisible();
     });
 
     test("Settings Backup tab shows defaults card", async ({page}) => {
@@ -328,8 +424,11 @@ test.describe("Backup UI", () => {
         await page.getByRole("tab", {name: /backup/i}).click();
 
         // Verify Defaults card
-        await expect(page.getByText(/default schedule/i)).toBeVisible();
-        await expect(page.getByText(/default retention/i)).toBeVisible();
+        await expect(page.getByText("Default Backup Settings")).toBeVisible();
+        await expect(page.getByLabel(/default schedule/i)).toBeVisible();
+        await expect(page.getByLabel(/keep daily/i)).toBeVisible();
+        await expect(page.getByLabel(/keep weekly/i)).toBeVisible();
+        await expect(page.getByLabel(/keep monthly/i)).toBeVisible();
 
         // Verify default schedule value
         await expect(page.locator('input[value="0 3 * * *"]')).toBeVisible();
