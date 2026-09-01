@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 current_phase: 05.1
-current_phase_name: "Stabilization: fix blockers and majors surfaced during testing"
+current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Phase 05 complete, ready to plan Phase 1
-last_updated: "2026-09-01T11:15:47.324Z"
-state_head: 3df60dafc811e31e51ed0aa142c49bbfa2208cee
+stopped_at: Completed 05.1-01-PLAN.md
+last_updated: "2026-09-01T14:20:27.148Z"
+state_head: 4765ea4e3f479493c99d699e1420d87529615c4c
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 55
+  completed_plans: 56
 milestone_name: milestone
 ---
 
@@ -22,12 +22,12 @@ milestone_name: milestone
 See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 05 — Onboarding
+**Current focus:** Phase 05.1 — Stabilization: fix blockers and majors surfaced during testing (INSERTED)
 
 ## Current Position
 
-Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing) — READY TO EXECUTE
-Plan: Not started
+Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
+Plan: 2 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -104,6 +104,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 04-backup-restore P16 | 10min | 2 tasks | 4 files |
 | Phase 04-backup-restore P17 | 35min | 3 tasks | 7 files |
 | Phase 04 P18 | 14min | 3 tasks | 8 files |
+| Phase 05.1 P01 | 2h30m | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -207,6 +208,9 @@ Recent decisions affecting current work:
 - [Phase 04]: [Phase 04-18] Server-side replay chosen over client-side clear-gating to close WR-01 — the alternative would trade WR-01 for a log-duplication bug when the backup finishes during the disconnect window
 - [Phase 04]: [Phase 04-18] backupLogBuffers reuses the same array runBackup/runRestore already persist as logLines — zero memory delta, freed by the existing disposeBackupBroadcaster call
 - [Phase 04]: [Phase 04-18] streamLiveBackupLog's replay snapshot, replay writes, and listener attachment run in one synchronous block with no await, so Node cannot interleave an emit across the replay/live boundary
+- [Phase 05.1]: [Phase 05.1-01]: Task 1's P1001 discriminator confirmed environmental (host-level TCP-to-Docker-published-port block), not a repo defect — verified with pg Client, python, node, nc, curl, and bash /dev/tcp; prisma.config.ts left untouched
+- [Phase 05.1]: [Phase 05.1-01]: Playwright fixtures.ts gained an _apiRouteGuard auto-fixture that fails any spec loudly on an unstubbed **/api/** request instead of letting it fall through to :3000 or hang
+- [Phase 05.1]: [Phase 05.1-01]: client/playwright.config.ts workers fixed at 1 locally (was Playwright's own default) — this host's memory pressure from unrelated Docker workloads was starving parallel Chromium instances into false timeouts
 
 ### Quick Tasks Completed
 
@@ -252,6 +256,7 @@ Recent decisions affecting current work:
 - [Phase 02]: `.env.example`'s `DOCKTOR_STACKS_DIR=./dev-data/stacks` silently overrides the correct docker-compose `/stacks` default via `.env.local`'s `env_file`, so app-created stacks can write to a non-persisted container path with no error. Not yet fixed (blocked on `.env*` file access in this session) — see `.planning/todos/pending/2026-08-30-env-example-stacks-dir-breaks-docker-compose.md`.
 - [Phase 02]: Code review + goal-backward verification flagged 3 non-blocking hygiene items, unresolved as of phase close: `routes/stacks.ts` bypasses `StackService` in a few GET handlers (layering violation, no correctness impact); `semver` is used directly but only resolves as a phantom transitive dependency; `update-checker.ts`'s `triggerUpdate()` is unreachable dead code with an unexplained `as any` cast. See `02-REVIEW.md` and `02-VERIFICATION.md` Anti-Patterns.
 - [Phase 02]: `config_error` still has no client-side UI indicator (only visible as an Event Log row) — confirmed still open by both UAT (test 18) and the UI audit (top priority fix). Deliberately out of Phase 02's scope; tracked as `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md`.
+- Server integration suite (yarn workspace @docktor/server test:integration) cannot be verified to exit 0 in a network-restricted execution environment — confirmed host-level TCP-to-Docker-published-port block. A human must confirm on an unrestricted machine. See 05.1-01-SUMMARY.md and WINDOWS.md entries #1/#2.
 
 ### Roadmap Evolution
 
@@ -259,6 +264,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-08-31T07:49:20.243Z
-Stopped at: Phase 05 complete, ready to plan Phase 1
+Last session: 2026-09-01T14:20:22.250Z
+Stopped at: Completed 05.1-01-PLAN.md
 Resume file: None
