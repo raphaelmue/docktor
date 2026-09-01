@@ -1,5 +1,5 @@
 import {PostgreSqlContainer, type StartedPostgreSqlContainer} from "@testcontainers/postgresql";
-import {execSync} from "node:child_process";
+import {execFileSync} from "node:child_process";
 import {buildApp} from "../../src/app.js";
 import type {FastifyInstance} from "fastify";
 import path from "node:path";
@@ -31,11 +31,24 @@ export async function startContainer(): Promise<void> {
     process.env.NODE_ENV = "test";
     process.env.BETTER_AUTH_SECRET = "test-secret";
 
-    // Push schema to the test database
-    execSync(`${prismaBin} db push --config=${prismaConfigPath}`, {
-        env: {...process.env, DATABASE_URL: connectionString},
-        stdio: "pipe",
-    });
+    // Push schema to the test database.
+    // Uses the argv-array form (not a shell-interpolated string) so a path
+    // containing shell metacharacters can never be interpreted (T-05.1-02).
+    try {
+        execFileSync(prismaBin, ["db", "push", `--config=${prismaConfigPath}`], {
+            env: {...process.env, DATABASE_URL: connectionString},
+            stdio: "pipe",
+        });
+    } catch (err) {
+        const execErr = err as NodeJS.ErrnoException & {stdout?: Buffer | string; stderr?: Buffer | string};
+        const stdout = execErr.stdout?.toString() ?? "";
+        const stderr = execErr.stderr?.toString() ?? "";
+        throw new Error(
+            `startContainer(): \`prisma db push\` failed while applying the schema to the test database.\n` +
+                `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`,
+            {cause: err},
+        );
+    }
 
     // Create a Prisma client for test helpers (cleanup, etc.)
     const adapter = new PrismaPg({connectionString});
@@ -61,12 +74,21 @@ export async function getApp(): Promise<FastifyInstance> {
 
 export function getPrisma(): PrismaClient {
     if (!prismaClient) {
-        throw new Error("startContainer() must be called before getPrisma()");
+        throw new Error(
+            "getPrisma(): prismaClient is not initialised — startContainer() must have failed or " +
+                "never completed. Check the preceding error for the real cause (do not treat this as the root cause).",
+        );
     }
     return prismaClient;
 }
 
 export async function cleanDatabase(): Promise<void> {
+    if (!prismaClient) {
+        throw new Error(
+            "cleanDatabase(): prismaClient is not initialised — startContainer() must have failed or " +
+                "never completed. Check the preceding error for the real cause (do not treat this as the root cause).",
+        );
+    }
     const p = prismaClient;
     await p.statusLog.deleteMany();
     await p.deployment.deleteMany();
