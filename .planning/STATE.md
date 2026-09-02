@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-01-PLAN.md
-last_updated: "2026-09-01T14:20:27.148Z"
-state_head: 4765ea4e3f479493c99d699e1420d87529615c4c
+stopped_at: Completed 05.1-02-PLAN.md
+last_updated: "2026-09-02T07:46:49.666Z"
+state_head: 8674f011e244e2d8c0ceb590dd33c6126e53eda3
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 56
+  completed_plans: 57
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -105,6 +105,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 04-backup-restore P17 | 35min | 3 tasks | 7 files |
 | Phase 04 P18 | 14min | 3 tasks | 8 files |
 | Phase 05.1 P01 | 2h30m | 3 tasks | 9 files |
+| Phase 05.1 P02 | 40min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -211,6 +212,8 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-01]: Task 1's P1001 discriminator confirmed environmental (host-level TCP-to-Docker-published-port block), not a repo defect — verified with pg Client, python, node, nc, curl, and bash /dev/tcp; prisma.config.ts left untouched
 - [Phase 05.1]: [Phase 05.1-01]: Playwright fixtures.ts gained an _apiRouteGuard auto-fixture that fails any spec loudly on an unstubbed **/api/** request instead of letting it fall through to :3000 or hang
 - [Phase 05.1]: [Phase 05.1-01]: client/playwright.config.ts workers fixed at 1 locally (was Playwright's own default) — this host's memory pressure from unrelated Docker workloads was starving parallel Chromium instances into false timeouts
+- [Phase 05.1]: [Phase 05.1-02]: StackService now takes a broadcaster (Pick<StateBroadcaster,'publish'>) 5th constructor param and routes every repo.transitionStatus() call through a single private transitionStatus() wrapper that publishes stack_status and never lets a throwing subscriber strand a transitional status
+- [Phase 05.1]: [Phase 05.1-02]: updateStack()'s env branch unconditionally flags configChanged: true (no hashing) and publishes config_changed reusing the stack's current lastKnownHash; lastKnownHash stays compose-only
 
 ### Quick Tasks Completed
 
@@ -264,6 +267,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-01T14:20:22.250Z
-Stopped at: Completed 05.1-01-PLAN.md
+Last session: 2026-09-02T07:46:48.147Z
+Stopped at: Completed 05.1-02-PLAN.md
 Resume file: None
