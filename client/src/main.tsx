@@ -11,6 +11,7 @@ import {FirstRunGate} from "@/components/domain/auth/first-run-gate";
 import Dashboard from "@/routes/app/dashboard";
 import StacksPage from "@/routes/app/stacks/index";
 import CreateStackPage from "@/routes/app/stacks/create";
+import ImportStackPage from "@/routes/app/stacks/import";
 import StackDetailPage from "@/routes/app/stacks/[id]";
 import SettingsPage from "@/routes/app/settings";
 import BackupDetailPage from "@/routes/app/stacks/backups/[backupId]";
@@ -72,6 +73,10 @@ function App() {
                     <Route
                         path="/stacks/create"
                         element={<CreateStackPage />}
+                    />
+                    <Route
+                        path="/stacks/import"
+                        element={<ImportStackPage />}
                     />
                     <Route
                         path="/stacks/:id/backups/:backupId"

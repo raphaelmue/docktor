@@ -1,5 +1,5 @@
 import {Link} from "react-router";
-import {Plus} from "lucide-react";
+import {Plus, FolderInput} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageHeader, PageTitle} from "@/components/common/layout/page";
@@ -24,6 +24,12 @@ export default function StacksPage() {
             >
                 <PageTitle>Stacks</PageTitle>
                 <PageActions>
+                    <Button asChild variant="outline">
+                        <Link to="/stacks/import">
+                            <FolderInput className="h-4 w-4 mr-2" />
+                            Import Existing Stack
+                        </Link>
+                    </Button>
                     <Button asChild>
                         <Link to="/stacks/create">
                             <Plus className="h-4 w-4 mr-2" />
