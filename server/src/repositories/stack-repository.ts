@@ -387,6 +387,22 @@ export class StackRepository {
         });
     }
 
+    // Narrow status write used by BackupService's writeStackStatus() (via the
+    // BackupStackRepo adapter in application/index.ts) — sets status and
+    // optionally previousStatus without the statusLog side-effect that
+    // updateStackStatus() performs. Kept separate from updateStackStatus()
+    // because that method also short-circuits on unchanged status, which
+    // BackupService's callers don't want.
+    async updateStatusFields(
+        id: string,
+        data: {status: StackStatus; previousStatus?: StackStatus | null},
+    ) {
+        await prisma.stack.update({
+            where: {id},
+            data,
+        });
+    }
+
 }
 
 export const stackRepository = new StackRepository();
