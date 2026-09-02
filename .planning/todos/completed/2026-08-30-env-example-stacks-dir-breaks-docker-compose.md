@@ -1,4 +1,6 @@
 ---
+completed: 2026-09-02
+---
 created: 2026-08-30T00:00:00Z
 title: ".env.example's DOCKTOR_STACKS_DIR silently breaks the docker-compose deployment"
 area: deployment
@@ -48,3 +50,16 @@ Pick one:
   correct dev-mode value.)
 - Or split `.env.example` into two templates (host-dev vs. docker-compose) so this class of
   variable can't silently mismatch between the two deployment modes again.
+
+## Resolution (Phase 05.1 Plan 08)
+
+Resolved by rewriting `.env.example` (and `.env.production`, given the same treatment) so
+`DOCKTOR_STACKS_DIR` is a live, docker-compose-correct line (`/opt/docktor/stacks`, matching
+plan 05.1-03's canonical path), with the `yarn dev` host-run alternative
+(`./dev-data/stacks`) present only as a commented-out line directly beneath it — so copying
+`.env.example` to `.env.local` without editing anything can no longer silently redirect stack
+data to an unmounted path. The template also now sets the companion
+`DOCKTOR_STACKS_HOST_DIR` (introduced by plan 05.1-03) to the same canonical path, which both
+drives `docker-compose.yml`'s stacks volume and enables `assertStacksDirMatchesHost()`'s
+startup mismatch check. See `.env.example`, `.env.production`, and `docs/deployment.md`'s
+dedicated stacks-directory section.
