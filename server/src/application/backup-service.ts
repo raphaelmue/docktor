@@ -361,9 +361,20 @@ export class BackupService {
         })
 
         try {
-            // Fetch repo config to build env for restic
+            // Fetch repo config to build env for restic. initiateRestore() already
+            // checked this before creating the backup record, but the two calls
+            // aren't atomic — an admin can clear the backup repository settings in
+            // the narrow window between them. Re-check here and fail with the same
+            // clear message instead of silently running restic with an empty env
+            // (WR-05): letting that happen produces whatever raw error restic emits
+            // for a missing repository, wrapped as a generic failure below.
             const repoConfig = await this.getBackupRepoConfig()
-            const env: Record<string, string> = repoConfig ? this.buildEnv(repoConfig, stack.hostPath ?? undefined) : {}
+            if (!repoConfig) {
+                throw new BadRequestError(
+                    "No backup repository is configured. Configure one in Settings > Backup.",
+                )
+            }
+            const env: Record<string, string> = this.buildEnv(repoConfig, stack.hostPath ?? undefined)
             const stackPath = stack.hostPath ?? "."
 
             const onLine = (line: string): void => {

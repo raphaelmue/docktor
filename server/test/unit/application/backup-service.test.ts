@@ -600,6 +600,11 @@ describe("BackupService", () => {
         });
 
         it("while runRestoreProcess is mid-run, getBackupLogBuffer(backup.id) contains every line already handed to the executor's line callback, in arrival order (restore parity)", async () => {
+            // runRestoreProcess() re-checks the backup repository is configured
+            // before touching restic (WR-05) — configure one so this test still
+            // reaches resticExecutor.run.
+            mockSettingsService.getMany.mockResolvedValue(CONFIGURED_REPO_SETTINGS);
+
             const snapshotId = "abc123def456";
             const backupRecord = {id: "backup-1", stackId: "stack-1", trigger: "RESTORE", logLines: []};
             const stack = {id: "stack-1", displayName: "My App", status: "RESTORING", previousStatus: "RUNNING", hostPath: null};
@@ -777,6 +782,35 @@ services:
             previousStatus: "RUNNING",
             hostPath: null,
         };
+
+        beforeEach(() => {
+            // runRestoreProcess() now re-checks the backup repository is
+            // configured before touching restic (WR-05) — configure one by
+            // default so the pre-existing tests below (which exercise restic
+            // success/failure, not repo configuration) are unaffected.
+            mockSettingsService.getMany.mockResolvedValue(CONFIGURED_REPO_SETTINGS);
+        });
+
+        it("fails with the same clear message as initiateRestore instead of running restic with an empty env when the backup repository is unconfigured (WR-05 regression)", async () => {
+            mockSettingsService.getMany.mockResolvedValue({});
+
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
+
+            // Must not have attempted the restore with an empty/missing env.
+            expect(mockResticExecutor.run).not.toHaveBeenCalled();
+
+            expect(mockBackupRepository.update).toHaveBeenCalledWith(
+                backupRecord.id,
+                expect.objectContaining({
+                    status: "FAILED",
+                    errorMessage: expect.stringContaining("No backup repository is configured"),
+                }),
+            );
+            expect(mockStackRepository.update).toHaveBeenCalledWith(
+                "stack-1",
+                expect.objectContaining({status: "ERROR"}),
+            );
+        });
 
         it("stops the stack before restoring", async () => {
             await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
