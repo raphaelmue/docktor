@@ -17,6 +17,12 @@ const CONFIGURED_REPO_SETTINGS = {
     "backup.password": "encrypted:abc",
 };
 
+function createMockBroadcaster() {
+    return {
+        publish: vi.fn(),
+    };
+}
+
 // Mock node:fs/promises
 vi.mock("node:fs/promises", () => ({
     readFile: vi.fn().mockResolvedValue("services:\n  web:\n    image: nginx:latest\n"),
@@ -89,6 +95,7 @@ describe("BackupService", () => {
     let mockNotificationService: ReturnType<typeof createMockNotificationService>;
     let mockStackFilesystem: ReturnType<typeof createMockStackFilesystem>;
     let mockDockerExecutor: ReturnType<typeof createMockDockerExecutor>;
+    let mockBroadcaster: ReturnType<typeof createMockBroadcaster>;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -99,6 +106,7 @@ describe("BackupService", () => {
         mockNotificationService = createMockNotificationService();
         mockStackFilesystem = createMockStackFilesystem();
         mockDockerExecutor = createMockDockerExecutor();
+        mockBroadcaster = createMockBroadcaster();
 
         service = new BackupService(
             mockResticExecutor as any,
@@ -108,6 +116,7 @@ describe("BackupService", () => {
             mockNotificationService as any,
             mockStackFilesystem as any,
             mockDockerExecutor as any,
+            mockBroadcaster as any,
         );
 
         // Default: stack exists and is running
@@ -236,6 +245,18 @@ describe("BackupService", () => {
 
             expect(mockBackupRepository.create).not.toHaveBeenCalled();
             expect(mockStackRepository.update).not.toHaveBeenCalled();
+        });
+
+        it("publishes stack_status with BACKING_UP when a repository is configured", async () => {
+            mockSettingsService.getMany.mockResolvedValue(CONFIGURED_REPO_SETTINGS);
+
+            await service.initiateBackup("stack-1");
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "BACKING_UP",
+            });
         });
     });
 
@@ -508,6 +529,28 @@ describe("BackupService", () => {
 
             expect(getBackupBroadcaster(backupRecord.id)).toBeUndefined();
         });
+
+        it("publishes stack_status with the stack's restored previous status on success", async () => {
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "RUNNING",
+            });
+        });
+
+        it("publishes stack_status with ERROR on failure", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restic: connection refused"));
+
+            await service.runBackup(backupRecord as any, stack as any, repoConfig);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "ERROR",
+            });
+        });
     });
 
     describe("log buffer (WR-01 — live SSE replay)", () => {
@@ -706,6 +749,16 @@ services:
             expect(mockBackupRepository.create).not.toHaveBeenCalled();
             expect(mockStackRepository.update).not.toHaveBeenCalled();
         });
+
+        it("publishes stack_status with RESTORING when a repository is configured", async () => {
+            await service.initiateRestore("stack-1", snapshotId);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "RESTORING",
+            });
+        });
     });
 
     describe("runRestoreProcess()", () => {
@@ -860,6 +913,28 @@ services:
             // those attach a listener to the emitter it returns).
             expect(getBackupBroadcaster("backup-1")).toBeUndefined();
         });
+
+        it("publishes stack_status with RUNNING on successful restore", async () => {
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "RUNNING",
+            });
+        });
+
+        it("publishes stack_status with ERROR on restore failure", async () => {
+            mockResticExecutor.run.mockRejectedValue(new Error("restore failed"));
+
+            await service.runRestoreProcess(backupRecord as any, stack as any, snapshotId);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "ERROR",
+            });
+        });
     });
 
     describe("abortBackup()", () => {
@@ -965,6 +1040,37 @@ services:
 
             expect(onDone).not.toHaveBeenCalled();
             expect(getBackupBroadcaster("backup-1")).toBe(emitter);
+        });
+
+        it("publishes stack_status with ERROR", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "stack-1",
+                stackStatus: "ERROR",
+            });
+        });
+
+        it("swallows a throwing broadcaster publish — the status write and the terminal done frame still complete", async () => {
+            mockBackupRepository.findById.mockResolvedValue({id: "backup-1", status: "IN_PROGRESS"});
+            mockBroadcaster.publish.mockImplementation(() => {
+                throw new Error("subscriber exploded");
+            });
+            const emitter = ensureBackupBroadcaster("backup-1");
+            const onDone = vi.fn();
+            emitter.on("done", onDone);
+
+            await service.abortBackup("backup-1", "stack-1", "boom");
+
+            expect(mockStackRepository.update).toHaveBeenCalledWith(
+                "stack-1",
+                expect.objectContaining({status: "ERROR"}),
+            );
+            expect(onDone).toHaveBeenCalledWith("FAILED");
+            expect(getBackupBroadcaster("backup-1")).toBeUndefined();
         });
     });
 

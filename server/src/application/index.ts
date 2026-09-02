@@ -50,6 +50,7 @@ export const backupService = new BackupService(
     notificationService,
     fs,
     docker,
+    stateEventBroadcaster,
 );
 
 export {getBackupBroadcaster, getBackupLogBuffer} from "./backup-service.js";

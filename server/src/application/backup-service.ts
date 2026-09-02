@@ -14,6 +14,7 @@ import {isRepositoryNotFoundError} from "../infrastructure/restic-executor.js"
 import type {BackupRepository} from "../repositories/backup-repository.js"
 import type {NotificationService} from "./notification-service.js"
 import type {DockerExecutor} from "../infrastructure/docker-executor.js"
+import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 
 // ─── Module-level broadcaster map ────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ export class BackupService {
         private readonly notificationService: NotificationService,
         private readonly filesystem: BackupFilesystem,
         private readonly docker: DockerExecutor,
+        private readonly broadcaster: Pick<StateBroadcaster, "publish">,
     ) {}
 
     // ── Public API ─────────────────────────────────────────────────────────────
@@ -193,7 +195,7 @@ export class BackupService {
         // a live emitter, even if it subscribes before runBackup starts.
         ensureBackupBroadcaster(backup.id)
 
-        await this.stackRepo.update(stackId, {
+        await this.writeStackStatus(stackId, {
             status: "BACKING_UP",
             previousStatus: stack.status,
         })
@@ -263,7 +265,7 @@ export class BackupService {
 
             // Restore stack to its previous status
             const targetStatus = stack.previousStatus ?? "RUNNING"
-            await this.stackRepo.update(stack.id, {status: targetStatus})
+            await this.writeStackStatus(stack.id, {status: targetStatus})
             finalStatus = "COMPLETED"
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : String(err)
@@ -280,7 +282,7 @@ export class BackupService {
                 errorMessage,
             })
 
-            await this.stackRepo.update(stack.id, {status: "ERROR"})
+            await this.writeStackStatus(stack.id, {status: "ERROR"})
 
             await this.notificationService.notify({
                 type: "backup_failure",
@@ -329,7 +331,7 @@ export class BackupService {
         // a live emitter, even if it subscribes before runRestoreProcess starts.
         ensureBackupBroadcaster(backup.id)
 
-        await this.stackRepo.update(stackId, {
+        await this.writeStackStatus(stackId, {
             status: "RESTORING",
             previousStatus: stack.status,
         })
@@ -399,7 +401,7 @@ export class BackupService {
                 logLines: lines,
             })
 
-            await this.stackRepo.update(stack.id, {status: "RUNNING"})
+            await this.writeStackStatus(stack.id, {status: "RUNNING"})
             await this.stackRepo.clearConfigChanged(stack.id)
 
             // Send restore success notification
@@ -425,7 +427,7 @@ export class BackupService {
                 errorMessage,
             })
 
-            await this.stackRepo.update(stack.id, {status: "ERROR"})
+            await this.writeStackStatus(stack.id, {status: "ERROR"})
 
             await this.notificationService.notify({
                 type: "backup_failure",
@@ -606,7 +608,7 @@ export class BackupService {
                 logLines: [`[error] ${errorMessage}`],
             })
 
-            await this.stackRepo.update(stackId, {status: "ERROR"})
+            await this.writeStackStatus(stackId, {status: "ERROR"})
 
             let displayName = stackId
             try {
@@ -644,7 +646,7 @@ export class BackupService {
             try {
                 const stack = await this.stackRepo.findByIdOrThrow(backup.stackId)
                 const targetStatus = stack.previousStatus ?? "ERROR"
-                await this.stackRepo.update(backup.stackId, {status: targetStatus})
+                await this.writeStackStatus(backup.stackId, {status: targetStatus})
             } catch {
                 // Stack may have been deleted — skip
             }
@@ -652,6 +654,30 @@ export class BackupService {
     }
 
     // ── Private helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Writes a stack status update through stackRepo.update() and then
+     * publishes a stack_status SSE event so every open browser tab sees the
+     * transition live — mirroring StackService.transitionStatus()'s
+     * broadcaster convention (plan 05.1-02).
+     *
+     * The publish is wrapped in try/catch: a throwing SSE subscriber must
+     * never propagate out of here. In abortBackup() especially, an exception
+     * escaping this call would skip the caller's `finally` block that emits
+     * the terminal `done` frame and disposes the backup broadcaster, leaving
+     * every subscribed SSE client on a stream that never closes.
+     */
+    private async writeStackStatus(
+        stackId: string,
+        data: Record<string, unknown> & {status: StackStatus},
+    ): Promise<void> {
+        await this.stackRepo.update(stackId, data)
+        try {
+            this.broadcaster.publish({type: "stack_status", stackId, stackStatus: data.status})
+        } catch (err) {
+            console.error("[BackupService] broadcaster publish failed", err)
+        }
+    }
 
     /**
      * Runs restic with auto-init on exit code 10 (repository not found).
