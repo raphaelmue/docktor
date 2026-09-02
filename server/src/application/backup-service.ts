@@ -310,6 +310,7 @@ export class BackupService {
      */
     async initiateRestore(stackId: string, snapshotId: string): Promise<{id: string}> {
         const stack = await this.stackRepo.findByIdOrThrow(stackId)
+        assertTransition(stack.status, "RESTORE")
 
         const repoConfig = await this.getBackupRepoConfig()
         if (!repoConfig) {
