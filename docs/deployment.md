@@ -43,8 +43,13 @@ Every command below was actually run against this repository's own
 
    Open `.env.local` and change every value the template marks `CHANGE_ME`:
 
-   - `DATABASE_URL` — replace `CHANGE_ME_DB_PASSWORD` with a real password, and
-     use the *same* password in `docker-compose.yml`'s `db.environment.POSTGRES_PASSWORD`.
+   - `DATABASE_URL` — replace `CHANGE_ME_DB_PASSWORD` with a real password.
+   - `POSTGRES_PASSWORD` — add this line to `.env.local` (it isn't in the
+     template) set to the *same* password you just put in `DATABASE_URL`.
+     `docker-compose.yml`'s `db` service reads it from `.env.local` directly
+     rather than shipping a hardcoded default; if you skip this, the
+     `docktor-db` container refuses to start instead of silently running with
+     a guessable password.
    - `BETTER_AUTH_SECRET` — generate with:
      ```bash
      node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -106,6 +111,7 @@ Every variable the server reads (`server/src`), matching `.env.example` exactly.
 | `HOST` | Optional | `0.0.0.0` | Interface the server binds to inside the container. |
 | `CLIENT_DIST_PATH` | Optional | resolved by the image | Path to the built SPA; used only when `NODE_ENV=production`. You should not need to set this. |
 | `DATABASE_URL` | Required | — | Postgres connection string. Use the compose service name `db` as the host, not `localhost`. |
+| `POSTGRES_PASSWORD` | **Required** | — (no shipped default) | Not read by the server itself — consumed by `docker-compose.yml`'s `db` service via `env_file: .env.local`. Must match the password embedded in `DATABASE_URL`. Not in `.env.example`; add it yourself. If unset, Postgres refuses to start rather than falling back to a guessable default. |
 | `DOCKTOR_DB_AUTO_PUSH` | Optional | `true` | Applies the Prisma schema automatically at container startup. See [Database schema](#database-schema). |
 | `BETTER_AUTH_SECRET` | **Required** | — | Session-signing secret. The server crashes at boot with an unhelpful `BetterAuthError` if this is missing — see Troubleshooting #1. |
 | `BETTER_AUTH_URL` | **Required** for real use | dev-only fallback (`http://localhost:5173`) | The externally-reachable URL of this instance. Feeds both `baseURL` and `trustedOrigins`. Wrong value → "invalid origin" login failure, not a crash — see Troubleshooting #4. |

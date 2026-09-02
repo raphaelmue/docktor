@@ -67,9 +67,17 @@ services:
     restart: unless-stopped
     volumes:
       - ./dev-data/docktor/db:/var/lib/postgresql
+    # POSTGRES_PASSWORD is read from .env.local (same file docktor's DATABASE_URL
+    # comes from) rather than hardcoded here, so there is no guessable shipped
+    # default and no way for the two to silently drift apart (WR-04). Set
+    # POSTGRES_PASSWORD in .env.local to the same password embedded in
+    # DATABASE_URL — see docs/deployment.md. If it's left unset, the official
+    # postgres image refuses to start rather than falling back to a known
+    # default, which is the intended fail-loud behavior here.
+    env_file:
+      - .env.local
     environment:
       POSTGRES_USER: docktor
-      POSTGRES_PASSWORD: docktor
       POSTGRES_DB: docktor
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U docktor" ]
