@@ -212,7 +212,7 @@ Plans:
 **Goal:** Fix the blockers and majors surfaced during Phase 1-5 testing/UAT that block a clean, safe self-hosted deployment, so Phase 6 (Proxy Configuration) starts from a working, documented, verifiable base. Scope is exactly 10 items: 3 blockers (broken integration/e2e tests, no schema sync on container startup, Docker-outside-of-Docker bind-mount path mismatch), 6 majors (deployment config documentation, `config_error` UI, missing SSE broadcasts on manual actions, backup-without-repo wedging a stack, env edits not flagging config-changed, unreachable post-setup brownfield import) and 1 minor (restic pinned to an outdated version).
 **Requirements**: n/a — this phase is scoped by the todo list above, not by REQUIREMENTS.md IDs
 **Depends on:** Phase 5
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans executed
 
 Plans:
 **Wave 1**
@@ -230,7 +230,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05.1-08-PLAN.md — Documented `.env.example`, self-host compose file, and deployment docs (M1)
+- [x] 05.1-08-PLAN.md — Documented `.env.example`, self-host compose file, and deployment docs (M1)
 
 ### Phase 6: Proxy Configuration
 

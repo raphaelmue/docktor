@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-07-PLAN.md
-last_updated: "2026-09-02T10:07:55.568Z"
-state_head: df6f30bc2d7e96aad0f159b47ba4100bacf2d74c
+stopped_at: Completed 05.1-08-PLAN.md
+last_updated: "2026-09-02T12:59:23.125Z"
+state_head: c90f3af2e5821337a1a1aee5a6e6077189da2b81
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 62
+  completed_plans: 63
 milestone_name: milestone
 ---
 
@@ -111,6 +111,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P05 | 40min | 3 tasks | 4 files |
 | Phase 05.1 P06 | 55min | 3 tasks | 11 files |
 | Phase 05.1 P07 | 45min | 3 tasks | 14 files |
+| Phase 05.1 P08 | 2h30m | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -235,6 +236,9 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-07]: requireAuth alone gates /api/stacks/import/* — verified not double-covered by app.ts's onRequest first-run exemption (exact /api/setup/ and /api/auth/ prefix match only)
 - [Phase 05.1]: [Phase 05.1-07]: BrownfieldImport takes its four API functions as an injected prop object instead of importing setup-api or import-api directly, so one component drives both the wizard (/api/setup/*) and the post-setup page (/api/stacks/import/*)
 - [Phase 05.1]: [Phase 05.1-07]: compatibility-badge.tsx promoted from routes/setup/components/ to components/domain/stack/ per CLAUDE.md's multi-consumer rule, since BrownfieldImport (a domain component) is now its consumer alongside the wizard
+- [Phase 05.1]: [Phase 05.1-08]: .env.example/.env.production are the docker-compose deployment templates (not the yarn-dev .env.development); DATABASE_URL host fixed to compose service name db, DOCKTOR_STACKS_HOST_DIR defaulted live so assertStacksDirMatchesHost() is active out of the box, DOCKER_DATA_PATH defaulted to /host/var/lib/docker
+- [Phase 05.1]: [Phase 05.1-08]: docker-compose.yml drops the decorative /data and /backups mounts and no longer publishes Postgres 5432 (T-05.1-42); docker-compose.dev.yml's Postgres bumped 17->18 to match
+- [Phase 05.1]: [Phase 05.1-08]: found and fixed two live-discovered bugs blocking the documented quickstart — schema-sync.ts's --skip-generate argv was an invalid flag for this Prisma CLI (db push silently never applied the schema since 05.1-05 shipped), and DiskChecker.check()'s unguarded settings query crashed the whole server via an unhandled promise rejection on a fresh database
 
 ### Quick Tasks Completed
 
@@ -284,6 +288,7 @@ Recent decisions affecting current work:
 - [Phase 05.1-03] The execution host for this project is shared with unrelated real running Docker workloads (confirmed: a real user Memos instance at /home/raphael/docker/memos, plus other unrelated stacks). A live 'docker compose up --remove-orphans' DooD verification test on 2026-09-02 used the project-name-colliding directory 'memos' and stopped+removed the real memos-server/memos-db containers as orphans before the collision was noticed; they were restored from their own compose file with no apparent data loss (bind-mounted data untouched, Postgres reused its existing database). Any future live docker-compose E2E test on this host MUST use a randomly-generated, collision-proof project/directory name — never a plain or example-derived name like 'memos', 'app', or 'test'. See 05.1-03-SUMMARY.md Issues Encountered for full details.
 - [Phase 05.1-05] A human (or an unrestricted execution environment) must run Task 3's live cold-start check (throwaway postgres:18 + built image with /var/run/docker.sock mounted, polling GET /api/setup/status) to confirm the applied/already-current happy path and close D3 coverage — see 05.1-05-SUMMARY.md Known Limitation
 - [Phase 05.1-06] yarn db:push could not reach the dev DB in this sandboxed session (same TCP-payload-block class as 05.1-01/05.1-05, now reconfirmed at the raw-socket level) — a human on an unrestricted host must run it to apply Stack.configError/lastEnvHash before this plan's server behavior is live. WINDOWS.md #8.
+- [Phase 05.1-08] Human-check item 5 from the plan's <verify> block (creating a stack with a relative bind-mount volume through the app's UI/API and confirming the data lands at the documented host path) was deliberately not re-exercised live in this session — it would run docker compose up -d --remove-orphans via Docktor's own deploy pipeline on the same shared host where 05.1-03's identical live test caused a real incident. A human should complete this check (and click through the setup wizard in a real browser) before treating the quickstart as fully proven. See 05.1-08-SUMMARY.md coverage D5 rationale.
 
 ### Roadmap Evolution
 
@@ -291,6 +296,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T10:07:31.062Z
-Stopped at: Completed 05.1-07-PLAN.md
+Last session: 2026-09-02T12:59:05.524Z
+Stopped at: Completed 05.1-08-PLAN.md
 Resume file: None
