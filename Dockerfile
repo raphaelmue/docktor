@@ -100,6 +100,12 @@ ENV DOCKTOR_STACKS_DIR=/opt/docktor/stacks
 # operators who've confirmed a native Linux host can override with
 # DOCKTOR_FS_POLLING=false to skip it.
 ENV DOCKTOR_FS_POLLING=true
+# Runs a guarded `prisma db push` on startup so a fresh `docker compose up`
+# against an empty database doesn't crash on a missing table (todo B2). This
+# is deliberately the interim schemaless sync step, not `prisma migrate` —
+# see .planning/todos/pending/2026-09-01-adopt-prisma-migrate-post-mvp.md.
+# Set to "false" to disable this step entirely.
+ENV DOCKTOR_DB_AUTO_PUSH=true
 
 EXPOSE 3000
 
