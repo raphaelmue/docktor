@@ -5,6 +5,12 @@ import type {
   WizardStep3Input,
   WizardStep4Input,
 } from "@docktor/shared";
+import type {
+  MigrationPreview,
+  MigrationResult,
+  ScanResult,
+  VolumeSelection,
+} from "./brownfield-types";
 
 export interface SetupStatus {
   setupComplete: boolean;
@@ -13,40 +19,6 @@ export interface SetupStatus {
 export interface Step1Result {
   user: {id: string; email: string; name: string | null};
   sessionToken: string;
-}
-
-export interface ScanResult {
-  stacks: DiscoveredStack[];
-  skippedDirectories: number;
-}
-
-export interface DiscoveredStack {
-  path: string;
-  directory: string;
-  compatibility: "green" | "yellow" | "red";
-  serviceCount: number;
-  namedVolumes: string[];
-  absolutePaths: string[];
-  inlineEnvVars: boolean;
-  unsupportedFeatures: string[];
-}
-
-export interface VolumeSelection {
-  originalPath: string;
-  newPath: string;
-  convert: boolean;
-}
-
-export interface MigrationPreview {
-  diff: string;
-  extractedEnv: string;
-}
-
-export interface MigrationResult {
-  success: boolean;
-  stackId?: string;
-  error?: string;
-  originalPath: string;
 }
 
 export function checkSetupStatus() {
