@@ -7,6 +7,7 @@ import yaml from "yaml"
 import {decrypt} from "../lib/crypto.js"
 import {assertTransition} from "../domain/stack-status-machine.js"
 import {createComposeConfig} from "../domain/compose-config.js"
+import {BadRequestError} from "../lib/errors.js"
 import type {StackStatus, BackupTrigger} from "../generated/prisma/enums.js"
 import type {ResticExecutor, BackupRepoConfig, RetentionPolicy, ResticSnapshot} from "../infrastructure/restic-executor.js"
 import {isRepositoryNotFoundError} from "../infrastructure/restic-executor.js"
@@ -172,6 +173,13 @@ export class BackupService {
         const stack = await this.stackRepo.findByIdOrThrow(stackId)
         assertTransition(stack.status, "BACKUP")
 
+        const repoConfig = await this.getBackupRepoConfig()
+        if (!repoConfig) {
+            throw new BadRequestError(
+                "No backup repository is configured. Configure one in Settings > Backup.",
+            )
+        }
+
         const backup = await this.backupRepo.create({
             stackId,
             trigger,
@@ -300,6 +308,13 @@ export class BackupService {
      */
     async initiateRestore(stackId: string, snapshotId: string): Promise<{id: string}> {
         const stack = await this.stackRepo.findByIdOrThrow(stackId)
+
+        const repoConfig = await this.getBackupRepoConfig()
+        if (!repoConfig) {
+            throw new BadRequestError(
+                "No backup repository is configured. Configure one in Settings > Backup.",
+            )
+        }
 
         const backup = await this.backupRepo.create({
             stackId,

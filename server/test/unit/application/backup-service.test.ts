@@ -7,8 +7,15 @@ import {
     ensureBackupLogBuffer,
     getBackupLogBuffer,
 } from "../../../src/application/backup-service.js";
+import {BadRequestError, NotFoundError} from "../../../src/lib/errors.js";
 import {EventEmitter} from "node:events";
 import path from "node:path";
+
+const CONFIGURED_REPO_SETTINGS = {
+    "backup.repoType": "local",
+    "backup.repoPath": "/backups",
+    "backup.password": "encrypted:abc",
+};
 
 // Mock node:fs/promises
 vi.mock("node:fs/promises", () => ({
@@ -210,6 +217,25 @@ describe("BackupService", () => {
             await service.runBackup(backupRecord as any, stack as any, repoConfig);
 
             expect(onDone).toHaveBeenCalledWith("COMPLETED");
+        });
+
+        it("rejects with BadRequestError and creates no row / transitions no status when no backup repository is configured", async () => {
+            mockSettingsService.getMany.mockResolvedValue({});
+
+            await expect(service.initiateBackup("stack-1")).rejects.toBeInstanceOf(BadRequestError);
+
+            expect(mockBackupRepository.create).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
+        });
+
+        it("still produces the NotFoundError from findByIdOrThrow for an unknown stack id, not the new BadRequestError", async () => {
+            mockStackRepository.findByIdOrThrow.mockRejectedValue(new NotFoundError("Stack not found"));
+            mockSettingsService.getMany.mockResolvedValue({});
+
+            await expect(service.initiateBackup("unknown-stack")).rejects.toBeInstanceOf(NotFoundError);
+
+            expect(mockBackupRepository.create).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
         });
     });
 
@@ -637,6 +663,13 @@ services:
     describe("initiateRestore()", () => {
         const snapshotId = "abc123def456";
 
+        beforeEach(() => {
+            // initiateRestore now guards on a configured repository (Task 1) —
+            // configure one by default so the pre-existing happy-path tests in
+            // this describe block are unaffected by the new guard.
+            mockSettingsService.getMany.mockResolvedValue(CONFIGURED_REPO_SETTINGS);
+        });
+
         it("creates Backup record with trigger RESTORE and status IN_PROGRESS", async () => {
             await service.initiateRestore("stack-1", snapshotId);
 
@@ -663,6 +696,15 @@ services:
             await service.initiateRestore("stack-1", snapshotId);
 
             expect(getBackupBroadcaster("backup-1")).toBeInstanceOf(EventEmitter);
+        });
+
+        it("rejects with BadRequestError and creates no row / transitions no status when no backup repository is configured", async () => {
+            mockSettingsService.getMany.mockResolvedValue({});
+
+            await expect(service.initiateRestore("stack-1", snapshotId)).rejects.toBeInstanceOf(BadRequestError);
+
+            expect(mockBackupRepository.create).not.toHaveBeenCalled();
+            expect(mockStackRepository.update).not.toHaveBeenCalled();
         });
     });
 
