@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-03-PLAN.md
-last_updated: "2026-09-02T08:19:15.225Z"
-state_head: aab9337b0934cb993b66425de7a24f176b09546d
+stopped_at: Completed 05.1-04-PLAN.md
+last_updated: "2026-09-02T08:44:28.736Z"
+state_head: 46700184eacb89f2026f54f4a7626688aaca87c2
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 58
+  completed_plans: 59
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -107,6 +107,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P01 | 2h30m | 3 tasks | 9 files |
 | Phase 05.1 P02 | 40min | 3 tasks | 6 files |
 | Phase 05.1 P03 | 35min | 3 tasks | 5 files |
+| Phase 05.1 P04 | 13min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -219,6 +220,8 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-03] Task 1 checkpoint (user-confirmed): no-rebase existing-install strategy — no automatic Stack.hostPath rewrite; a path mismatch fails loudly at boot via assertStacksDirMatchesHost() and the operator relocates the directory and reconfigures deliberately
 - [Phase 05.1]: [Phase 05.1-03] getStackPath() now throws if the joined path escapes getStacksDir() — defense-in-depth for threat T-05.1-11, alongside the existing slugify() guarantee
 - [Phase 05.1]: [Phase 05.1-03] restic install moved into a dedicated Dockerfile build stage (not a single RUN in the final stage) because node:22-slim lacks bzip2 by default and the plan's acceptance criteria requires the final apt-get layer to list exactly ca-certificates and curl
+- [Phase 05.1]: [Phase 05.1-04]: initiateRestore() has no assertTransition() call (unlike initiateBackup()) — pre-existing gap left out of scope since RESTORE's allowed-from list isn't a stranding risk the same way missing-repo was; runRestoreProcess() unconditionally stops before restoring regardless of starting status
+- [Phase 05.1]: [Phase 05.1-04]: BackupService.writeStackStatus() is the single call site for every stackRepo.update({status}) call including recoverInProgressBackups() (server-startup recovery), mirroring StackService's transitionStatus() broadcaster convention from 05.1-02
 
 ### Quick Tasks Completed
 
@@ -273,6 +276,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T08:19:13.336Z
-Stopped at: Completed 05.1-03-PLAN.md
+Last session: 2026-09-02T08:44:26.853Z
+Stopped at: Completed 05.1-04-PLAN.md
 Resume file: None
