@@ -8,6 +8,7 @@ import {ComposeEditError, getServiceImageTag, setServiceImageTag} from "../lib/c
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {DockerExecutor} from "../infrastructure/docker-executor.js";
+import type {StateBroadcaster} from "../lib/state-broadcaster.js";
 import type {StackStatus, StackEventType} from "../generated/prisma/enums.js";
 
 /**
@@ -32,6 +33,7 @@ export class StackService {
         private readonly fs: StackFilesystem,
         private readonly docker: DockerExecutor,
         private readonly events: StackEventReadRepo,
+        private readonly broadcaster: Pick<StateBroadcaster, "publish">,
     ) {}
 
     async createStack(input: CreateStackInput) {
@@ -146,7 +148,7 @@ export class StackService {
         const stack = await this.repo.findByIdOrThrow(id);
         this.guardTransition(stack.status as StackStatus, "DEPLOY");
 
-        await this.repo.transitionStatus(
+        await this.transitionStatus(
             id,
             stack.status as StackStatus,
             "DEPLOYING",
@@ -182,7 +184,7 @@ export class StackService {
             if (success) {
                 // Update service records to match the deployed compose file
                 await this.repo.replaceServices(id, composeConfig);
-                await this.repo.transitionStatus(
+                await this.transitionStatus(
                     id,
                     "DEPLOYING",
                     "RUNNING",
@@ -190,7 +192,7 @@ export class StackService {
                 );
                 await this.repo.clearConfigChanged(id);
             } else {
-                await this.repo.transitionStatus(
+                await this.transitionStatus(
                     id,
                     "DEPLOYING",
                     "ERROR",
@@ -200,7 +202,7 @@ export class StackService {
         } catch (err: any) {
             success = false;
             errorMessage = err.message ?? String(err);
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "DEPLOYING",
                 "ERROR",
@@ -215,7 +217,7 @@ export class StackService {
         const stack = await this.repo.findByIdOrThrow(id);
         this.guardTransition(stack.status as StackStatus, "STOP");
 
-        await this.repo.transitionStatus(
+        await this.transitionStatus(
             id,
             stack.status as StackStatus,
             "STOPPED",
@@ -225,7 +227,7 @@ export class StackService {
         try {
             await this.docker.stop(id);
         } catch (err: any) {
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "STOPPED",
                 "ERROR",
@@ -241,7 +243,7 @@ export class StackService {
 
         await this.docker.restart(id);
 
-        await this.repo.transitionStatus(
+        await this.transitionStatus(
             id,
             stack.status as StackStatus,
             stack.status as StackStatus,
@@ -260,7 +262,7 @@ export class StackService {
         // code path — it just degrades the answer to the generic message.
         const refs = await this.collectImageRefs(id);
 
-        await this.repo.transitionStatus(
+        await this.transitionStatus(
             id,
             stack.status as StackStatus,
             "UPDATING",
@@ -275,7 +277,7 @@ export class StackService {
             await this.docker.up(id);
             afterDigests = await this.snapshotDigests(refs);
         } catch (err: any) {
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "ERROR",
@@ -295,7 +297,7 @@ export class StackService {
             const composeConfig = createComposeConfig(composeContent);
             await this.repo.replaceServices(id, composeConfig);
 
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "RUNNING",
@@ -303,7 +305,7 @@ export class StackService {
             );
             await this.repo.clearConfigChanged(id);
         } catch (err: any) {
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "ERROR",
@@ -411,7 +413,7 @@ export class StackService {
             return {changed: false, previousTag, newTag: targetTag};
         }
 
-        await this.repo.transitionStatus(
+        await this.transitionStatus(
             id,
             stack.status as StackStatus,
             "UPDATING",
@@ -422,7 +424,7 @@ export class StackService {
         try {
             newContent = setServiceImageTag(originalContent, serviceName, targetTag);
         } catch (err) {
-            await this.repo.transitionStatus(id, "UPDATING", "ERROR", (err as Error).message);
+            await this.transitionStatus(id, "UPDATING", "ERROR", (err as Error).message);
             throw this.translateComposeEditError(err);
         }
 
@@ -445,7 +447,7 @@ export class StackService {
                     restoreErr,
                 );
             }
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "ERROR",
@@ -461,7 +463,7 @@ export class StackService {
         try {
             const composeConfig = createComposeConfig(newContent);
             await this.repo.replaceServices(id, composeConfig);
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "RUNNING",
@@ -469,7 +471,7 @@ export class StackService {
             );
             await this.repo.clearConfigChanged(id);
         } catch (err: any) {
-            await this.repo.transitionStatus(
+            await this.transitionStatus(
                 id,
                 "UPDATING",
                 "ERROR",
@@ -494,6 +496,33 @@ export class StackService {
     async getEnvContent(id: string): Promise<string> {
         await this.repo.findByIdOrThrow(id);
         return this.fs.readEnv(id);
+    }
+
+    /**
+     * Wraps the repository's DB write with a `stack_status` broadcast. This
+     * is the single call site for `repo.transitionStatus` — every action
+     * method above routes through here so a manual action becomes visible
+     * over SSE while it is still in flight, not only after StatePoller's
+     * next 60s reconcile() tick (todo: manual-actions-dont-broadcast-sse).
+     * The publish happens strictly after the DB write resolves — a
+     * broadcast before a failed write would advertise a status that never
+     * existed — and any broadcaster failure is caught and logged rather
+     * than propagated: a throwing subscriber must never be able to strand
+     * a stack in a transitional status that no action's allowed-from list
+     * accepts and StatePoller unconditionally skips.
+     */
+    private async transitionStatus(
+        id: string,
+        from: StackStatus,
+        to: StackStatus,
+        message?: string,
+    ): Promise<void> {
+        await this.repo.transitionStatus(id, from, to, message);
+        try {
+            this.broadcaster.publish({type: "stack_status", stackId: id, stackStatus: to});
+        } catch (err) {
+            console.error(`[StackService] failed to publish stack_status for "${id}":`, err);
+        }
     }
 
     private guardTransition(current: StackStatus, action: "DEPLOY" | "STOP" | "RESTART" | "DELETE" | "UPDATE") {

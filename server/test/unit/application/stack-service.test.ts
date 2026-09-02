@@ -49,19 +49,27 @@ function createMockStackEvents() {
     };
 }
 
+function createMockBroadcaster() {
+    return {
+        publish: vi.fn(),
+    };
+}
+
 describe("StackService", () => {
     let service: StackService;
     let repo: ReturnType<typeof createMockRepo>;
     let fs: ReturnType<typeof createMockFs>;
     let docker: ReturnType<typeof createMockDocker>;
     let events: ReturnType<typeof createMockStackEvents>;
+    let broadcaster: ReturnType<typeof createMockBroadcaster>;
 
     beforeEach(() => {
         repo = createMockRepo();
         fs = createMockFs();
         docker = createMockDocker();
         events = createMockStackEvents();
-        service = new StackService(repo as any, fs as any, docker as any, events as any);
+        broadcaster = createMockBroadcaster();
+        service = new StackService(repo as any, fs as any, docker as any, events as any, broadcaster as any);
     });
 
     describe("createStack", () => {
@@ -282,6 +290,126 @@ describe("StackService", () => {
                 expect.stringContaining("DB unavailable"),
             );
         });
+
+        it("publishes stack_status DEPLOYING then RUNNING on a successful deploy", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "DRAFT"});
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+
+            await service.deployStack("my-app");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "DEPLOYING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "RUNNING",
+            });
+        });
+
+        it("publishes stack_status DEPLOYING then ERROR when the docker call fails", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "DRAFT"});
+            docker.up.mockRejectedValue(new Error("Container failed"));
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+
+            await service.deployStack("my-app");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "DEPLOYING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "ERROR",
+            });
+        });
+
+        it("does not let a throwing broadcaster subscriber strand a successful deploy", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "DRAFT"});
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  web:\n    image: nginx\n");
+            broadcaster.publish.mockImplementation(() => {
+                throw new Error("subscriber exploded");
+            });
+            const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+            const result = await service.deployStack("my-app");
+
+            expect(result.success).toBe(true);
+            expect(repo.transitionStatus).toHaveBeenLastCalledWith(
+                "my-app",
+                "DEPLOYING",
+                "RUNNING",
+                "Deployment succeeded",
+            );
+            consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe("stopStack", () => {
+        it("publishes stack_status STOPPED on a successful stop", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            docker.stop.mockResolvedValue(undefined);
+
+            await service.stopStack("my-app");
+
+            expect(repo.transitionStatus).toHaveBeenCalledWith(
+                "my-app",
+                "RUNNING",
+                "STOPPED",
+                "Stack stopped",
+            );
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "STOPPED",
+            });
+        });
+
+        it("publishes stack_status STOPPED then ERROR when the docker stop call fails", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            docker.stop.mockRejectedValue(new Error("stop failed"));
+
+            await expect(service.stopStack("my-app")).rejects.toThrow("stop failed");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "STOPPED",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "ERROR",
+            });
+        });
+    });
+
+    describe("restartStack", () => {
+        it("publishes stack_status even when from-status equals to-status", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", status: "RUNNING"});
+            docker.restart.mockResolvedValue(undefined);
+
+            await service.restartStack("my-app");
+
+            expect(repo.transitionStatus).toHaveBeenCalledWith(
+                "my-app",
+                "RUNNING",
+                "RUNNING",
+                "Stack restarted",
+            );
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "RUNNING",
+            });
+            expect(repo.clearConfigChanged).toHaveBeenCalledWith("my-app");
+        });
     });
 
     describe("updateImages", () => {
@@ -405,6 +533,41 @@ describe("StackService", () => {
                 "ERROR",
                 "pull failed",
             );
+        });
+
+        it("publishes stack_status UPDATING then RUNNING on a successful update", async () => {
+            mockDockerAndFsForSuccess();
+
+            await service.updateImages("my-app");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "UPDATING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "RUNNING",
+            });
+        });
+
+        it("publishes stack_status UPDATING then ERROR when the post-pull sync fails", async () => {
+            mockDockerAndFsForSuccess();
+            repo.replaceServices.mockRejectedValue(new Error("DB unavailable"));
+
+            await expect(service.updateImages("my-app")).rejects.toThrow("DB unavailable");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "UPDATING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "ERROR",
+            });
         });
     });
 
@@ -551,6 +714,46 @@ describe("StackService", () => {
                 "my-app",
                 "services:\n  web:\n    image: nginx:1.26\n",
             );
+        });
+
+        it("publishes stack_status UPDATING then RUNNING on a successful upgrade", async () => {
+            await service.upgradeServiceImage("my-app", "web", "1.26");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "UPDATING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "RUNNING",
+            });
+        });
+
+        it("publishes no event on the idempotent no-op path", async () => {
+            await service.upgradeServiceImage("my-app", "web", "1.25");
+
+            expect(broadcaster.publish).not.toHaveBeenCalled();
+        });
+
+        it("publishes stack_status UPDATING then ERROR when composePull fails", async () => {
+            docker.composePull.mockRejectedValue(new Error("pull failed"));
+
+            await expect(
+                service.upgradeServiceImage("my-app", "web", "1.26"),
+            ).rejects.toThrow("pull failed");
+
+            expect(broadcaster.publish).toHaveBeenCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "UPDATING",
+            });
+            expect(broadcaster.publish).toHaveBeenLastCalledWith({
+                type: "stack_status",
+                stackId: "my-app",
+                stackStatus: "ERROR",
+            });
         });
     });
 });
