@@ -19,11 +19,12 @@ vi.mock("@/hooks/use-container-events", () => ({
     }),
 }));
 
-// The config_changed branch calls toast.warning — mock sonner so it never reaches
-// a real (unmounted) toaster.
+// The config_changed branch calls toast.warning and the config_error branch
+// calls toast.error — mock sonner so neither ever reaches a real (unmounted) toaster.
 vi.mock("sonner", () => ({
     toast: {
         warning: vi.fn(),
+        error: vi.fn(),
     },
 }));
 
@@ -41,6 +42,8 @@ function deferred<T>() {
 
 beforeEach(() => {
     mockGetStack.mockReset();
+    vi.mocked(toast.warning).mockClear();
+    vi.mocked(toast.error).mockClear();
     capturedHandler = undefined;
 });
 
@@ -135,6 +138,73 @@ describe("useStack", () => {
                 className: expect.stringContaining("yellow"),
             }),
         );
+    });
+
+    it("a config_error event sets isRefreshing while in flight and never touches loading or error", async () => {
+        const initialStack = {id: "my-app", displayName: "My App v1"};
+        const updatedStack = {id: "my-app", displayName: "My App v2", configError: "bad yaml"};
+        mockGetStack.mockResolvedValueOnce(initialStack as any);
+        const refresh = deferred<any>();
+        mockGetStack.mockReturnValueOnce(refresh.promise);
+
+        const {result} = renderHook(() => useStack("my-app"));
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.stack).toEqual(initialStack);
+        expect(result.current.isRefreshing).toBe(false);
+
+        act(() => {
+            capturedHandler!({type: "config_error", stackId: "my-app", message: "bad yaml"});
+        });
+
+        await waitFor(() => expect(result.current.isRefreshing).toBe(true));
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBeNull();
+        expect(result.current.stack).toEqual(initialStack);
+
+        await act(async () => {
+            refresh.resolve(updatedStack);
+            await refresh.promise;
+        });
+
+        await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBeNull();
+        expect(result.current.stack).toEqual(updatedStack);
+    });
+
+    it("a config_error event shows a destructive (red) toast carrying the parser message", async () => {
+        const initialStack = {id: "my-app", displayName: "My App v1"};
+        mockGetStack.mockResolvedValueOnce(initialStack as any);
+        mockGetStack.mockResolvedValueOnce(initialStack as any);
+
+        renderHook(() => useStack("my-app"));
+        await waitFor(() => expect(mockGetStack).toHaveBeenCalledTimes(1));
+
+        act(() => {
+            capturedHandler!({type: "config_error", stackId: "my-app", message: "Invalid YAML: bad indentation"});
+        });
+
+        expect(toast.error).toHaveBeenCalledWith(
+            "Invalid YAML: bad indentation",
+            expect.objectContaining({
+                className: expect.stringContaining("red"),
+            }),
+        );
+    });
+
+    it("ignores a config_error event for a different stack id", async () => {
+        mockGetStack.mockResolvedValueOnce({id: "my-app", displayName: "My App"} as any);
+        const {result} = renderHook(() => useStack("my-app"));
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        mockGetStack.mockClear();
+
+        act(() => {
+            capturedHandler!({type: "config_error", stackId: "other-app", message: "bad yaml"});
+        });
+
+        expect(mockGetStack).not.toHaveBeenCalled();
+        expect(toast.error).not.toHaveBeenCalled();
     });
 
     it("an update_available event behaves like config_changed, without touching loading", async () => {

@@ -8,6 +8,7 @@ export interface Stack {
     hostPath: string;
     status: string;
     configChanged: boolean;
+    configError: string | null;
     lastKnownHash: string | null;
     createdAt: string;
     updatedAt: string;

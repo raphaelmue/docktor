@@ -79,6 +79,11 @@ export function useStack(id: string) {
                 className: "!bg-yellow-100 !text-yellow-800 dark:!bg-yellow-900 dark:!text-yellow-200",
             });
             void fetchStack("background");
+        } else if (event.type === "config_error") {
+            toast.error(event.message, {
+                className: "!bg-red-100 !text-red-800 dark:!bg-red-900 dark:!text-red-200",
+            });
+            void fetchStack("background");
         } else if (event.type === "update_available") {
             void fetchStack("background");
         }
