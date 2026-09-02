@@ -38,6 +38,8 @@ function createMockFileWatcherRepo() {
         updateStackHash: vi.fn(),
         syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
         createStackEvent: vi.fn(),
+        setConfigError: vi.fn().mockResolvedValue(undefined),
+        clearConfigError: vi.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -54,6 +56,8 @@ describe("createFileWatcherRepo", () => {
             findStackByPath: vi.fn().mockResolvedValue(null),
             updateStackHash: vi.fn().mockResolvedValue(undefined),
             syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
+            setConfigError: vi.fn().mockResolvedValue(undefined),
+            clearConfigError: vi.fn().mockResolvedValue(undefined),
         };
     }
 
@@ -102,11 +106,15 @@ describe("createFileWatcherRepo", () => {
         await repo.findStackByPath("/stacks/my-app/docker-compose.yml");
         await repo.updateStackHash({stackId: "my-app", hash: "abc"});
         await repo.syncServicesFromCompose("my-app", {hash: "abc", services: []});
+        await repo.setConfigError("my-app", "bad yaml");
+        await repo.clearConfigError("my-app");
 
         expect(stacks.findAllStacks).toHaveBeenCalled();
         expect(stacks.findStackByPath).toHaveBeenCalledWith("/stacks/my-app/docker-compose.yml");
         expect(stacks.updateStackHash).toHaveBeenCalledWith({stackId: "my-app", hash: "abc"});
         expect(stacks.syncServicesFromCompose).toHaveBeenCalledWith("my-app", {hash: "abc", services: []});
+        expect(stacks.setConfigError).toHaveBeenCalledWith("my-app", "bad yaml");
+        expect(stacks.clearConfigError).toHaveBeenCalledWith("my-app");
     });
 });
 
@@ -404,6 +412,61 @@ describe("FileWatcher", () => {
             await (fileWatcher as any).handleFileChange(fakePath);
 
             expect(mockRepo.syncServicesFromCompose).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("handleFileChange() config error persistence (Task 1)", () => {
+        it("calls repo.setConfigError with the parser message when YAML is invalid", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockCreateComposeConfig.mockImplementation(() => {
+                throw new Error("Invalid YAML: bad indentation");
+            });
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.setConfigError).toHaveBeenCalledWith("stack-1", "Invalid YAML: bad indentation");
+        });
+
+        it("does NOT write lastKnownHash on a parse failure, so reconcile() keeps retrying", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockCreateComposeConfig.mockImplementation(() => {
+                throw new Error("Invalid YAML");
+            });
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
+        });
+
+        it("calls repo.clearConfigError after a subsequent successful parse", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockRepo.updateStackHash.mockResolvedValue(undefined);
+            mockRepo.createStackEvent.mockResolvedValue(undefined);
+            mockHashContent.mockReturnValue("new-computed-hash");
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.clearConfigError).toHaveBeenCalledWith("stack-1");
+        });
+
+        it("calls repo.clearConfigError only after syncServicesFromCompose succeeds", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockHashContent.mockReturnValue("new-computed-hash");
+            mockRepo.syncServicesFromCompose.mockRejectedValue(new Error("sync failed"));
+
+            await expect((fileWatcher as any).handleFileChange(fakePath)).rejects.toThrow("sync failed");
+
+            expect(mockRepo.clearConfigError).not.toHaveBeenCalled();
         });
     });
 

@@ -15,10 +15,12 @@ export interface FileWatcherRepo {
     updateStackHash(args: {stackId: string; hash: string}): Promise<void>
     syncServicesFromCompose(stackId: string, composeConfig: ComposeConfig): Promise<void>
     createStackEvent(args: {stackId: string; type: StackEventType; message?: string; payload?: string}): Promise<void>
+    setConfigError(stackId: string, message: string): Promise<void>
+    clearConfigError(stackId: string): Promise<void>
 }
 
 /**
- * Narrow local interface covering only the four stack members the watcher
+ * Narrow local interface covering only the six stack members the watcher
  * uses. Kept structural (not imported from repositories/) so the factory
  * pulls in neither repository module and stays testable without dragging
  * the database client into the test module graph.
@@ -28,6 +30,8 @@ interface FileWatcherStackRepo {
     findStackByPath: FileWatcherRepo["findStackByPath"]
     updateStackHash: FileWatcherRepo["updateStackHash"]
     syncServicesFromCompose: FileWatcherRepo["syncServicesFromCompose"]
+    setConfigError: FileWatcherRepo["setConfigError"]
+    clearConfigError: FileWatcherRepo["clearConfigError"]
 }
 
 /** Narrow local interface covering just the event repository's write member. */
@@ -51,6 +55,8 @@ export function createFileWatcherRepo(
         findStackByPath: (...args) => stacks.findStackByPath(...args),
         updateStackHash: (...args) => stacks.updateStackHash(...args),
         syncServicesFromCompose: (...args) => stacks.syncServicesFromCompose(...args),
+        setConfigError: (...args) => stacks.setConfigError(...args),
+        clearConfigError: (...args) => stacks.clearConfigError(...args),
         async createStackEvent(args) {
             await events.createEvent(args)
         },
@@ -198,6 +204,7 @@ export class FileWatcher {
         } catch (err: any) {
             // Invalid YAML or no services key
             console.log(`[FileWatcher] Config error for ${stack.id}: ${err.message}`)
+            await repo.setConfigError(stack.id, err.message)
             await repo.createStackEvent({
                 stackId: stack.id,
                 type: "config_error",
@@ -217,6 +224,9 @@ export class FileWatcher {
         // the stored hash stays stale so the 60s reconcile() retry picks it back up.
         await repo.syncServicesFromCompose(stack.id, composeConfig)
         console.log(`[FileWatcher] syncServicesFromCompose completed for ${stack.id} (${composeConfig.services.length} services)`)
+        // A successful parse is positive evidence the file is valid — clear any
+        // stale configError before proceeding. Only reached once sync succeeds.
+        await repo.clearConfigError(stack.id)
         await repo.updateStackHash({stackId: stack.id, hash: newHash})
         await repo.createStackEvent({
             stackId: stack.id,

@@ -15,6 +15,13 @@ model Stack {
   lastKnownHash    String? // SHA256 of docker-compose.yml
   lastParsedAt     DateTime?
   configChanged    Boolean     @default(false) // true = file changed since last deploy
+  // Latest unresolved compose parse error message (from the YAML/compose parser).
+  // Null when the file currently parses. Independent of configChanged — both
+  // flags can be true at once (a validly edited file that was then broken).
+  configError      String?
+  // SHA256 of the stack's .env file, tracked separately from lastKnownHash so
+  // an external .env edit can never be mistaken for a compose-file change.
+  lastEnvHash      String?
 
   // Import provenance (brownfield migration)
   importedFrom     String? // original host path before migration

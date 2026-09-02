@@ -198,6 +198,20 @@ export class StackRepository {
         });
     }
 
+    async setConfigError(id: string, message: string) {
+        await prisma.stack.update({
+            where: {id},
+            data: {configError: message},
+        });
+    }
+
+    async clearConfigError(id: string) {
+        await prisma.stack.update({
+            where: {id},
+            data: {configError: null},
+        });
+    }
+
     async recordDeployment(data: {
         stackId: string;
         composeHash: string;
@@ -214,10 +228,15 @@ export class StackRepository {
         });
     }
 
+    // A successful deploy/restart/update is positive evidence that the compose
+    // file currently on disk parses — so it also clears any stale configError,
+    // not just configChanged. This is the single place that clearing happens;
+    // every existing caller (deployStack/restartStack/updateImages/
+    // upgradeServiceImage/BackupStackRepo) gets the behaviour without being edited.
     async clearConfigChanged(id: string) {
         await prisma.stack.update({
             where: {id},
-            data: {configChanged: false},
+            data: {configChanged: false, configError: null},
         });
     }
 
