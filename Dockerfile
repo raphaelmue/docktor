@@ -56,9 +56,16 @@ COPY --from=client-build /app/client/dist ./client-dist
 
 ENV NODE_ENV=production
 ENV CLIENT_DIST_PATH=./client-dist
-# Fixed container-side mount points (see docker-compose.yml volumes) — not meant to
-# vary per deployment, so they live in the image rather than compose environment.
-ENV DOCKTOR_STACKS_DIR=/stacks
+# Docktor runs Docker-outside-of-Docker: this value must equal the HOST-side
+# path of the stacks directory volume mount (docker-compose.yml), because
+# `docker compose` running inside this container resolves relative bind
+# mounts in managed stacks against its own filesystem view, then hands the
+# resulting absolute path to the host's Docker daemon over the socket. A
+# mismatch here silently misplaces every relative-volume stack's data (see
+# .planning/todos/pending/2026-08-28-dood-bind-mount-path-mismatch.md). This
+# default is therefore expected to be overridden per deployment — compose
+# drives it from DOCKTOR_STACKS_HOST_DIR so the two sides cannot drift apart.
+ENV DOCKTOR_STACKS_DIR=/opt/docktor/stacks
 # Default the stacks-directory watcher to polling mode. process.platform inside this
 # image is always "linux", so the Windows auto-detect in file-watcher.ts can never
 # trigger here — but the /stacks bind mount's host side may be a Docker Desktop

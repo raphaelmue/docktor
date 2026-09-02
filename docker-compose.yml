@@ -14,12 +14,29 @@ services:
         condition: service_healthy
     env_file:
       - .env.local
+    environment:
+      # Must equal the host side of the stacks volume below, both driven by
+      # DOCKTOR_STACKS_HOST_DIR — see the comment on that volume for why.
+      # Setting it here (compose `environment:` outranks `env_file:`) also
+      # means a conflicting DOCKTOR_STACKS_DIR in .env.local can no longer
+      # silently override this and desync the two sides.
+      DOCKTOR_STACKS_DIR: ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
       - /var/run/docker.sock:/var/run/docker.sock
 
-      # Stacks directory — where all managed stacks live
-      - ./dev-data/docktor/stacks:/stacks
+      # Stacks directory — where all managed stacks live.
+      # Host and container paths MUST be byte-identical: Docktor drives the
+      # HOST's Docker daemon over the socket above (Docker-outside-of-Docker).
+      # `docker compose` running inside this container resolves relative
+      # bind mounts declared in a managed stack's compose file against its
+      # own filesystem view, then sends the resulting absolute path to the
+      # host daemon. If the two sides of this mapping differ, that path
+      # doesn't exist on the host and the daemon silently creates a stray
+      # directory there instead of writing into the real stack directory
+      # (see .planning/todos/pending/2026-08-28-dood-bind-mount-path-mismatch.md).
+      # Override DOCKTOR_STACKS_HOST_DIR (not this line) to relocate.
+      - ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}:${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
 
       # Docktor's own persistent data (config, logs)
       - ./dev-data/docktor/data:/data
