@@ -173,7 +173,7 @@ export default function StackDetailPage() {
                             <BreadcrumbSeparator/>
                             <BreadcrumbItem>
                                 <BreadcrumbLink asChild>
-                                    <Link to={`/stacks/${id}${activeTab !== 'overview' ? `?tab=${activeTab}` : ''}`}>{stack.displayName}</Link>
+                                    <Link to={`/stacks/${id}${activeTab !== 'overview' ? `/${activeTab}` : ''}`}>{stack.displayName}</Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator/>

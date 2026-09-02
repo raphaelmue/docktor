@@ -322,6 +322,36 @@ test.describe("Stacks", () => {
         await expect(page.locator("[aria-current='page']", {hasText: "Overview"})).toBeVisible();
     });
 
+    test("breadcrumb stack-name link preserves tab context when clicked from a non-Overview tab (WR-01 regression)", async ({page}) => {
+        await mockAuthenticated(page);
+        await page.route("**/api/stacks/my-app", (route) => {
+            if (route.request().url().endsWith("/compose") || route.request().url().endsWith("/env")) {
+                return route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})});
+            }
+            return route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(mockStackDetail)});
+        });
+        await page.route("**/api/stacks/my-app/compose", (route) =>
+            route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
+        );
+        await page.route("**/api/stacks/my-app/env", (route) =>
+            route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: ""})}),
+        );
+        await mockStackEvents(page, "my-app");
+
+        await page.goto("/stacks/my-app/compose");
+        await expect(page.locator("[aria-current='page']", {hasText: "Compose"})).toBeVisible();
+
+        // The breadcrumb stack-name link must navigate to the path form
+        // (/stacks/:id/:tab), not a query string the router doesn't consume —
+        // otherwise clicking it silently drops back to Overview.
+        const breadcrumbLink = page.getByLabel("breadcrumb").getByRole("link", {name: "My App"});
+        await expect(breadcrumbLink).toHaveAttribute("href", "/stacks/my-app/compose");
+
+        await breadcrumbLink.click();
+        await expect(page.locator("[aria-current='page']", {hasText: "Compose"})).toBeVisible();
+        await expect(page).toHaveURL(/\/stacks\/my-app\/compose$/);
+    });
+
     test("stack detail shows 404 for non-existent stack", async ({page}) => {
         await mockAuthenticated(page);
         await page.route("**/api/stacks/non-existent", (route) => {
