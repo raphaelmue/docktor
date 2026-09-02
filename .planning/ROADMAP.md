@@ -212,14 +212,14 @@ Plans:
 **Goal:** Fix the blockers and majors surfaced during Phase 1-5 testing/UAT that block a clean, safe self-hosted deployment, so Phase 6 (Proxy Configuration) starts from a working, documented, verifiable base. Scope is exactly 10 items: 3 blockers (broken integration/e2e tests, no schema sync on container startup, Docker-outside-of-Docker bind-mount path mismatch), 6 majors (deployment config documentation, `config_error` UI, missing SSE broadcasts on manual actions, backup-without-repo wedging a stack, env edits not flagging config-changed, unreachable post-setup brownfield import) and 1 minor (restic pinned to an outdated version).
 **Requirements**: n/a — this phase is scoped by the todo list above, not by REQUIREMENTS.md IDs
 **Depends on:** Phase 5
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 05.1-01-PLAN.md — Repair the server integration and Playwright e2e suites (B1)
 - [x] 05.1-02-PLAN.md — Broadcast SSE status on manual stack actions; flag env writes as config-changed (M3, M5a)
-- [ ] 05.1-03-PLAN.md — Mount the stacks directory at an identical host/container path; pin restic (B3, N1)
+- [x] 05.1-03-PLAN.md — Mount the stacks directory at an identical host/container path; pin restic (B3, N1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

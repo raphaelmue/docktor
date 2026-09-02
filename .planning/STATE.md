@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-02-PLAN.md
-last_updated: "2026-09-02T07:46:49.666Z"
-state_head: 8674f011e244e2d8c0ceb590dd33c6126e53eda3
+stopped_at: Completed 05.1-03-PLAN.md
+last_updated: "2026-09-02T08:19:15.225Z"
+state_head: aab9337b0934cb993b66425de7a24f176b09546d
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 57
+  completed_plans: 58
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -106,6 +106,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 04 P18 | 14min | 3 tasks | 8 files |
 | Phase 05.1 P01 | 2h30m | 3 tasks | 9 files |
 | Phase 05.1 P02 | 40min | 3 tasks | 6 files |
+| Phase 05.1 P03 | 35min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -214,6 +215,10 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-01]: client/playwright.config.ts workers fixed at 1 locally (was Playwright's own default) — this host's memory pressure from unrelated Docker workloads was starving parallel Chromium instances into false timeouts
 - [Phase 05.1]: [Phase 05.1-02]: StackService now takes a broadcaster (Pick<StateBroadcaster,'publish'>) 5th constructor param and routes every repo.transitionStatus() call through a single private transitionStatus() wrapper that publishes stack_status and never lets a throwing subscriber strand a transitional status
 - [Phase 05.1]: [Phase 05.1-02]: updateStack()'s env branch unconditionally flags configChanged: true (no hashing) and publishes config_changed reusing the stack's current lastKnownHash; lastKnownHash stays compose-only
+- [Phase 05.1]: [Phase 05.1-03] Task 1 checkpoint (user-confirmed): canonical stacks path /opt/docktor/stacks, driven by a single new compose variable DOCKTOR_STACKS_HOST_DIR on both sides of the volume plus DOCKTOR_STACKS_DIR — reverses part of [Phase 02-observability P08]'s decision to move DOCKTOR_STACKS_DIR into a fixed Dockerfile ENV
+- [Phase 05.1]: [Phase 05.1-03] Task 1 checkpoint (user-confirmed): no-rebase existing-install strategy — no automatic Stack.hostPath rewrite; a path mismatch fails loudly at boot via assertStacksDirMatchesHost() and the operator relocates the directory and reconfigures deliberately
+- [Phase 05.1]: [Phase 05.1-03] getStackPath() now throws if the joined path escapes getStacksDir() — defense-in-depth for threat T-05.1-11, alongside the existing slugify() guarantee
+- [Phase 05.1]: [Phase 05.1-03] restic install moved into a dedicated Dockerfile build stage (not a single RUN in the final stage) because node:22-slim lacks bzip2 by default and the plan's acceptance criteria requires the final apt-get layer to list exactly ca-certificates and curl
 
 ### Quick Tasks Completed
 
@@ -260,6 +265,7 @@ Recent decisions affecting current work:
 - [Phase 02]: Code review + goal-backward verification flagged 3 non-blocking hygiene items, unresolved as of phase close: `routes/stacks.ts` bypasses `StackService` in a few GET handlers (layering violation, no correctness impact); `semver` is used directly but only resolves as a phantom transitive dependency; `update-checker.ts`'s `triggerUpdate()` is unreachable dead code with an unexplained `as any` cast. See `02-REVIEW.md` and `02-VERIFICATION.md` Anti-Patterns.
 - [Phase 02]: `config_error` still has no client-side UI indicator (only visible as an Event Log row) — confirmed still open by both UAT (test 18) and the UI audit (top priority fix). Deliberately out of Phase 02's scope; tracked as `.planning/todos/pending/2026-08-28-config-error-ui-indication-missing.md`.
 - Server integration suite (yarn workspace @docktor/server test:integration) cannot be verified to exit 0 in a network-restricted execution environment — confirmed host-level TCP-to-Docker-published-port block. A human must confirm on an unrestricted machine. See 05.1-01-SUMMARY.md and WINDOWS.md entries #1/#2.
+- [Phase 05.1-03] The execution host for this project is shared with unrelated real running Docker workloads (confirmed: a real user Memos instance at /home/raphael/docker/memos, plus other unrelated stacks). A live 'docker compose up --remove-orphans' DooD verification test on 2026-09-02 used the project-name-colliding directory 'memos' and stopped+removed the real memos-server/memos-db containers as orphans before the collision was noticed; they were restored from their own compose file with no apparent data loss (bind-mounted data untouched, Postgres reused its existing database). Any future live docker-compose E2E test on this host MUST use a randomly-generated, collision-proof project/directory name — never a plain or example-derived name like 'memos', 'app', or 'test'. See 05.1-03-SUMMARY.md Issues Encountered for full details.
 
 ### Roadmap Evolution
 
@@ -267,6 +273,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T07:46:48.147Z
-Stopped at: Completed 05.1-02-PLAN.md
+Last session: 2026-09-02T08:19:13.336Z
+Stopped at: Completed 05.1-03-PLAN.md
 Resume file: None
