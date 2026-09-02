@@ -1,6 +1,13 @@
-# This file is for development / testing purposes, not for production purposes.
+# Docktor self-host deployment — this is the documented, copy-pasteable
+# quickstart described in docs/deployment.md. See that file for the full
+# setup walkthrough and the complete environment-variable reference.
+#
+# For local development instead (yarn dev against a bare Postgres, no
+# Docktor container), use docker-compose.dev.yml.
 
 services:
+  # The Docktor application itself: Fastify API, background jobs, SSE
+  # streams, and the built React SPA, all served from one process.
   docktor:
     # image: docktor/docktor:latest
     build:
@@ -23,6 +30,10 @@ services:
       DOCKTOR_STACKS_DIR: ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
+      # (Docker-outside-of-Docker). This grants the container
+      # host-root-equivalent reach: anyone who can exec into this
+      # container can control every container on the host. Required for
+      # Docktor's core function; understand this before deploying.
       - /var/run/docker.sock:/var/run/docker.sock
 
       # Stacks directory — where all managed stacks live.
@@ -38,23 +49,24 @@ services:
       # Override DOCKTOR_STACKS_HOST_DIR (not this line) to relocate.
       - ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}:${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
 
-      # Docktor's own persistent data (config, logs)
-      - ./dev-data/docktor/data:/data
-
-      # Restic backup repository
-      - ./dev-data/docktor/backups:/backups
-
-      # Brownfield: host filesystem access for scanning existing stacks
+      # Read-only view of the host's entire root filesystem. Used for the
+      # brownfield-import scan (discovering existing docker-compose.yml
+      # files elsewhere on the host) and to let disk-space monitoring see
+      # the host's real usage via DOCKER_DATA_PATH=/host/var/lib/docker
+      # (see .env.example) rather than this container's own tiny
+      # filesystem. Grants read access to the entire host disk; understand
+      # this before deploying.
       - /:/host:ro
 
+  # Postgres database. Docktor stores derived stack/service metadata here;
+  # the compose file on disk (under the stacks volume above) remains the
+  # source of truth for what actually gets deployed.
   db:
     image: postgres:18
     container_name: docktor-db
     restart: unless-stopped
     volumes:
       - ./dev-data/docktor/db:/var/lib/postgresql
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: docktor
       POSTGRES_PASSWORD: docktor

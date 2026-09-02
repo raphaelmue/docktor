@@ -1,8 +1,22 @@
+# Local development database ONLY — this file does not run Docktor itself.
+# Use it with `yarn dev` (server + client on the host, outside Docker),
+# which reads its DATABASE_URL from .env.development
+# (postgresql://docktor:docktor@localhost:5432/docktor).
+#
+# For the actual self-host Docktor deployment (the application container
+# plus its own Postgres), use docker-compose.yml instead — see
+# docs/deployment.md.
+#
+# Postgres major version and credentials intentionally match
+# docker-compose.yml's `db` service (postgres:18, docktor/docktor/docktor)
+# so a dump taken from one is compatible with the other; keep them in sync
+# if either changes.
 name: docktor-dev
 
 services:
+  # Bare Postgres for `yarn dev` — no Docktor container here.
   db:
-    image: postgres:17
+    image: postgres:18
     container_name: docktor-db-dev
     restart: unless-stopped
     ports:
@@ -15,4 +29,7 @@ services:
       - docktor-db-dev:/var/lib/postgresql/data
 
 volumes:
+  # Named volume (not a bind mount) — dev-only data, fine to lose on
+  # `docker compose down -v`. The self-host deployment's Postgres data
+  # uses a bind mount instead (see docker-compose.yml) for easy backup.
   docktor-db-dev:
