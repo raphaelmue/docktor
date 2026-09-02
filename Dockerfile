@@ -29,15 +29,40 @@ COPY server/ server/
 # caching reusing a stale generated client from a previous build of an older schema.
 RUN yarn prisma generate --config=server/prisma/prisma.config.ts && yarn workspace @docktor/shared build && yarn workspace @docktor/server build
 
+# Downloads, checksum-verifies, and decompresses a pinned restic release. Kept as its
+# own stage (rather than a RUN in the final image) purely so bzip2 — needed only to
+# decompress the .bz2 release asset, and not present in node:22-slim by default — never
+# ships in the final image; only the resulting /usr/local/bin/restic binary is copied
+# out. Bump RESTIC_VERSION here to upgrade; nothing does this automatically, so it
+# needs periodic manual review. Never use "latest" — pinning keeps builds reproducible.
+FROM node:22-slim AS restic-install
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl bzip2 && \
+    rm -rf /var/lib/apt/lists/*
+# Single RUN: if checksum verification fails, the whole layer fails and there is no
+# intermediate state where an unverified restic binary could be picked up by a later
+# step — important because this binary will run with access to the host Docker socket.
+RUN set -eu; \
+    RESTIC_VERSION=0.19.1; \
+    cd /tmp; \
+    curl -fsSLO "https://github.com/restic/restic/releases/download/v${RESTIC_VERSION}/restic_${RESTIC_VERSION}_linux_amd64.bz2"; \
+    curl -fsSLO "https://github.com/restic/restic/releases/download/v${RESTIC_VERSION}/SHA256SUMS"; \
+    grep " restic_${RESTIC_VERSION}_linux_amd64.bz2\$" SHA256SUMS | sha256sum -c -; \
+    bzip2 -d "restic_${RESTIC_VERSION}_linux_amd64.bz2"; \
+    mv "restic_${RESTIC_VERSION}_linux_amd64" /usr/local/bin/restic; \
+    chmod +x /usr/local/bin/restic; \
+    rm -f SHA256SUMS
+
 FROM node:22-slim
 WORKDIR /app
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
-      curl \
-      restic && \
+      curl && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --from=restic-install /usr/local/bin/restic /usr/local/bin/restic
 
 # Install docker CLI and compose plugin
 RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | \
