@@ -64,13 +64,32 @@ RUN apt-get update && \
 
 COPY --from=restic-install /usr/local/bin/restic /usr/local/bin/restic
 
-# Install docker CLI and compose plugin
-RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | \
-    tar xz --strip-components=1 -C /usr/local/bin docker/docker && \
-    mkdir -p /usr/local/lib/docker/cli-plugins && \
-    curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
-      https://github.com/docker/compose/releases/download/v2.33.1/docker-compose-linux-x86_64 && \
-    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+# Install docker CLI and compose plugin. Both run with the same host Docker
+# socket access as restic (see restic-install above), so they get the same
+# checksum-verification treatment (WR-03). docker/compose publishes a
+# checksums.txt per release, verified below the same way restic's SHA256SUMS
+# is. download.docker.com does NOT publish a checksum manifest for the
+# static CLI tarball, so DOCKER_CLI_SHA256 is pinned here to the sha256 of
+# the exact docker-27.5.1.tgz artifact this build has always downloaded —
+# it guards against CDN corruption/tampering during the build even without
+# an upstream-signed manifest to verify against. Bump both together with
+# their *_VERSION when upgrading; DOCKER_CLI_SHA256 must be recomputed via
+# `sha256sum` on the new tarball.
+RUN set -eu; \
+    DOCKER_VERSION=27.5.1; \
+    DOCKER_CLI_SHA256=4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640; \
+    COMPOSE_VERSION=2.33.1; \
+    cd /tmp; \
+    curl -fsSLO "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz"; \
+    echo "${DOCKER_CLI_SHA256}  docker-${DOCKER_VERSION}.tgz" | sha256sum -c -; \
+    tar xzf "docker-${DOCKER_VERSION}.tgz" --strip-components=1 -C /usr/local/bin docker/docker; \
+    mkdir -p /usr/local/lib/docker/cli-plugins; \
+    curl -fsSLO "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64"; \
+    curl -fsSLO "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/checksums.txt"; \
+    grep -E " \*docker-compose-linux-x86_64\$" checksums.txt | sha256sum -c -; \
+    mv docker-compose-linux-x86_64 /usr/local/lib/docker/cli-plugins/docker-compose; \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose; \
+    rm -f "docker-${DOCKER_VERSION}.tgz" checksums.txt
 
 COPY --from=server-build /app/node_modules ./node_modules
 COPY --from=server-build /app/server/dist ./dist/server
