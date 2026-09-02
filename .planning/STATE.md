@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-05-PLAN.md
-last_updated: "2026-09-02T09:12:09.857Z"
-state_head: 65940415b274fa709bb3b1d9f34e7ea6bdeb6141
+stopped_at: Completed 05.1-06-PLAN.md
+last_updated: "2026-09-02T09:33:37.329Z"
+state_head: 9d06d0dae8c3c4f70eb656944f73e4f31f98939f
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 60
+  completed_plans: 61
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -109,6 +109,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P03 | 35min | 3 tasks | 5 files |
 | Phase 05.1 P04 | 13min | 3 tasks | 3 files |
 | Phase 05.1 P05 | 40min | 3 tasks | 4 files |
+| Phase 05.1 P06 | 55min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -226,6 +227,10 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-05] syncDatabaseSchema() uses a raw pg Client (not Prisma) for reachability probing and the advisory lock, justified per CLAUDE.md's Prisma-access rule — lib/db.ts's lazy Proxy must not be touched before the schema exists
 - [Phase 05.1]: [Phase 05.1-05] Startup order in server/src/index.ts is now: assertStacksDirMatchesHost() -> syncDatabaseSchema() -> buildApp() -> listen (reordered from buildApp()-first); the stacks-path assertion now logs via console.error since app doesn't exist yet at that point
 - [Phase 05.1]: [Phase 05.1-05] Task 3's live cold-start proof (GET /api/setup/status -> 200) could not be completed this session — confirmed environmental TCP-payload-to-Docker-published-port block (same class as 05.1-01), now also confirmed on the app's own HTTP port, not just Postgres; requires human/unrestricted-environment re-run
+- [Phase 05.1]: [Phase 05.1-06]: configError and configChanged are independent facts (neither is a StackStatus, verified against stack-status-machine.ts) — both can be true simultaneously
+- [Phase 05.1]: [Phase 05.1-06]: clearConfigChanged(id) is the single choke point that also nulls configError, so every existing deploy/restart/update/backup caller gets the clearing behavior without being edited
+- [Phase 05.1]: [Phase 05.1-06]: Stack.lastEnvHash tracks .env content hash fully separate from lastKnownHash (compose-only) — separate repository method, separate FileWatcher handler, no shared code path (T-05.1-29)
+- [Phase 05.1]: [Phase 05.1-06]: chokidar's ignored predicate switched from an endsWith() suffix check to an exact-basename Set membership check when admitting .env, avoiding a false-positive match on a file like backup.env
 
 ### Quick Tasks Completed
 
@@ -274,6 +279,7 @@ Recent decisions affecting current work:
 - Server integration suite (yarn workspace @docktor/server test:integration) cannot be verified to exit 0 in a network-restricted execution environment — confirmed host-level TCP-to-Docker-published-port block. A human must confirm on an unrestricted machine. See 05.1-01-SUMMARY.md and WINDOWS.md entries #1/#2.
 - [Phase 05.1-03] The execution host for this project is shared with unrelated real running Docker workloads (confirmed: a real user Memos instance at /home/raphael/docker/memos, plus other unrelated stacks). A live 'docker compose up --remove-orphans' DooD verification test on 2026-09-02 used the project-name-colliding directory 'memos' and stopped+removed the real memos-server/memos-db containers as orphans before the collision was noticed; they were restored from their own compose file with no apparent data loss (bind-mounted data untouched, Postgres reused its existing database). Any future live docker-compose E2E test on this host MUST use a randomly-generated, collision-proof project/directory name — never a plain or example-derived name like 'memos', 'app', or 'test'. See 05.1-03-SUMMARY.md Issues Encountered for full details.
 - [Phase 05.1-05] A human (or an unrestricted execution environment) must run Task 3's live cold-start check (throwaway postgres:18 + built image with /var/run/docker.sock mounted, polling GET /api/setup/status) to confirm the applied/already-current happy path and close D3 coverage — see 05.1-05-SUMMARY.md Known Limitation
+- [Phase 05.1-06] yarn db:push could not reach the dev DB in this sandboxed session (same TCP-payload-block class as 05.1-01/05.1-05, now reconfirmed at the raw-socket level) — a human on an unrestricted host must run it to apply Stack.configError/lastEnvHash before this plan's server behavior is live. WINDOWS.md #8.
 
 ### Roadmap Evolution
 
@@ -281,6 +287,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T09:12:07.967Z
-Stopped at: Completed 05.1-05-PLAN.md
+Last session: 2026-09-02T09:33:23.967Z
+Stopped at: Completed 05.1-06-PLAN.md
 Resume file: None
