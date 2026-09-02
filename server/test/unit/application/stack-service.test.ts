@@ -15,6 +15,7 @@ function createMockRepo() {
         transitionStatus: vi.fn(),
         recordDeployment: vi.fn(),
         clearConfigChanged: vi.fn(),
+        updateStackHash: vi.fn(),
         delete: vi.fn(),
     };
 }
@@ -754,6 +755,65 @@ describe("StackService", () => {
                 stackId: "my-app",
                 stackStatus: "ERROR",
             });
+        });
+    });
+
+    describe("updateStack", () => {
+        beforeEach(() => {
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", lastKnownHash: "hash-1"});
+            repo.findByIdWithRelations.mockResolvedValue({id: "my-app"});
+        });
+
+        it("flags configChanged and publishes config_changed when envContent is written", async () => {
+            await service.updateStack("my-app", {envContent: "FOO=bar"});
+
+            expect(fs.writeEnv).toHaveBeenCalledWith("my-app", "FOO=bar");
+            expect(repo.setConfigChanged).toHaveBeenCalledWith("my-app", true);
+            expect(broadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "config_changed", stackId: "my-app"}),
+            );
+        });
+
+        it("removes the env file and still flags configChanged and publishes when envContent is empty", async () => {
+            await service.updateStack("my-app", {envContent: ""});
+
+            expect(fs.removeEnv).toHaveBeenCalledWith("my-app");
+            expect(repo.setConfigChanged).toHaveBeenCalledWith("my-app", true);
+            expect(broadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "config_changed", stackId: "my-app"}),
+            );
+        });
+
+        it("publishes config_changed with the new hash when the compose hash differs from lastKnownHash", async () => {
+            await service.updateStack("my-app", {
+                composeContent: "services:\n  web:\n    image: nginx\n",
+            });
+
+            expect(repo.setConfigChanged).toHaveBeenCalledWith("my-app", true);
+            expect(repo.updateStackHash).toHaveBeenCalled();
+            expect(broadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "config_changed", stackId: "my-app"}),
+            );
+        });
+
+        it("does not publish and clears configChanged when the compose hash equals lastKnownHash", async () => {
+            const {createComposeConfig} = await import("../../../src/domain/compose-config.js");
+            const composeContent = "services:\n  web:\n    image: nginx\n";
+            const composeConfig = createComposeConfig(composeContent);
+            repo.findByIdOrThrow.mockResolvedValue({id: "my-app", lastKnownHash: composeConfig.hash});
+
+            await service.updateStack("my-app", {composeContent});
+
+            expect(repo.setConfigChanged).toHaveBeenCalledWith("my-app", false);
+            expect(repo.updateStackHash).not.toHaveBeenCalled();
+            expect(broadcaster.publish).not.toHaveBeenCalled();
+        });
+
+        it("touches neither configChanged nor the broadcaster for a metadata-only update", async () => {
+            await service.updateStack("my-app", {displayName: "New Name"});
+
+            expect(repo.setConfigChanged).not.toHaveBeenCalled();
+            expect(broadcaster.publish).not.toHaveBeenCalled();
         });
     });
 });

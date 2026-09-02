@@ -96,18 +96,20 @@ export class StackService {
         if (input.composeContent !== undefined) {
             await this.fs.writeCompose(id, input.composeContent);
             const composeConfig = createComposeConfig(input.composeContent);
+            const hashChanged = composeConfig.hash !== stack.lastKnownHash;
             // Don't update service records yet - wait until deployment
             // This keeps service records in sync with what's actually running
-            await this.repo.setConfigChanged(
-                id,
-                composeConfig.hash !== stack.lastKnownHash,
-            );
-            // Update the hash so we can track changes
-            if (composeConfig.hash !== stack.lastKnownHash) {
+            await this.repo.setConfigChanged(id, hashChanged);
+            // Update the hash so we can track changes, and announce the
+            // change to every open tab. A same-hash save must not announce
+            // anything — setConfigChanged(false) above already says nothing
+            // changed.
+            if (hashChanged) {
                 await this.repo.updateStackHash({
                     stackId: id,
                     hash: composeConfig.hash,
                 });
+                this.publishConfigChanged(id, composeConfig.hash);
             }
         }
 
@@ -117,6 +119,22 @@ export class StackService {
             } else {
                 await this.fs.removeEnv(id);
             }
+            // Env content isn't hashed anywhere the way compose content is
+            // via lastKnownHash/createComposeConfig().hash, so there is no
+            // diff to compare against — unconditionally flagging matches
+            // "something changed" semantics, which is the simpler and
+            // correct behaviour for an env write (todo:
+            // env-file-changes-dont-flag-config-changed). Never write an
+            // env hash into lastKnownHash: that column is the sole input to
+            // FileWatcher's compose change detection, and corrupting it
+            // would make external compose tampering undetectable.
+            await this.repo.setConfigChanged(id, true);
+            // No compose hash to report for an env-only write; reuse the
+            // stack's current lastKnownHash so the event shape stays
+            // uniform with file-watcher.ts's ConfigChangedEvent. Every
+            // consumer only keys off stackId, so the exact hash value here
+            // carries no meaning for this branch.
+            this.publishConfigChanged(id, stack.lastKnownHash ?? "");
         }
 
         if (input.displayName !== undefined || input.description !== undefined) {
@@ -522,6 +540,15 @@ export class StackService {
             this.broadcaster.publish({type: "stack_status", stackId: id, stackStatus: to});
         } catch (err) {
             console.error(`[StackService] failed to publish stack_status for "${id}":`, err);
+        }
+    }
+
+    /** Same non-throwing guard as transitionStatus(), for config_changed. */
+    private publishConfigChanged(id: string, newHash: string): void {
+        try {
+            this.broadcaster.publish({type: "config_changed", stackId: id, newHash});
+        } catch (err) {
+            console.error(`[StackService] failed to publish config_changed for "${id}":`, err);
         }
     }
 
