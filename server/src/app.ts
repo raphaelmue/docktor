@@ -13,6 +13,7 @@ import settingsRoutes from "./routes/settings.js";
 import eventsRoutes from "./routes/events.js";
 import notificationRoutes from "./routes/notifications.js";
 import backupRoutes from "./routes/backups.js";
+import importRoutes from "./routes/imports.js";
 import {AppError} from "./lib/errors.js";
 import {startJobs, stopJobs} from "./jobs/index.js";
 import {prisma} from "./lib/db.js";
@@ -125,6 +126,7 @@ export async function buildApp() {
     await app.register(eventsRoutes);
     await app.register(notificationRoutes);
     await app.register(backupRoutes);
+    await app.register(importRoutes);
 
     // Jobs: start/stop with server lifecycle (skipped in test environment)
     if (process.env.NODE_ENV !== "test") {
