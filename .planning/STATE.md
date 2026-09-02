@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-06-PLAN.md
-last_updated: "2026-09-02T09:33:37.329Z"
-state_head: 9d06d0dae8c3c4f70eb656944f73e4f31f98939f
+stopped_at: Completed 05.1-07-PLAN.md
+last_updated: "2026-09-02T10:07:55.568Z"
+state_head: df6f30bc2d7e96aad0f159b47ba4100bacf2d74c
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 63
-  completed_plans: 61
+  completed_plans: 62
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -110,6 +110,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P04 | 13min | 3 tasks | 3 files |
 | Phase 05.1 P05 | 40min | 3 tasks | 4 files |
 | Phase 05.1 P06 | 55min | 3 tasks | 11 files |
+| Phase 05.1 P07 | 45min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -231,6 +232,9 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-06]: clearConfigChanged(id) is the single choke point that also nulls configError, so every existing deploy/restart/update/backup caller gets the clearing behavior without being edited
 - [Phase 05.1]: [Phase 05.1-06]: Stack.lastEnvHash tracks .env content hash fully separate from lastKnownHash (compose-only) — separate repository method, separate FileWatcher handler, no shared code path (T-05.1-29)
 - [Phase 05.1]: [Phase 05.1-06]: chokidar's ignored predicate switched from an endsWith() suffix check to an exact-basename Set membership check when admitting .env, avoiding a false-positive match on a file like backup.env
+- [Phase 05.1]: [Phase 05.1-07]: requireAuth alone gates /api/stacks/import/* — verified not double-covered by app.ts's onRequest first-run exemption (exact /api/setup/ and /api/auth/ prefix match only)
+- [Phase 05.1]: [Phase 05.1-07]: BrownfieldImport takes its four API functions as an injected prop object instead of importing setup-api or import-api directly, so one component drives both the wizard (/api/setup/*) and the post-setup page (/api/stacks/import/*)
+- [Phase 05.1]: [Phase 05.1-07]: compatibility-badge.tsx promoted from routes/setup/components/ to components/domain/stack/ per CLAUDE.md's multi-consumer rule, since BrownfieldImport (a domain component) is now its consumer alongside the wizard
 
 ### Quick Tasks Completed
 
@@ -287,6 +291,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T09:33:23.967Z
-Stopped at: Completed 05.1-06-PLAN.md
+Last session: 2026-09-02T10:07:31.062Z
+Stopped at: Completed 05.1-07-PLAN.md
 Resume file: None

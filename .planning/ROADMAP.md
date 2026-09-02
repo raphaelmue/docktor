@@ -212,7 +212,7 @@ Plans:
 **Goal:** Fix the blockers and majors surfaced during Phase 1-5 testing/UAT that block a clean, safe self-hosted deployment, so Phase 6 (Proxy Configuration) starts from a working, documented, verifiable base. Scope is exactly 10 items: 3 blockers (broken integration/e2e tests, no schema sync on container startup, Docker-outside-of-Docker bind-mount path mismatch), 6 majors (deployment config documentation, `config_error` UI, missing SSE broadcasts on manual actions, backup-without-repo wedging a stack, env edits not flagging config-changed, unreachable post-setup brownfield import) and 1 minor (restic pinned to an outdated version).
 **Requirements**: n/a — this phase is scoped by the todo list above, not by REQUIREMENTS.md IDs
 **Depends on:** Phase 5
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 **Wave 1**
@@ -226,7 +226,7 @@ Plans:
 - [x] 05.1-04-PLAN.md — Reject backups without a configured repo; broadcast backup/restore status (M4, M3)
 - [x] 05.1-05-PLAN.md — Guarded `prisma db push` on container startup (B2)
 - [x] 05.1-06-PLAN.md — Persist and surface `config_error`; watch `.env` for external edits (M2, M5b)
-- [ ] 05.1-07-PLAN.md — Authenticated post-setup brownfield import routes and UI (M6)
+- [x] 05.1-07-PLAN.md — Authenticated post-setup brownfield import routes and UI (M6)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

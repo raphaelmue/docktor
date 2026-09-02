@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 9
 waived_count: 0
 fixed_count: 0
-total_count: 8
-last_updated: 2026-09-02T09:31:39.036Z
+total_count: 9
+last_updated: 2026-09-02T10:06:02.732Z
 ---
 
 # Broken Windows Ledger
@@ -23,6 +23,7 @@ last_updated: 2026-09-02T09:31:39.036Z
 | 6 | 05.1 | unrun-verify | server/src/jobs/file-watcher.ts |  | Task 2 manual check (editing a running stack's .env file directly on disk shows the config-changed badge in the UI within the watcher's detection window) could not be executed — no running Docktor instance in this session. Unit-level behavior fully proven (42/42 file-watcher tests pass). | open |  | 2026-09-02T09:31:36.765Z |  |
 | 7 | 05.1 | unrun-verify | client/src/routes/app/stacks/[id].tsx |  | Task 3 end-to-end check (introducing a YAML syntax error into a running stack's compose file makes a red indicator appear on both the stack list and detail page with no manual reload, and fixing the file clears it) could not be executed — no running Docktor instance/browser in this session. Unit-level behavior fully proven (20/20 hook tests pass). | open |  | 2026-09-02T09:31:37.929Z |  |
 | 8 | 05.1 | unrun-verify | server/prisma/schema/stack.prisma |  | yarn db:push could not apply the two new fields (configError, lastEnvHash) to the live dev database — same documented host-level TCP-to-Docker-published-port block as 05.1-01/05.1-05 (raw TCP connects to docktor-db-dev:5432 but the Postgres protocol handshake never completes). yarn db:generate succeeded (schema is syntactically valid), and both workspaces type-check clean against the regenerated Prisma client. | open |  | 2026-09-02T09:31:39.036Z |  |
+| 9 | 05.1 | unrun-verify | server/test/integration/imports.test.ts |  | New imports.test.ts (401 rejection x4, scan+adopt round-trip, T-05-09 410 regression guard) could not execute in this sandbox — same confirmed environmental P1001 TCP-to-Docker-published-Postgres-port block documented in 05.1-01/05.1-05 SUMMARYs. Code reviewed against passing sibling test files (stacks.test.ts, setup-wizard-flow.test.ts) but never run to green. | open |  | 2026-09-02T10:06:02.732Z |  |
 
 ````json
 [
@@ -120,6 +121,18 @@ last_updated: 2026-09-02T09:31:39.036Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-02T09:31:39.036Z",
+    "resolved_at": null
+  },
+  {
+    "id": 9,
+    "kind": "unrun-verify",
+    "phase": "05.1",
+    "file": "server/test/integration/imports.test.ts",
+    "line": null,
+    "description": "New imports.test.ts (401 rejection x4, scan+adopt round-trip, T-05-09 410 regression guard) could not execute in this sandbox — same confirmed environmental P1001 TCP-to-Docker-published-Postgres-port block documented in 05.1-01/05.1-05 SUMMARYs. Code reviewed against passing sibling test files (stacks.test.ts, setup-wizard-flow.test.ts) but never run to green.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-02T10:06:02.732Z",
     "resolved_at": null
   }
 ]
