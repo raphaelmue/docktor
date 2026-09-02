@@ -2,6 +2,7 @@ import cron from "node-cron"
 import {watch} from "chokidar"
 import type {FSWatcher} from "chokidar"
 import {readFile} from "node:fs/promises"
+import path from "node:path"
 import type {StateBroadcaster} from "../lib/state-broadcaster.js"
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js"
 import {hashComposeContent} from "../lib/compose-parser.js"
@@ -9,10 +10,26 @@ import {createComposeConfig, type ComposeConfig} from "../domain/compose-config.
 import {getStacksDir} from "../lib/stacks-dir.js"
 import type {StackEventType} from "../generated/prisma/enums.js"
 
+interface FileWatcherStackRecord {
+    id: string
+    composeFilePath: string
+    hash: string | null
+    envFilePath: string
+    envHash: string | null
+}
+
+interface FileWatcherStackByPathRecord {
+    id: string
+    composeFilePath: string
+    hash: string | null
+    envHash: string | null
+}
+
 export interface FileWatcherRepo {
-    findAllStacks(): Promise<Array<{id: string; composeFilePath: string; hash: string | null}>>
-    findStackByPath(composePath: string): Promise<{id: string; composeFilePath: string; hash: string | null} | null>
+    findAllStacks(): Promise<FileWatcherStackRecord[]>
+    findStackByPath(composePath: string): Promise<FileWatcherStackByPathRecord | null>
     updateStackHash(args: {stackId: string; hash: string}): Promise<void>
+    updateEnvHash(args: {stackId: string; hash: string}): Promise<void>
     syncServicesFromCompose(stackId: string, composeConfig: ComposeConfig): Promise<void>
     createStackEvent(args: {stackId: string; type: StackEventType; message?: string; payload?: string}): Promise<void>
     setConfigError(stackId: string, message: string): Promise<void>
@@ -20,7 +37,7 @@ export interface FileWatcherRepo {
 }
 
 /**
- * Narrow local interface covering only the six stack members the watcher
+ * Narrow local interface covering only the seven stack members the watcher
  * uses. Kept structural (not imported from repositories/) so the factory
  * pulls in neither repository module and stays testable without dragging
  * the database client into the test module graph.
@@ -29,6 +46,7 @@ interface FileWatcherStackRepo {
     findAllStacks: FileWatcherRepo["findAllStacks"]
     findStackByPath: FileWatcherRepo["findStackByPath"]
     updateStackHash: FileWatcherRepo["updateStackHash"]
+    updateEnvHash: FileWatcherRepo["updateEnvHash"]
     syncServicesFromCompose: FileWatcherRepo["syncServicesFromCompose"]
     setConfigError: FileWatcherRepo["setConfigError"]
     clearConfigError: FileWatcherRepo["clearConfigError"]
@@ -54,6 +72,7 @@ export function createFileWatcherRepo(
         findAllStacks: (...args) => stacks.findAllStacks(...args),
         findStackByPath: (...args) => stacks.findStackByPath(...args),
         updateStackHash: (...args) => stacks.updateStackHash(...args),
+        updateEnvHash: (...args) => stacks.updateEnvHash(...args),
         syncServicesFromCompose: (...args) => stacks.syncServicesFromCompose(...args),
         setConfigError: (...args) => stacks.setConfigError(...args),
         clearConfigError: (...args) => stacks.clearConfigError(...args),
@@ -62,6 +81,8 @@ export function createFileWatcherRepo(
         },
     }
 }
+
+const WATCHED_FILENAMES = new Set(["docker-compose.yml", ".env"])
 
 export class FileWatcher {
     private watcher: FSWatcher | null = null
@@ -115,10 +136,12 @@ export class FileWatcher {
             // "don't ignore" in that case. A `stats?.isDirectory() ?? false` guard instead
             // defaults to "not a directory" when stats is missing and falls through to the
             // suffix check below, wrongly filtering out (and blocking traversal into) any
-            // directory whose name doesn't end in "docker-compose.yml" — silently breaking
-            // live change detection entirely regardless of usePolling.
+            // directory whose name isn't one of the two watched filenames — silently
+            // breaking live change detection entirely regardless of usePolling.
+            // Admits both docker-compose.yml and .env (Task 2) — exact basename match,
+            // not a suffix check, so a filename like "backup.env" is still ignored.
             ignored: (filePath: string, stats?: import("node:fs").Stats) =>
-                Boolean(stats?.isFile() && !filePath.endsWith("docker-compose.yml")),
+                Boolean(stats?.isFile() && !WATCHED_FILENAMES.has(path.basename(filePath))),
             usePolling,
             interval: usePolling ? 1000 : undefined,
         })
@@ -129,14 +152,14 @@ export class FileWatcher {
 
         this.watcher.on("change", (filePath) => {
             console.log(`[FileWatcher] Chokidar detected CHANGE: ${filePath}`)
-            this.handleFileChange(filePath).catch((err: unknown) => {
+            this.routeFileEvent(filePath).catch((err: unknown) => {
                 console.error("[FileWatcher] handleFileChange error:", err)
             })
         })
 
         this.watcher.on("add", (filePath) => {
             console.log(`[FileWatcher] Chokidar detected ADD: ${filePath}`)
-            this.handleFileChange(filePath).catch((err: unknown) => {
+            this.routeFileEvent(filePath).catch((err: unknown) => {
                 console.error("[FileWatcher] handleFileChange error (add):", err)
             })
         })
@@ -162,6 +185,15 @@ export class FileWatcher {
         if (this.cronTask) {
             this.cronTask.stop()
             this.cronTask = null
+        }
+    }
+
+    /** Routes a chokidar change/add event to the compose or env handler by exact basename. */
+    private async routeFileEvent(filePath: string): Promise<void> {
+        if (path.basename(filePath) === ".env") {
+            await this.handleEnvChange(filePath)
+        } else {
+            await this.handleFileChange(filePath)
         }
     }
 
@@ -241,6 +273,57 @@ export class FileWatcher {
         })
     }
 
+    /**
+     * Handles an .env change or creation. Unlike handleFileChange(), there is no
+     * parse step (env files have no schema to validate) and this method never
+     * writes Stack.lastKnownHash or calls syncServicesFromCompose — env content
+     * gets its own lastEnvHash so a compose-file comparison can never be
+     * corrupted by an env edit (T-05.1-29). Only the hash and stackId are ever
+     * persisted or broadcast — env content, variable names, and values never
+     * leave this method (T-05.1-26).
+     */
+    async handleEnvChange(filePath: string): Promise<void> {
+        console.log(`[FileWatcher] .env changed: ${filePath}`)
+        const repo = await this.getRepo()
+        const stack = await repo.findStackByPath(filePath)
+        if (!stack) {
+            console.log(`[FileWatcher] No stack found for path: ${filePath}`)
+            return
+        }
+
+        let content: string
+        try {
+            content = await readFile(filePath, "utf-8")
+        } catch (err: any) {
+            if (err.code === "ENOENT") {
+                console.log(`[FileWatcher] File not found, skipping: ${filePath}`)
+                return
+            }
+            throw err
+        }
+
+        const newHash = hashComposeContent(content)
+        const oldHash = stack.envHash ?? ""
+
+        if (newHash === oldHash) {
+            console.log(`[FileWatcher] .env hash unchanged for ${filePath}, skipping`)
+            return
+        }
+
+        console.log(`[FileWatcher] .env hash changed for ${stack.id}`)
+        await repo.updateEnvHash({stackId: stack.id, hash: newHash})
+        await repo.createStackEvent({
+            stackId: stack.id,
+            type: "config_changed",
+            payload: JSON.stringify({oldHash, newHash, source: "env"}),
+        })
+        this.broadcaster.publish({
+            type: "config_changed",
+            stackId: stack.id,
+            newHash,
+        })
+    }
+
     async reconcile(): Promise<void> {
         const repo = await this.getRepo()
         const stacks = await repo.findAllStacks()
@@ -259,6 +342,21 @@ export class FileWatcher {
                     continue
                 }
                 console.error(`[FileWatcher] Reconcile error for stack ${stack.id}:`, err)
+            }
+
+            try {
+                const envContent = await readFile(stack.envFilePath, "utf-8")
+                const newEnvHash = hashComposeContent(envContent)
+
+                if (newEnvHash !== (stack.envHash ?? "")) {
+                    await this.handleEnvChange(stack.envFilePath)
+                }
+            } catch (err: any) {
+                if (err.code === "ENOENT") {
+                    // Not every stack has an .env file — absence is not an error.
+                    continue
+                }
+                console.error(`[FileWatcher] Reconcile error (.env) for stack ${stack.id}:`, err)
             }
         }
     }

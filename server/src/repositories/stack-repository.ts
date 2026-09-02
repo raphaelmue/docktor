@@ -311,15 +311,22 @@ export class StackRepository {
                 id: true,
                 hostPath: true,
                 lastKnownHash: true,
+                lastEnvHash: true,
             },
         });
         return stacks.map((s) => ({
             id: s.id,
             composeFilePath: `${s.hostPath}/docker-compose.yml`,
             hash: s.lastKnownHash,
+            envFilePath: `${s.hostPath}/.env`,
+            envHash: s.lastEnvHash,
         }));
     }
 
+    // Resolves either a docker-compose.yml or an .env path to its owning
+    // stack — both files sit directly in the stack's hostPath directory, so
+    // path.dirname() derives the same hostPath regardless of which filename
+    // was passed in.
     async findStackByPath(composePath: string) {
         // Extract hostPath from composePath (remove docker-compose.yml)
         // Normalize both paths to handle cross-platform differences
@@ -333,13 +340,14 @@ export class StackRepository {
                 id: true,
                 hostPath: true,
                 lastKnownHash: true,
+                lastEnvHash: true,
             },
         });
 
         // If not found, try case-insensitive search (Windows is case-insensitive)
         if (!stack && process.platform === "win32") {
             const allStacks = await prisma.stack.findMany({
-                select: {id: true, hostPath: true, lastKnownHash: true},
+                select: {id: true, hostPath: true, lastKnownHash: true, lastEnvHash: true},
             });
             stack = allStacks.find(
                 (s) => s.hostPath.toLowerCase() === hostPath.toLowerCase()
@@ -351,6 +359,7 @@ export class StackRepository {
             id: stack.id,
             composeFilePath: composePath,
             hash: stack.lastKnownHash,
+            envHash: stack.lastEnvHash,
         };
     }
 
@@ -360,6 +369,19 @@ export class StackRepository {
             data: {
                 lastKnownHash: args.hash,
                 lastParsedAt: new Date(),
+                configChanged: true,
+            },
+        });
+    }
+
+    // Env-file hash tracked separately from lastKnownHash (compose-only). Never
+    // writes lastKnownHash — an env change must never be mistaken for a compose
+    // change by FileWatcher.reconcile(), which compares only the compose hash.
+    async updateEnvHash(args: {stackId: string; hash: string}) {
+        await prisma.stack.update({
+            where: {id: args.stackId},
+            data: {
+                lastEnvHash: args.hash,
                 configChanged: true,
             },
         });

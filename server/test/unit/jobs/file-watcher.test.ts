@@ -36,6 +36,7 @@ function createMockFileWatcherRepo() {
         findAllStacks: vi.fn(),
         findStackByPath: vi.fn(),
         updateStackHash: vi.fn(),
+        updateEnvHash: vi.fn().mockResolvedValue(undefined),
         syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
         createStackEvent: vi.fn(),
         setConfigError: vi.fn().mockResolvedValue(undefined),
@@ -55,6 +56,7 @@ describe("createFileWatcherRepo", () => {
             findAllStacks: vi.fn().mockResolvedValue([]),
             findStackByPath: vi.fn().mockResolvedValue(null),
             updateStackHash: vi.fn().mockResolvedValue(undefined),
+            updateEnvHash: vi.fn().mockResolvedValue(undefined),
             syncServicesFromCompose: vi.fn().mockResolvedValue(undefined),
             setConfigError: vi.fn().mockResolvedValue(undefined),
             clearConfigError: vi.fn().mockResolvedValue(undefined),
@@ -105,6 +107,7 @@ describe("createFileWatcherRepo", () => {
         await repo.findAllStacks();
         await repo.findStackByPath("/stacks/my-app/docker-compose.yml");
         await repo.updateStackHash({stackId: "my-app", hash: "abc"});
+        await repo.updateEnvHash({stackId: "my-app", hash: "env-abc"});
         await repo.syncServicesFromCompose("my-app", {hash: "abc", services: []});
         await repo.setConfigError("my-app", "bad yaml");
         await repo.clearConfigError("my-app");
@@ -112,6 +115,7 @@ describe("createFileWatcherRepo", () => {
         expect(stacks.findAllStacks).toHaveBeenCalled();
         expect(stacks.findStackByPath).toHaveBeenCalledWith("/stacks/my-app/docker-compose.yml");
         expect(stacks.updateStackHash).toHaveBeenCalledWith({stackId: "my-app", hash: "abc"});
+        expect(stacks.updateEnvHash).toHaveBeenCalledWith({stackId: "my-app", hash: "env-abc"});
         expect(stacks.syncServicesFromCompose).toHaveBeenCalledWith("my-app", {hash: "abc", services: []});
         expect(stacks.setConfigError).toHaveBeenCalledWith("my-app", "bad yaml");
         expect(stacks.clearConfigError).toHaveBeenCalledWith("my-app");
@@ -266,6 +270,12 @@ describe("FileWatcher", () => {
             const ignored = await getIgnoredFn();
             const fileStats = {isDirectory: () => false, isFile: () => true} as import("node:fs").Stats;
             expect(ignored("/stacks/my-stack/docker-compose.yml", fileStats)).toBeFalsy();
+        });
+
+        it("does not ignore a file named .env (Task 2)", async () => {
+            const ignored = await getIgnoredFn();
+            const fileStats = {isDirectory: () => false, isFile: () => true} as import("node:fs").Stats;
+            expect(ignored("/stacks/my-stack/.env", fileStats)).toBeFalsy();
         });
     });
 
@@ -503,6 +513,210 @@ describe("FileWatcher", () => {
             await (fileWatcher as any).reconcile();
 
             expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("handleEnvChange() (Task 2)", () => {
+        const envPath = "/stacks/my-stack/.env";
+        const fakeStack = {id: "stack-1", composeFilePath: "/stacks/my-stack/docker-compose.yml", hash: "compose-hash", envHash: "old-env-hash"};
+
+        it("calls repo.updateEnvHash when the env hash differs from the stored one", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("new-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateEnvHash).toHaveBeenCalledWith({stackId: "stack-1", hash: "new-env-hash"});
+        });
+
+        it("flags configChanged and writes a config_changed StackEvent on an env change", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("new-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.createStackEvent).toHaveBeenCalledWith(
+                expect.objectContaining({stackId: "stack-1", type: "config_changed"}),
+            );
+        });
+
+        it("publishes a config_changed SSE event on an env change", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("new-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockBroadcaster.publish).toHaveBeenCalledWith(
+                expect.objectContaining({type: "config_changed", stackId: "stack-1"}),
+            );
+        });
+
+        it("never includes env content, names, or values in the StackEvent or SSE payload (T-05.1-26)", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=super-secret-value");
+            mockHashContent.mockReturnValue("new-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            const eventCall = mockRepo.createStackEvent.mock.calls[0][0];
+            const publishCall = mockBroadcaster.publish.mock.calls[0][0];
+            expect(JSON.stringify(eventCall)).not.toContain("super-secret-value");
+            expect(JSON.stringify(eventCall)).not.toContain("DB_PASSWORD");
+            expect(JSON.stringify(publishCall)).not.toContain("super-secret-value");
+            expect(JSON.stringify(publishCall)).not.toContain("DB_PASSWORD");
+        });
+
+        it("is a no-op when the env hash is unchanged", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("old-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
+            expect(mockRepo.createStackEvent).not.toHaveBeenCalled();
+            expect(mockBroadcaster.publish).not.toHaveBeenCalled();
+        });
+
+        it("treats creating a .env where none existed (stored envHash null) as a change", async () => {
+            mockRepo.findStackByPath.mockResolvedValue({...fakeStack, envHash: null});
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("first-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateEnvHash).toHaveBeenCalledWith({stackId: "stack-1", hash: "first-env-hash"});
+        });
+
+        it("skips silently on ENOENT (env file deleted)", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockRejectedValue(Object.assign(new Error("not found"), {code: "ENOENT"}));
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
+            expect(mockRepo.createStackEvent).not.toHaveBeenCalled();
+        });
+
+        it("never calls updateStackHash or syncServicesFromCompose (env changes must never corrupt compose-change detection)", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockReadFile.mockResolvedValue("DB_PASSWORD=secret");
+            mockHashContent.mockReturnValue("new-env-hash");
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
+            expect(mockRepo.syncServicesFromCompose).not.toHaveBeenCalled();
+        });
+
+        it("does nothing when no stack is found for the path", async () => {
+            mockRepo.findStackByPath.mockResolvedValue(null);
+
+            await (fileWatcher as any).handleEnvChange(envPath);
+
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("compose-change detection is unaffected by env watching (Task 2 regression)", () => {
+        it("handleFileChange() on a compose path still behaves exactly as before", async () => {
+            const fakePath = "/stacks/my-stack/docker-compose.yml";
+            const fakeStack = {id: "stack-1", composeFilePath: fakePath, hash: "old-hash"};
+            mockRepo.findStackByPath.mockResolvedValue(fakeStack);
+            mockHashContent.mockReturnValue("new-computed-hash");
+
+            await (fileWatcher as any).handleFileChange(fakePath);
+
+            expect(mockRepo.updateStackHash).toHaveBeenCalledWith(
+                expect.objectContaining({stackId: fakeStack.id}),
+            );
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("reconcile() env watching (Task 2)", () => {
+        it("detects an .env drift the filesystem event missed and calls updateEnvHash", async () => {
+            const stacks = [
+                {
+                    id: "stack-1",
+                    composeFilePath: "/stacks/s1/docker-compose.yml",
+                    hash: "compose-hash",
+                    envFilePath: "/stacks/s1/.env",
+                    envHash: "old-env-hash",
+                },
+            ];
+            mockRepo.findAllStacks.mockResolvedValue(stacks);
+            mockRepo.findStackByPath.mockImplementation(async (path: string) => {
+                if (path === stacks[0].composeFilePath) return stacks[0];
+                if (path === stacks[0].envFilePath) return stacks[0];
+                return null;
+            });
+            mockReadFile.mockImplementation((path: string) =>
+                path.endsWith(".env") ? Promise.resolve("env-content") : Promise.resolve("compose-content"),
+            );
+            mockHashContent.mockImplementation((content: string) =>
+                content === "env-content" ? "old-env-hash" : "compose-hash",
+            );
+
+            await (fileWatcher as any).reconcile();
+
+            // Compose unchanged (hash matches), so only the env drift path fires.
+            expect(mockRepo.updateStackHash).not.toHaveBeenCalled();
+
+            // Now simulate a genuine env drift
+            mockHashContent.mockImplementation((content: string) =>
+                content === "env-content" ? "new-env-hash" : "compose-hash",
+            );
+            await (fileWatcher as any).reconcile();
+
+            expect(mockRepo.updateEnvHash).toHaveBeenCalledWith({stackId: "stack-1", hash: "new-env-hash"});
+        });
+
+        it("does not call updateEnvHash when the env hash is unchanged", async () => {
+            const stacks = [
+                {
+                    id: "stack-1",
+                    composeFilePath: "/stacks/s1/docker-compose.yml",
+                    hash: "compose-hash",
+                    envFilePath: "/stacks/s1/.env",
+                    envHash: "current-env-hash",
+                },
+            ];
+            mockRepo.findAllStacks.mockResolvedValue(stacks);
+            mockReadFile.mockImplementation((path: string) =>
+                path.endsWith(".env") ? Promise.resolve("env-content") : Promise.resolve("compose-content"),
+            );
+            mockHashContent.mockImplementation((content: string) =>
+                content === "env-content" ? "current-env-hash" : "compose-hash",
+            );
+
+            await (fileWatcher as any).reconcile();
+
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
+        });
+
+        it("continues past a missing .env file (ENOENT) without treating it as an error", async () => {
+            const stacks = [
+                {
+                    id: "stack-1",
+                    composeFilePath: "/stacks/s1/docker-compose.yml",
+                    hash: "compose-hash",
+                    envFilePath: "/stacks/s1/.env",
+                    envHash: null,
+                },
+            ];
+            mockRepo.findAllStacks.mockResolvedValue(stacks);
+            mockReadFile.mockImplementation((path: string) => {
+                if (path.endsWith(".env")) return Promise.reject(Object.assign(new Error("not found"), {code: "ENOENT"}));
+                return Promise.resolve("compose-content");
+            });
+            mockHashContent.mockReturnValue("compose-hash");
+
+            await expect((fileWatcher as any).reconcile()).resolves.toBeUndefined();
+            expect(mockRepo.updateEnvHash).not.toHaveBeenCalled();
         });
     });
 });
