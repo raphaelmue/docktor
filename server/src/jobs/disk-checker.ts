@@ -36,17 +36,37 @@ export class DiskChecker {
     }
 
     async check(): Promise<void> {
-        const settings = await this.settings.getMany([
-            "notify.diskWarning",
-            "disk.thresholdPercent",
-            "disk.thresholdBytes",
-        ])
+        // check() is invoked fire-and-forget (`void this.check()`) from both
+        // start() and the cron callback below — nothing awaits its promise,
+        // so an uncaught rejection here becomes an unhandled promise
+        // rejection that crashes the entire Node process, taking down the
+        // HTTP server and every other job with it. This is most likely to
+        // bite on the very first run against a freshly-provisioned database,
+        // where the Setting table may not exist yet if the startup
+        // schema-sync step (see lib/schema-sync.ts) hasn't completed or was
+        // disabled. The whole body is guarded so a settings-query failure
+        // degrades to a logged skip instead of a server-wide crash loop,
+        // matching the fault-isolation guarantee every other job gets from
+        // its own individually try/caught startJobs() registration.
+        try {
+            const settings = await this.settings.getMany([
+                "notify.diskWarning",
+                "disk.thresholdPercent",
+                "disk.thresholdBytes",
+            ])
 
-        if (settings["notify.diskWarning"] === "false") return
+            if (settings["notify.diskWarning"] === "false") return
 
-        const thresholdPercent = Number(settings["disk.thresholdPercent"] ?? "10")
-        const thresholdBytes = BigInt(settings["disk.thresholdBytes"] ?? "2147483648")
+            const thresholdPercent = Number(settings["disk.thresholdPercent"] ?? "10")
+            const thresholdBytes = BigInt(settings["disk.thresholdBytes"] ?? "2147483648")
 
+            await this.checkDiskUsage(thresholdPercent, thresholdBytes)
+        } catch (err) {
+            console.error("[DiskChecker] check failed:", err)
+        }
+    }
+
+    private async checkDiskUsage(thresholdPercent: number, thresholdBytes: bigint): Promise<void> {
         let stats: {bsize: number; blocks: number; bavail: number}
         try {
             const {statfs} = await import("node:fs/promises")

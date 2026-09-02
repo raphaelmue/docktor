@@ -122,9 +122,18 @@ function resolvePrismaConfigPath(): string {
  * drop data, the CLI's own non-interactive refusal (non-zero exit) is the
  * correct outcome, surfaced as a "failed" result rather than silently forced
  * through.
+ *
+ * No --skip-generate: `prisma db push` in this project's Prisma version
+ * (7.4.0) does not accept that flag at all (confirmed live via
+ * `prisma db push --help`, which lists only -h/--help, --config, --schema,
+ * --url, --accept-data-loss, --force-reset) — passing it made every push
+ * fail with "unknown or unexpected option", so this step never actually
+ * applied the schema despite logging a "failed" outcome and letting the
+ * server start anyway. `prisma generate` already ran at build time
+ * (server-build stage), so this step never needed to (re)generate anyway.
  */
 function buildArgv(): string[] {
-    return ["db", "push", `--config=${resolvePrismaConfigPath()}`, "--skip-generate"];
+    return ["db", "push", `--config=${resolvePrismaConfigPath()}`];
 }
 
 const defaultRunCli: RunCliFn = async (argv) => {

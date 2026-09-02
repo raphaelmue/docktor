@@ -137,4 +137,16 @@ describe("DiskChecker", () => {
 
         expect(mockStatfs).toHaveBeenCalledWith("/var/lib/docker")
     })
+
+    it("does not throw when settings.getMany rejects — fault isolation (fire-and-forget void this.check() would otherwise crash the whole process)", async () => {
+        settings.getMany.mockRejectedValue(new Error("relation \"public.Setting\" does not exist"))
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+        await expect(checker.check()).resolves.toBeUndefined()
+
+        expect(consoleError).toHaveBeenCalledWith("[DiskChecker] check failed:", expect.any(Error))
+        expect(mockStatfs).not.toHaveBeenCalled()
+
+        consoleError.mockRestore()
+    })
 })

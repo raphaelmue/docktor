@@ -151,5 +151,19 @@ describe("syncDatabaseSchema", () => {
             expect(capturedArgv.some((arg) => arg.includes("force-reset"))).toBe(false);
             expect(capturedArgv.some((arg) => arg.includes("reset"))).toBe(false);
         });
+
+        it("never passes --skip-generate — this Prisma version's `db push` rejects it outright as an unknown option, which previously made every push fail", async () => {
+            const release = vi.fn(async () => {});
+            const acquireLock = acquiredLock(release);
+            let capturedArgv: string[] = [];
+            const runCli = vi.fn<RunCliFn>(async (argv) => {
+                capturedArgv = argv;
+                return {code: 0, stdout: "in sync", stderr: ""};
+            });
+
+            await syncDatabaseSchema({runCli, acquireLock});
+
+            expect(capturedArgv).not.toContain("--skip-generate");
+        });
     });
 });
