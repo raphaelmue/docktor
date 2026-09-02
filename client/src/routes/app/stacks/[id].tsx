@@ -124,6 +124,7 @@ export default function StackDetailPage() {
             (async () => {
                 await updateStack(id, {composeContent});
                 setComposeDirty(false);
+                refetch();
             })(),
             {
                 loading: "Saving compose...",
@@ -138,6 +139,7 @@ export default function StackDetailPage() {
             (async () => {
                 await updateStack(id, {envContent});
                 setEnvDirty(false);
+                refetch();
             })(),
             {
                 loading: "Saving environment...",

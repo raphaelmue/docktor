@@ -219,6 +219,31 @@ describe("useStack", () => {
         await waitFor(() => expect(result.current.stack).toEqual(refreshedStack));
         expect(result.current.loading).toBe(false);
     });
+
+    // Pins the exact mechanism [id].tsx's handleSaveCompose()/handleSaveEnv()
+    // rely on: calling refetch() after a successful save picks up the fresh
+    // configChanged flag on the same tab that saved, with no manual reload
+    // and without touching loading (a full-tree remount would drop the
+    // editor's in-progress state).
+    it("refetch() picks up a fresh configChanged flag without touching loading, matching a post-save refresh", async () => {
+        const staleStack = {id: "my-app", displayName: "My App", configChanged: true};
+        const savedStack = {id: "my-app", displayName: "My App", configChanged: false};
+        mockGetStack.mockResolvedValueOnce(staleStack as any);
+        mockGetStack.mockResolvedValueOnce(savedStack as any);
+
+        const {result} = renderHook(() => useStack("my-app"));
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.stack).toEqual(staleStack);
+
+        act(() => {
+            result.current.refetch();
+        });
+
+        expect(result.current.loading).toBe(false);
+        await waitFor(() => expect(result.current.stack).toEqual(savedStack));
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBeNull();
+    });
 });
 
 // Task 2: pin the actual regression (a full-tree remount) with a node-identity
