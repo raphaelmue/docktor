@@ -6,6 +6,9 @@ model Stack {
   // Filesystem
   hostPath         String // absolute host path, e.g. "/opt/docktor/stacks/my-nextcloud"
   isAdoptedInPlace Boolean     @default(false) // true = brownfield adopt, limited features
+  // Marks a Docktor-managed stack (e.g. the nginx-proxy/acme-companion proxy
+  // stack) that the normal stop/restart/delete stack actions must refuse (D-12).
+  isProtected      Boolean     @default(false)
 
   // State machine
   status           StackStatus @default(DRAFT)

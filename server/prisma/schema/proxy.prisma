@@ -7,10 +7,15 @@ model ProxyConfig {
   domain      String // e.g. "cloud.example.com"
   internalPort Int   // e.g. 80
   tlsEnabled  Boolean @default(true)
-  isPublic    Boolean @default(true) // false = LAN-only
 
-  // NPM integration
-  npmProxyHostId Int? // Nginx Proxy Manager host ID, if managed
+  // Cert issuance observation (D-05) — written by the cert poller, not by
+  // assignDomain(). String rather than a Prisma enum: jobs/ code that reads
+  // this must not be forced to import a generated enum in the unit-test
+  // environment (see STATE.md's StatePoller TRANSITIONAL_STATES precedent).
+  // The closed set of valid values lives in @docktor/shared's certStatusSchema.
+  certStatus    String    @default("pending")
+  certMessage   String?
+  certCheckedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

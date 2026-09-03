@@ -10,6 +10,8 @@ import {NotificationService} from "./notification-service.js";
 import {BackupRepository} from "../repositories/backup-repository.js";
 import {ResticExecutor} from "../infrastructure/restic-executor.js";
 import {BackupService} from "./backup-service.js";
+import {ProxyRepository} from "../repositories/proxy-repository.js";
+import {ProxyService} from "./proxy-service.js";
 import {stateEventBroadcaster} from "../lib/state-broadcaster.js";
 import type {BackupStackRepo} from "./backup-service.js";
 import type {StackStatus} from "../generated/prisma/enums.js";
@@ -57,3 +59,5 @@ export const backupService = new BackupService(
 );
 
 export {getBackupBroadcaster, getBackupLogBuffer} from "./backup-service.js";
+
+export const proxyService = new ProxyService(new ProxyRepository(), repo, fs, stackService);

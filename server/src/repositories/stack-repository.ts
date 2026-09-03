@@ -5,6 +5,10 @@ import type {ComposeConfig} from "../domain/compose-config.js";
 import path from "node:path";
 
 export class StackRepository {
+    async findById(id: string) {
+        return prisma.stack.findUnique({where: {id}});
+    }
+
     async findByIdOrThrow(id: string) {
         const stack = await prisma.stack.findUnique({where: {id}});
         if (!stack) {
