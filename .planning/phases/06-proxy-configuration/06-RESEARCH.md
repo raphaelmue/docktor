@@ -486,20 +486,20 @@ async up(stackId: string): Promise<void> {
 
 ## Open Questions
 
-1. **Exact env var contract between `nginx-proxy`/`acme-companion` documentation pages is internally inconsistent**
+*Resolved during planning — see 06-01-PLAN.md and 06-03-PLAN.md `<planner_decisions>` blocks for the authoritative resolutions.*
+
+1. **(RESOLVED — 06-01 Task 1 Step 0) Exact env var contract between `nginx-proxy`/`acme-companion` documentation pages is internally inconsistent**
    - What we know: CONTEXT.md's canonical refs assert `LETSENCRYPT_HOST`/`LETSENCRYPT_EMAIL` are current `[CITED: nginx-proxy/acme-companion, per CONTEXT.md]`. One doc fetch this session (`docs/Basic-usage.md`) returned `ACME_HOST`/`ACME_EMAIL` instead and explicitly stated "the documentation does not mention LETSENCRYPT_HOST or LETSENCRYPT_EMAIL" for that page, while a second fetch (the wiki's "Let's Encrypt and ACME" page) returned `LETSENCRYPT_HOST`/`LETSENCRYPT_EMAIL` as the apparently-canonical set with no mention of `ACME_HOST`/`ACME_EMAIL`.
    - What's unclear: whether `ACME_HOST`/`ACME_EMAIL` are a newer CA-agnostic alias family (acme-companion supports non-Let's-Encrypt ACME CAs, which plausibly motivated a rename) that coexist with the legacy `LETSENCRYPT_*` names for backward compatibility, or whether one doc page is simply stale.
-   - Recommendation: at plan/execution time, either read the acme-companion image's actual entrypoint/nginx-gen template source (most authoritative, not a doc page) or do a `checkpoint:human-verify` live-testing both `LETSENCRYPT_HOST` and `ACME_HOST` against a real deployed instance before committing to one in the compose-write code. Given CONTEXT.md's canonical refs lock in `LETSENCRYPT_HOST`/`LETSENCRYPT_EMAIL`, default to those unless the execution-time check shows otherwise.
+   - Resolution: 06-01 Task 1 Step 0 resolves this at runtime by reading the answer out of the deployed acme-companion image's own entrypoint/template source rather than guessing from doc pages, and halts if the two families genuinely diverge. CONTEXT.md's `LETSENCRYPT_HOST`/`LETSENCRYPT_EMAIL` remains the default unless that runtime check shows otherwise.
 
-2. **Should the proxy stack's own compose file be user-editable via the normal compose/environment tabs?**
+2. **(RESOLVED — 06-03 `<planner_decisions>`) Should the proxy stack's own compose file be user-editable via the normal compose/environment tabs?**
    - What we know: D-12 requires protecting it from stop/delete/restart via the *action* UI; nothing in CONTEXT.md addresses whether its Compose/Environment tabs (which exist for every other stack) should also be locked read-only.
-   - What's unclear: whether a user editing the proxy stack's compose file directly (e.g. removing the `docktor_proxy` network definition) is a supported escape hatch or should also be blocked.
-   - Recommendation: default to leaving Compose/Environment tabs editable (consistent with "protected" meaning specifically the destructive lifecycle actions D-12 names — stop/delete/restart — not a fully locked-down stack), but flag this as a planner discretion call, not a locked decision.
+   - Resolution: the Compose/Environment tabs stay editable — "protected" is scoped specifically to the destructive lifecycle actions D-12 names (stop/delete/restart), not a fully locked-down stack.
 
-3. **Does `docker compose down` (used by `StackService.deleteStack()`'s `docker.down(id)` call) ever legitimately run against the proxy stack?**
+3. **(RESOLVED — 06-03 `<planner_decisions>`) Does `docker compose down` (used by `StackService.deleteStack()`'s `docker.down(id)` call) ever legitimately run against the proxy stack?**
    - What we know: `DockerExecutor.down()` uses `docker compose down -v` `[VERIFIED: server/src/infrastructure/docker-executor.ts]` — the `-v` flag removes volumes, which would destroy issued certs.
-   - What's unclear: whether D-12's "protected from delete" fully prevents this path from ever being reachable for the proxy stack (it should, if enforced server-side per Pitfall 4), or whether there's a separate "uninstall proxy" flow needed later.
-   - Recommendation: confirm in planning that `isProtected` blocks `deleteStack()` unconditionally; no separate uninstall flow is in scope for Phase 6 per CONTEXT.md's Deferred Ideas (none deferred — meaning this is out of scope entirely for now, not merely deferred).
+   - Resolution: `isProtected` blocks `deleteStack()` unconditionally, so the `-v` path can never be reached for the proxy stack. No separate "uninstall proxy" flow is in scope for Phase 6.
 
 ## Environment Availability
 
