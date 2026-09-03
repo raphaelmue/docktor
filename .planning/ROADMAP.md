@@ -251,12 +251,12 @@ Plans:
   3. User can remove a proxy configuration from the UI; the routing/TLS env vars are removed from the service's compose file and it is redeployed
   4. Proxy operations are idempotent: reconfiguring an existing domain updates the service's env vars rather than creating a duplicate
 
-**Plans**: 6 plans
+**Plans**: 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — Tracer: assign one domain to one service end-to-end (schema, shared Zod, surgical compose editor, repository, service, authenticated routes) + the blocking schema push
+- [x] 06-01-PLAN.md — Tracer: assign one domain to one service end-to-end (schema, shared Zod, surgical compose editor, repository, service, authenticated routes) + the blocking schema push
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -287,4 +287,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 17/17 | Complete    | 2026-08-31 |
 | 5. Onboarding | 11/10 | Complete    | 2026-08-31 |
-| 6. Proxy Configuration | 0/6 | Planned | - |
+| 6. Proxy Configuration | 1/6 | In Progress|  |

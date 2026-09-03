@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-current_phase: 05.1
-current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
+current_phase: 06
+current_phase_name: Proxy Configuration
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Phase 6 planned (6 plans, verification passed)
-last_updated: "2026-09-03T20:54:34.469Z"
-state_head: 1f36613e4b245c27f2d0a9480fae46ee4bb6593a
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-09-03T22:57:50.028Z"
+state_head: 3e096c18462b8c03a46588f5436ec64b189ef50c
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 73
-  completed_plans: 67
+  completed_plans: 68
 milestone_name: milestone
 ---
 
@@ -22,12 +22,12 @@ milestone_name: milestone
 See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 05.1 — Stabilization: fix blockers and majors surfaced during testing (INSERTED)
+**Current focus:** Phase 06 — Proxy Configuration
 
 ## Current Position
 
-Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 12 of 12 (all plans executed; G-05.1-4 closed)
+Phase: 06 (Proxy Configuration) — EXECUTING
+Plan: 2 of 6
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -116,6 +116,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P10 | 25min | 2 tasks | 4 files |
 | Phase 05.1 P11 | 20min | 2 tasks | 4 files |
 | Phase 05.1 P12 | 20min | 2 tasks | 7 files |
+| Phase 06 P01 | 95min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -250,6 +251,8 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-11]: ensureStacksDir() and assertStacksDirMatchesHost() share one try/catch in index.ts, assertion first — a path mismatch must never let a directory get created at a path already known to be wrong
 - [Phase 05.1]: [Phase 05.1-12]: Normalize fast-glob's scanner output at the foundFiles boundary (single call site) instead of at path/directory derivation — fixes both fields and canonicalizes spelling ahead of dedup
 - [Phase 05.1]: [Phase 05.1-12]: directoryDisplayName() lives in a new client/src/lib/path-display.ts (not utils.ts) as an import-free pure string utility tolerant of POSIX/Windows/mixed separators
+- [Phase 06]: [Phase 06-01]: Resolved LETSENCRYPT_HOST vs ACME_HOST via a deterministic grep of the actual acme-companion:2.6.3 image (not doc pages) — both LETSENCRYPT_HOST/LETSENCRYPT_EMAIL confirmed present
+- [Phase 06]: [Phase 06-01]: Added StackRepository.findById() (Rule 3) — required by ProxyService's constructor Pick<> type, did not exist before
 
 ### Quick Tasks Completed
 
@@ -301,6 +304,7 @@ Recent decisions affecting current work:
 - [Phase 05.1-06] yarn db:push could not reach the dev DB in this sandboxed session (same TCP-payload-block class as 05.1-01/05.1-05, now reconfirmed at the raw-socket level) — a human on an unrestricted host must run it to apply Stack.configError/lastEnvHash before this plan's server behavior is live. WINDOWS.md #8.
 - [Phase 05.1-08] Human-check item 5 from the plan's <verify> block (creating a stack with a relative bind-mount volume through the app's UI/API and confirming the data lands at the documented host path) was deliberately not re-exercised live in this session — it would run docker compose up -d --remove-orphans via Docktor's own deploy pipeline on the same shared host where 05.1-03's identical live test caused a real incident. A human should complete this check (and click through the setup wizard in a real browser) before treating the quickstart as fully proven. See 05.1-08-SUMMARY.md coverage D5 rationale.
 - [Phase 05.1-10] .env.example line 3 and .env.production line 12 still tell operators to copy the template to .env.local instead of .env — blocked on workspace permission settings denying Read/Bash/Write access to .env* paths. A developer with access must apply the two one-line header edits documented in 05.1-10-SUMMARY.md before G-05.1-2 is fully closed.
+- [Phase 06-01] Live dev-DB schema push (Task 2) and the new integration test (server/test/integration/proxy.test.ts) could not run in this sandboxed session — same documented host-level TCP-to-Docker-published-port block as 05.1-01/05.1-05/05.1-06. A developer on an unrestricted host must run: yarn dotenv -e .env.development -- prisma db push --accept-data-loss --config=server/prisma/prisma.config.ts && yarn db:generate, then verify via information_schema.columns, and separately run yarn workspace @docktor/server test:integration test/integration/proxy.test.ts
 
 ### Roadmap Evolution
 
@@ -308,6 +312,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-03T20:54:31.031Z
-Stopped at: Phase 6 planned (6 plans, verification passed)
-Resume file: .planning/phases/06-proxy-configuration/06-01-PLAN.md
+Last session: 2026-09-03T22:57:47.629Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
