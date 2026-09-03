@@ -9,6 +9,7 @@ import {promisify} from "node:util";
 // a repository-owned domain query, so a direct `pg` connection confined to
 // `lib/` is consistent with CLAUDE.md's Prisma-access rule.
 import {Client} from "pg";
+import {resolvePrismaCliEntrypoint} from "./prisma-cli.js";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,27 +80,17 @@ function parseHostPort(databaseUrl: string | undefined): {host: string; port: st
 }
 
 /**
- * Resolves the Prisma CLI binary path from this module's own location, not
- * the process working directory. The container's CMD runs from /app while
- * the compiled module lives under /app/dist/server/lib — three directories
- * up from there lands on /app either way (dev: server/src/lib is also three
- * segments below the repo root), so a single relative path resolves
- * correctly in both the dev (tsx, run from source) and built-image contexts.
- */
-function resolvePrismaBin(): string {
-    return path.resolve(__dirname, "../../../node_modules/.bin/prisma");
-}
-
-/**
  * Resolves server/prisma/prisma.config.ts from this module's own location.
- * Unlike the CLI binary, the correct relative distance differs between dev
+ * This is a config file, not an executable, so it has no platform
+ * divergence — but the correct relative distance still differs between dev
  * (this module runs directly from server/src/lib, two directories under
  * server/) and the built image (the compiled module runs from
  * /app/dist/server/lib, while server/prisma/ is copied to a sibling
  * /app/server/prisma, three directories up with a "server/" segment) —
- * mirrors server/test/integration/setup.ts's resolution approach, extended
- * with a filesystem check for the layout that setup.ts never needs to
- * handle: setup.ts always runs from source, this module runs from both.
+ * mirrors server/test/integration/setup.ts's resolution approach for the
+ * config path, extended with a filesystem check for the layout that
+ * setup.ts never needs to handle: setup.ts always runs from source, this
+ * module runs from both.
  */
 function resolvePrismaConfigPath(): string {
     const candidates = [
@@ -137,9 +128,8 @@ function buildArgv(): string[] {
 }
 
 const defaultRunCli: RunCliFn = async (argv) => {
-    const prismaBin = resolvePrismaBin();
     try {
-        const {stdout, stderr} = await execFileAsync(prismaBin, argv, {
+        const {stdout, stderr} = await execFileAsync(process.execPath, [resolvePrismaCliEntrypoint(), ...argv], {
             env: process.env,
             maxBuffer: 10 * 1024 * 1024,
         });
