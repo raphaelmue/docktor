@@ -242,7 +242,7 @@ Plans:
 ### Phase 6: Proxy Configuration
 
 **Goal**: Users can configure domain and TLS exposure for any service directly from the stack detail page, without touching Nginx configuration manually
-**Depends on**: Phase 1
+**Depends on**: Phase 1, Phase 5 (the First-Run Wizard the optional proxy step extends), Phase 05.1 (managed stacks directory and its path-escape guard)
 **Requirements**: PRXY-01, PRXY-02, PRXY-03, PRXY-04, PRXY-05
 **Success Criteria** (what must be TRUE):
 
@@ -251,7 +251,29 @@ Plans:
   3. User can remove a proxy configuration from the UI; the routing/TLS env vars are removed from the service's compose file and it is redeployed
   4. Proxy operations are idempotent: reconfiguring an existing domain updates the service's env vars rather than creating a duplicate
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — Tracer: assign one domain to one service end-to-end (schema, shared Zod, surgical compose editor, repository, service, authenticated routes) + the blocking schema push
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-02-PLAN.md — Remove a domain, adopt hand-written domains, idempotent re-assign, and serialized per-stack compose writes
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-03-PLAN.md — Protected system stacks, proxy settings, the nginx-proxy + acme-companion compose renderer, and deployProxyStack with the D-11 host-port pre-flight
+
+**Wave 4** *(blocked on Wave 3 completion — 06-04 and 06-06 are independent of each other)*
+
+- [ ] 06-04-PLAN.md — ProxyCertPoller, the proxy_cert_status SSE event, and the useProxyStatus hook
+- [ ] 06-06-PLAN.md — Optional First-Run Wizard proxy step (step 6, terminal)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 06-05-PLAN.md — Client: Proxy tab, Settings > Proxy card, protected-stack action disabling, Playwright coverage
 
 ## Progress
 
@@ -265,4 +287,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 17/17 | Complete    | 2026-08-31 |
 | 5. Onboarding | 11/10 | Complete    | 2026-08-31 |
-| 6. Proxy Configuration | 0/? | Not started | - |
+| 6. Proxy Configuration | 0/6 | Planned | - |
