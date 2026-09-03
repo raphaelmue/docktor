@@ -75,7 +75,22 @@ export class BrownfieldScanner {
                     suppressErrors: true, // Don't throw on permission errors mid-scan
                 });
 
-                foundFiles.push(...files);
+                // G-05.1-4: fast-glob's `absolute: true` output is
+                // unconditionally "unixified" (backslashes -> forward
+                // slashes) on every platform by design — glob
+                // patterns/results are POSIX-delimited by convention, not
+                // configurable. Node's win32 path.dirname() does not
+                // renormalize separator style; it only slices at the last
+                // separator it finds, so it would otherwise pass that
+                // forward-slash spelling straight through to `directory`
+                // (and `path`, assigned verbatim below) even on a native
+                // Windows host. Normalizing once here — before both fields
+                // are derived, and before the Set-based dedup below — is
+                // what keeps `path` and `directory` consistent with the
+                // host OS from a single call site, and it also canonicalizes
+                // the spelling so two overlapping scan roots that surface
+                // different spellings of one file collapse to one stack.
+                foundFiles.push(...files.map((f) => path.normalize(f)));
             } catch (err: unknown) {
                 // Safe: fs.access/fast-glob only ever throw NodeJS.ErrnoException
                 // (a standard Error subtype with a `code` field) on this path.
