@@ -212,7 +212,7 @@ Plans:
 **Goal:** Fix the blockers and majors surfaced during Phase 1-5 testing/UAT that block a clean, safe self-hosted deployment, so Phase 6 (Proxy Configuration) starts from a working, documented, verifiable base. Scope is exactly 10 items: 3 blockers (broken integration/e2e tests, no schema sync on container startup, Docker-outside-of-Docker bind-mount path mismatch), 6 majors (deployment config documentation, `config_error` UI, missing SSE broadcasts on manual actions, backup-without-repo wedging a stack, env edits not flagging config-changed, unreachable post-setup brownfield import) and 1 minor (restic pinned to an outdated version).
 **Requirements**: n/a — this phase is scoped by the todo list above, not by REQUIREMENTS.md IDs
 **Depends on:** Phase 5
-**Plans:** 11/12 plans executed — 8/8 original plans executed, plus 4 gap-closure plans added from UAT (05.1-09 … 05.1-12); 05.1-12 is planned and pending execution
+**Plans:** 12/12 plans executed — 8/8 original plans executed, plus 4 gap-closure plans added from UAT (05.1-09 … 05.1-12), all executed; G-05.1-4 closed
 
 Plans:
 **Wave 1**
@@ -237,7 +237,7 @@ Plans:
 - [x] 05.1-09-PLAN.md — Resolve the Prisma CLI through Node's own binary so the integration suite runs on Windows (G-05.1-1)
 - [x] 05.1-10-PLAN.md — Load the deployment env file from the name Compose interpolates, so a custom stacks directory actually mounts (G-05.1-2)
 - [x] 05.1-11-PLAN.md — Create the managed stacks directory at boot instead of relying on bind-mount auto-creation (G-05.1-3)
-- [ ] 05.1-12-PLAN.md — Return OS-native path separators from the brownfield scan API so Windows clients match (G-05.1-4)
+- [x] 05.1-12-PLAN.md — Return OS-native path separators from the brownfield scan API so Windows clients match (G-05.1-4)
 
 ### Phase 6: Proxy Configuration
 
