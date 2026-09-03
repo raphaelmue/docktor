@@ -1,8 +1,8 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "G-05.1-1: yarn workspace @docktor/server test:integration fails locally (passes in CI) with prisma db push failing inside startContainer(). Caused by: Error: spawnSync C:\\Users\\D070307\\workspace\\docktor\\node_modules\\.bin\\prisma ENOENT"
 created: 2026-09-03T00:00:00Z
-updated: 2026-09-03T00:00:00Z
+updated: 2026-09-03T10:45:00Z
 ---
 
 ## Current Focus

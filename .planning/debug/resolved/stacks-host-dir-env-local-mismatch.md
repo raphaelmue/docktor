@@ -1,8 +1,8 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "G-05.1-2: Following docs/deployment.md's quickstart exactly (cp .env.example .env.local; set DOCKTOR_STACKS_HOST_DIR in .env.local; docker compose up -d) makes the server refuse to boot with a \"Stacks directory path mismatch\" error."
 created: 2026-09-03T07:29:19Z
-updated: 2026-09-03T07:35:00Z
+updated: 2026-09-03T10:45:00Z
 ---
 
 ## Current Focus

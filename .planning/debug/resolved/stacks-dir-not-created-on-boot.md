@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 trigger: |
   DATA_START
   G-05.1-3: The managed stacks directory (DOCKTOR_STACKS_DIR, default
@@ -8,7 +8,7 @@ trigger: |
   Desktop.
   DATA_END
 created: 2026-09-03T00:00:00Z
-updated: 2026-09-03T00:00:00Z
+updated: 2026-09-03T10:45:00Z
 ---
 
 ## Current Focus
