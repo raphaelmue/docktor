@@ -6,12 +6,10 @@ import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {PrismaPg} from "@prisma/adapter-pg";
 import {PrismaClient} from "../../src/generated/prisma/client.js";
+import {resolvePrismaCliEntrypoint} from "../../src/lib/prisma-cli.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prismaConfigPath = path.resolve(__dirname, "../../prisma/prisma.config.ts");
-// Prisma is a root devDependency — resolve it by path so it works without
-// being on $PATH (e.g. in CI or when running vitest directly)
-const prismaBin = path.resolve(__dirname, "../../../node_modules/.bin/prisma");
 
 let container: StartedPostgreSqlContainer;
 let app: FastifyInstance;
@@ -32,10 +30,13 @@ export async function startContainer(): Promise<void> {
     process.env.BETTER_AUTH_SECRET = "test-secret";
 
     // Push schema to the test database.
-    // Uses the argv-array form (not a shell-interpolated string) so a path
+    // Launches the CLI through Node's own binary (process.execPath) with a
+    // module-resolved entrypoint, so the invocation is identical on every
+    // platform — no OS-shaped `.bin` shim path involved. Keeps the
+    // argv-array form (not a shell-interpolated string) so a path
     // containing shell metacharacters can never be interpreted (T-05.1-02).
     try {
-        execFileSync(prismaBin, ["db", "push", `--config=${prismaConfigPath}`], {
+        execFileSync(process.execPath, [resolvePrismaCliEntrypoint(), "db", "push", `--config=${prismaConfigPath}`], {
             env: {...process.env, DATABASE_URL: connectionString},
             stdio: "pipe",
         });
