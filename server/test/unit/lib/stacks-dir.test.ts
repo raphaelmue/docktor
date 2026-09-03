@@ -1,18 +1,26 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {
     assertStacksDirMatchesHost,
+    ensureStacksDir,
     getComposePath,
     getEnvPath,
     getStackPath,
     getStacksDir,
 } from "../../../src/lib/stacks-dir.js";
+import {mkdir, mkdtemp, rm, stat, writeFile} from "node:fs/promises";
+import {tmpdir} from "node:os";
 import path from "node:path";
 
 describe("stacks-dir", () => {
-    afterEach(() => {
+    const tempRoots: string[] = [];
+
+    afterEach(async () => {
         delete process.env.DOCKTOR_STACKS_DIR;
         delete process.env.DOCKTOR_STACKS_HOST_DIR;
         vi.restoreAllMocks();
+        await Promise.all(
+            tempRoots.splice(0).map((root) => rm(root, {recursive: true, force: true})),
+        );
     });
 
     describe("getStacksDir", () => {
@@ -110,6 +118,60 @@ describe("stacks-dir", () => {
             expect(() => assertStacksDirMatchesHost()).not.toThrow();
             expect(warnSpy).toHaveBeenCalledTimes(1);
             expect(warnSpy.mock.calls[0]?.[0]).toContain("DOCKTOR_STACKS_HOST_DIR");
+        });
+    });
+
+    describe("ensureStacksDir", () => {
+        it("creates the directory when it is absent, including missing intermediate segments", async () => {
+            const root = await mkdtemp(path.join(tmpdir(), "stacks-dir-test-"));
+            tempRoots.push(root);
+            const target = path.join(root, "nested", "two-levels", "stacks");
+            process.env.DOCKTOR_STACKS_DIR = target;
+
+            const result = await ensureStacksDir();
+
+            expect(result).toBe(path.resolve(target));
+            const stats = await stat(target);
+            expect(stats.isDirectory()).toBe(true);
+        });
+
+        it("leaves an existing directory intact and is a no-op on a second consecutive call", async () => {
+            const root = await mkdtemp(path.join(tmpdir(), "stacks-dir-test-"));
+            tempRoots.push(root);
+            const target = path.join(root, "stacks");
+            await mkdir(target);
+            await writeFile(path.join(target, "marker.txt"), "keep-me");
+            process.env.DOCKTOR_STACKS_DIR = target;
+
+            await expect(ensureStacksDir()).resolves.toBe(path.resolve(target));
+            await expect(ensureStacksDir()).resolves.toBe(path.resolve(target));
+
+            const stats = await stat(path.join(target, "marker.txt"));
+            expect(stats.isFile()).toBe(true);
+        });
+
+        it("returns the same absolute path getStacksDir() resolves for the same env value", async () => {
+            const root = await mkdtemp(path.join(tmpdir(), "stacks-dir-test-"));
+            tempRoots.push(root);
+            const target = path.join(root, "stacks");
+            process.env.DOCKTOR_STACKS_DIR = target;
+
+            const result = await ensureStacksDir();
+
+            expect(result).toBe(getStacksDir());
+        });
+
+        it("rethrows an error naming the path when creation is impossible", async () => {
+            const root = await mkdtemp(path.join(tmpdir(), "stacks-dir-test-"));
+            tempRoots.push(root);
+            const blockingFile = path.join(root, "not-a-directory");
+            await writeFile(blockingFile, "i am a file, not a directory");
+            const target = path.join(blockingFile, "stacks");
+            process.env.DOCKTOR_STACKS_DIR = target;
+
+            await expect(ensureStacksDir()).rejects.toThrow(
+                new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+            );
         });
     });
 });
