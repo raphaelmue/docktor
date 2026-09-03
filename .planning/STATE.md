@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-08-PLAN.md
-last_updated: "2026-09-02T12:59:23.125Z"
-state_head: c90f3af2e5821337a1a1aee5a6e6077189da2b81
+stopped_at: Completed 05.1-09-PLAN.md
+last_updated: "2026-09-03T08:10:14.737Z"
+state_head: 22ea8f2bd7dba18300db7f7f383942128de19864
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 63
-  completed_plans: 63
+  total_plans: 66
+  completed_plans: 64
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 8 of 8
+Plan: 2 of 11
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -112,6 +112,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P06 | 55min | 3 tasks | 11 files |
 | Phase 05.1 P07 | 45min | 3 tasks | 14 files |
 | Phase 05.1 P08 | 2h30m | 3 tasks | 10 files |
+| Phase 05.1 P09 | 20min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -239,6 +240,7 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-08]: .env.example/.env.production are the docker-compose deployment templates (not the yarn-dev .env.development); DATABASE_URL host fixed to compose service name db, DOCKTOR_STACKS_HOST_DIR defaulted live so assertStacksDirMatchesHost() is active out of the box, DOCKER_DATA_PATH defaulted to /host/var/lib/docker
 - [Phase 05.1]: [Phase 05.1-08]: docker-compose.yml drops the decorative /data and /backups mounts and no longer publishes Postgres 5432 (T-05.1-42); docker-compose.dev.yml's Postgres bumped 17->18 to match
 - [Phase 05.1]: [Phase 05.1-08]: found and fixed two live-discovered bugs blocking the documented quickstart — schema-sync.ts's --skip-generate argv was an invalid flag for this Prisma CLI (db push silently never applied the schema since 05.1-05 shipped), and DiskChecker.check()'s unguarded settings query crashed the whole server via an unhandled promise rejection on a fresh database
+- [Phase 05.1]: [Phase 05.1-09]: resolvePrismaCliEntrypoint() anchors CLI resolution on import.meta.url module identity (createRequire) rather than process.cwd() or relative-directory-segment counting — one implementation correct in vitest/tsx-from-source/built-image layouts; both Prisma CLI call sites now launch via process.execPath with no shell option, closing a native-Windows spawnSync ENOENT defect (G-05.1-1)
 
 ### Quick Tasks Completed
 
@@ -296,6 +298,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-02T12:59:05.524Z
-Stopped at: Completed 05.1-08-PLAN.md
+Last session: 2026-09-03T08:10:12.351Z
+Stopped at: Completed 05.1-09-PLAN.md
 Resume file: None
