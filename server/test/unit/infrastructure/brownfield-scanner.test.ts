@@ -153,6 +153,19 @@ describe("BrownfieldScanner", () => {
             expect(result.stacks[0].directory).toBe("/opt/myapp");
         });
 
+        // G-05.1-4: pins the no-op-on-POSIX guarantee explicitly. The
+        // boundary normalization added for the Windows fix must not alter
+        // already-clean POSIX output — this file runs with the real
+        // node:path (no win32 mock), so it is a genuine POSIX assertion.
+        it("should leave an already-POSIX directory unchanged (G-05.1-4 no-op guarantee)", async () => {
+            mockFg.mockResolvedValue(["/opt/myapp/docker-compose.yml"]);
+
+            const scanner = new BrownfieldScanner(mockAnalyzer);
+            const result = await scanner.scan(["/opt"]);
+
+            expect(result.stacks[0].directory).toBe("/opt/myapp");
+        });
+
         it("should skip files that fail to read/parse and continue scanning others", async () => {
             mockFg.mockResolvedValue(["/opt/broken/docker-compose.yml", "/opt/ok/docker-compose.yml"]);
             mockReadFile.mockImplementation((filePath: string) => {
