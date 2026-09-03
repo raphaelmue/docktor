@@ -2,7 +2,7 @@ import {mkdir} from "node:fs/promises";
 import path from "node:path";
 
 export function getStacksDir(): string {
-    return path.resolve(process.env.DOCKTOR_STACKS_DIR ?? "./stacks");
+    return path.resolve(process.env.DOCKTOR_STACKS_DIR || "./stacks");
 }
 
 /**

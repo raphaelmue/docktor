@@ -14,3 +14,10 @@
 # Pure build-context weight; not read by the Dockerfile's COPY lines.
 /.git
 /.planning
+
+# The db service's live Postgres data directory (docker-compose.yml's
+# `./dev-data/docktor/db:/var/lib/postgresql` bind mount). Not excluding this
+# would upload the operator's actual database files to the Docker daemon as
+# build context on every rebuild — the same class of leak this file exists to
+# prevent for secrets, just for data instead of credentials.
+/dev-data
