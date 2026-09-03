@@ -8,6 +8,7 @@ import {Checkbox} from "@/components/ui/checkbox";
 import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {DiffViewer} from "./diff-viewer";
+import {directoryDisplayName} from "@/lib/path-display";
 import type {DiscoveredStack, MigrationPreview, VolumeSelection} from "@/lib/brownfield-types";
 
 export interface ConfirmMigrateParams {
@@ -38,7 +39,7 @@ interface MigrationWizardProps {
 
 export function MigrationWizard({stack, open, onClose, onConfirmMigrate, previewMigration}: Readonly<MigrationWizardProps>) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [displayName, setDisplayName] = useState(stack.directory.split("/").pop() || "");
+  const [displayName, setDisplayName] = useState(directoryDisplayName(stack.directory) || "");
   const [loading, setLoading] = useState(false);
 
   // Volume selections state
@@ -54,7 +55,7 @@ export function MigrationWizard({stack, open, onClose, onConfirmMigrate, preview
     // For absolute paths, default to convert
     return stack.absolutePaths.map((path) => ({
       originalPath: path,
-      newPath: `./volumes/${path.split("/").pop() || "data"}`,
+      newPath: `./volumes/${directoryDisplayName(path) || "data"}`,
       convert: true,
     }));
   });

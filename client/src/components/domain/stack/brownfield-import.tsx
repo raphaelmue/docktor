@@ -10,6 +10,7 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/c
 import {Skeleton} from "@/components/ui/skeleton";
 import {CompatibilityBadge} from "@/components/domain/stack/compatibility-badge";
 import {MigrationWizard, type ConfirmMigrateParams} from "@/routes/setup/components/migration-wizard";
+import {directoryDisplayName} from "@/lib/path-display";
 import type {
   DiscoveredStack,
   MigrationPreview,
@@ -88,7 +89,7 @@ export function BrownfieldImport({api}: Readonly<BrownfieldImportProps>) {
   };
 
   const handleAdopt = async (stack: DiscoveredStack) => {
-    const displayName = stack.directory.split("/").pop() || "imported-stack";
+    const displayName = directoryDisplayName(stack.directory) || "imported-stack";
     setAdoptingId(stack.path);
 
     try {
