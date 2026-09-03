@@ -65,21 +65,24 @@ Declared values (must be multiples of 4), matching the project-wide convention a
 | xl | 32px | Not used within a single tab; reserved for page-level layout gaps (unchanged, inherited from `Page`/`PageContent`) |
 | 2xl | 48px | Not used in this phase |
 | 3xl | 64px | Not used in this phase |
+| indent | 40px (`ml-10`) | Switch+Label conditional sub-field indent, aligning disclosed fields under the switch — matches `BackupConfigCard`'s existing `ml-10` pattern for the schedule/retention override fields; reuse this exact value for the TLS-toggle's advanced-fields disclosure, do not invent a new indent value |
 
-Exceptions: none. Switch+Label rows indent their conditional sub-fields with `ml-10` (40px) to align under the switch, matching `BackupConfigCard`'s existing `ml-10` pattern for the schedule/retention override fields — reuse this exact value for the TLS-toggle's advanced-fields disclosure, do not invent a new indent value.
+Exceptions: none beyond the `indent` token above.
 
 ---
 
 ## Typography
 
-Matches the project's existing (undeclared-token, Tailwind-default) type scale — no new sizes are introduced by this phase. Extracted from observed usage across `settings.tsx`, `backup-config-card.tsx`, `[id].tsx`:
+Matches the project's existing (undeclared-token, Tailwind-default) type scale — no new sizes are introduced by this phase. Extracted from observed usage across `settings.tsx`, `backup-config-card.tsx`, `[id].tsx`, collapsed to exactly 2 weights per the design contract's max:
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (`text-sm`) | 400 (regular) | 1.5 (Tailwind default `leading-normal` for `text-sm`) |
-| Label | 14px (`text-sm`, `FormLabel`/`Label` default) | 500 (medium, shadcn `Label` default) | 1.5 |
-| Heading (Card title) | 16px (`CardTitle` default, ~`text-base`/`font-semibold`) | 600 (semibold) | 1.2 |
+| Label | 14px (`text-sm`, `FormLabel`/`Label`) | 600 (semibold) | 1.5 |
+| Heading (Card title) | 16px (`CardTitle`, ~`text-base`) | 600 (semibold) | 1.2 |
 | Caption / helper text | 12px (`text-xs`) | 400 (regular) | 1.5 |
+
+Only two weights are used across this phase's UI: 400 (Body, Caption/helper text) and 600 (Label, Heading). shadcn's `Label`/`FormLabel` primitives ship with a default `font-medium` (500) class — for Phase 6's new UI, override this to `font-semibold` (600) on every `Label`/`FormLabel` instance so Label matches Heading exactly and no third weight value (500) is introduced. Do not use `font-medium` anywhere in this phase's new components.
 
 No `text-lg`/`text-xl`/`text-2xl` sizes are needed for Phase 6 UI — the Proxy tab and Settings card are form-and-table surfaces, not marketing/display surfaces. Do not introduce a `Display` size.
 
@@ -123,6 +126,12 @@ Accent reserved for: primary submit/deploy buttons and the active tab indicator 
 | Cert status — failed | Badge (destructive): "Cert failed" — with an expandable detail showing the acme-companion error line (reuses the poller's D-05 status message) |
 | Destructive confirmation — Remove domain | "Remove domain": "Remove {domain} from {serviceName}? The service will be redeployed without this domain's routing and TLS configuration." (Confirm button labeled "Remove", destructive variant) |
 | Destructive confirmation — proxy stack protected-action attempt | Not a confirmation dialog — the Stop/Restart/Delete actions are disabled outright (not merely confirmed-then-blocked) for the protected proxy stack; disabled control shows a tooltip: "This stack is managed by Docktor and cannot be stopped, restarted, or deleted directly." |
+
+---
+
+## Visual Focal Point
+
+The Proxy tab's primary visual anchor is the domain list `Table` (populated state) or the "No domains configured" empty state card (empty state) — not the assign-domain form. The form is a secondary, always-visible input area below/beside the table; the table (or its empty-state substitute) is what the user scans first to answer "what domains are already routed here," and where cert-status badges live to answer "is this domain secured."
 
 ---
 
