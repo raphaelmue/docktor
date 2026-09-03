@@ -38,15 +38,26 @@ Every command below was actually run against this repository's own
 2. **Copy the env template and fill in the values that must change:**
 
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env
    ```
 
-   Open `.env.local` and change every value the template marks `CHANGE_ME`:
+   **This filename is load-bearing, not a convention.** Docker Compose
+   auto-discovers a project-root file named exactly `.env` for its own
+   top-level `${VAR}` interpolation — the mechanism that computes
+   `DOCKTOR_STACKS_DIR` and both sides of the stacks volume mapping below. A
+   differently-named file is still loaded into the container's environment
+   via `env_file:`, but is invisible to interpolation, so the stacks mount
+   would silently revert to its default path while the app sees your custom
+   value — exactly the mismatch the server refuses to boot on (see
+   [Stacks directory path](#stacks-directory-path-read-this-before-your-first-deploy)
+   below). Do not rename this file.
+
+   Open `.env` and change every value the template marks `CHANGE_ME`:
 
    - `DATABASE_URL` — replace `CHANGE_ME_DB_PASSWORD` with a real password.
-   - `POSTGRES_PASSWORD` — add this line to `.env.local` (it isn't in the
+   - `POSTGRES_PASSWORD` — add this line to `.env` (it isn't in the
      template) set to the *same* password you just put in `DATABASE_URL`.
-     `docker-compose.yml`'s `db` service reads it from `.env.local` directly
+     `docker-compose.yml`'s `db` service reads it from `.env` directly
      rather than shipping a hardcoded default; if you skip this, the
      `docktor-db` container refuses to start instead of silently running with
      a guessable password.
@@ -98,7 +109,7 @@ Every command below was actually run against this repository's own
    brownfield scan of existing compose stacks on the host).
 
 That's it — no separate database setup, no manual schema step, no missing
-`.env` values the server doesn't tell you about.
+environment variable values the server doesn't tell you about.
 
 ## Environment variables
 
@@ -111,7 +122,7 @@ Every variable the server reads (`server/src`), matching `.env.example` exactly.
 | `HOST` | Optional | `0.0.0.0` | Interface the server binds to inside the container. |
 | `CLIENT_DIST_PATH` | Optional | resolved by the image | Path to the built SPA; used only when `NODE_ENV=production`. You should not need to set this. |
 | `DATABASE_URL` | Required | — | Postgres connection string. Use the compose service name `db` as the host, not `localhost`. |
-| `POSTGRES_PASSWORD` | **Required** | — (no shipped default) | Not read by the server itself — consumed by `docker-compose.yml`'s `db` service via `env_file: .env.local`. Must match the password embedded in `DATABASE_URL`. Not in `.env.example`; add it yourself. If unset, Postgres refuses to start rather than falling back to a guessable default. |
+| `POSTGRES_PASSWORD` | **Required** | — (no shipped default) | Not read by the server itself — consumed by `docker-compose.yml`'s `db` service via `env_file: .env`. Must match the password embedded in `DATABASE_URL`. Not in `.env.example`; add it yourself. If unset, Postgres refuses to start rather than falling back to a guessable default. |
 | `DOCKTOR_DB_AUTO_PUSH` | Optional | `true` | Applies the Prisma schema automatically at container startup. See [Database schema](#database-schema). |
 | `BETTER_AUTH_SECRET` | **Required** | — | Session-signing secret. The server crashes at boot with an unhelpful `BetterAuthError` if this is missing — see Troubleshooting #1. |
 | `BETTER_AUTH_URL` | **Required** for real use | dev-only fallback (`http://localhost:5173`) | The externally-reachable URL of this instance. Feeds both `baseURL` and `trustedOrigins`. Wrong value → "invalid origin" login failure, not a crash — see Troubleshooting #4. |
@@ -142,7 +153,7 @@ recreated, because the stray path was never on any volume.
 **This pair of variables must be byte-identical.** `docker-compose.yml` and
 `.env.example` are already wired so that setting `DOCKTOR_STACKS_HOST_DIR`
 alone keeps both sides in sync — you should not need to edit
-`docker-compose.yml` itself, only relocate the value in your `.env.local`.
+`docker-compose.yml` itself, only relocate the value in your `.env`.
 
 If you do get this wrong, you don't get a silent failure: `server/src/lib/stacks-dir.ts`'s
 `assertStacksDirMatchesHost()` runs before the server starts and **refuses to
@@ -180,7 +191,7 @@ does on every startup, before the HTTP server starts listening
   problem and restarting).
 
 **To disable this step** (e.g. once you've adopted `prisma migrate` yourself),
-set `DOCKTOR_DB_AUTO_PUSH=false` in your `.env.local`.
+set `DOCKTOR_DB_AUTO_PUSH=false` in your `.env`.
 
 ## Backups
 
@@ -201,11 +212,12 @@ of this project — fixed as noted, or still requiring the workaround described.
 
 | # | Symptom | Cause | Fix |
 |---|---|---|---|
-| 1 | Container crashes immediately at boot with a `BetterAuthError` and no clear explanation | `BETTER_AUTH_SECRET` was missing from the environment | Set `BETTER_AUTH_SECRET` in `.env.local` — see the [Environment variables](#environment-variables) table for the generation command. Fixed in `.env.example`/`.env.production` (now REQUIRED and documented) as of this guide; if you still hit this, check your `.env.local` actually has the line uncommented. |
-| 2 | The app looks like a backend-only install — API responds, but visiting the root URL shows nothing resembling a frontend | `NODE_ENV` was not exactly `production` (e.g. unset, or `development`) | Set `NODE_ENV=production` in `.env.local`. `server/src/app.ts` only registers the SPA static-file handler when `NODE_ENV === "production"`. |
+| 1 | Container crashes immediately at boot with a `BetterAuthError` and no clear explanation | `BETTER_AUTH_SECRET` was missing from the environment | Set `BETTER_AUTH_SECRET` in `.env` — see the [Environment variables](#environment-variables) table for the generation command. Fixed in `.env.example`/`.env.production` (now REQUIRED and documented) as of this guide; if you still hit this, check your `.env` actually has the line uncommented. |
+| 2 | The app looks like a backend-only install — API responds, but visiting the root URL shows nothing resembling a frontend | `NODE_ENV` was not exactly `production` (e.g. unset, or `development`) | Set `NODE_ENV=production` in `.env`. `server/src/app.ts` only registers the SPA static-file handler when `NODE_ENV === "production"`. |
 | 3 | Fresh `docker compose up` against an empty database crashes with `The table 'public.Backup' does not exist` (or `Setting`, or any other table) | Nothing applied the Prisma schema before the app tried to query it | Fixed by the startup schema-sync step — see [Database schema](#database-schema). Make sure `DOCKTOR_DB_AUTO_PUSH` isn't set to `false` unless you're applying the schema yourself. |
-| 4 | Login fails with an "invalid origin" error, even though the app itself loads fine | `BETTER_AUTH_URL` was unset or pointed at the wrong URL — it feeds both `baseURL` and `trustedOrigins` in `server/src/lib/auth.ts`, and an unset value falls back to a dev-only `http://localhost:5173` origin that doesn't match a real deployment | Set `BETTER_AUTH_URL` to the exact URL you access this instance at (protocol + host + port), in `.env.local`. |
+| 4 | Login fails with an "invalid origin" error, even though the app itself loads fine | `BETTER_AUTH_URL` was unset or pointed at the wrong URL — it feeds both `baseURL` and `trustedOrigins` in `server/src/lib/auth.ts`, and an unset value falls back to a dev-only `http://localhost:5173` origin that doesn't match a real deployment | Set `BETTER_AUTH_URL` to the exact URL you access this instance at (protocol + host + port), in `.env`. |
 | 5 | A stack you created never shows up in the host directory you expected, or the data disappears after recreating the Docktor container | `DOCKTOR_STACKS_DIR` (container-side) and `DOCKTOR_STACKS_HOST_DIR` (host-side) didn't match | Read [Stacks directory path](#stacks-directory-path-read-this-before-your-first-deploy) above. As of this guide, `.env.example` sets both to the same default value, and the server refuses to boot on a mismatch (rather than silently misplacing data) whenever `DOCKTOR_STACKS_HOST_DIR` is set. |
 | 6 | A managed stack's relative bind-mount volume (e.g. `./volumes/data:/var/opt/app`) writes its data somewhere unexpected on the host, even though `DOCKTOR_STACKS_DIR`/`DOCKTOR_STACKS_HOST_DIR` match | Docker-outside-of-Docker: `docker compose` inside the Docktor container resolves the relative path, then hands the resulting *absolute* path to the *host* daemon. If the stacks directory pair (see row 5) doesn't match, the resolved absolute path doesn't exist on the host | Same fix as row 5 — this is the exact mechanism the stacks-directory-path pairing exists to prevent. |
 | 7 | The `/data` and `/backups` volumes referenced in an older version of `docker-compose.yml` don't seem to do anything | Nothing in `server/src` ever read `DOCKTOR_DATA_DIR` or `DOCKTOR_BACKUP_DIR` — those mounts were decorative | Both mounts (and the two dead env vars) were removed from `docker-compose.yml`/`.env.example` as of this guide. Backups are configured entirely in-app; see [Backups](#backups) above. |
 | 8 | An operator upgrading an existing (pre-05.1) Docktor installation sees the server refuse to boot after upgrading, naming a stacks-directory path mismatch | The canonical stacks path changed to `/opt/docktor/stacks` and there is deliberately no automatic migration of existing data to the new path | Relocate your existing stacks directory to the new canonical path (or set `DOCKTOR_STACKS_HOST_DIR`/`DOCKTOR_STACKS_DIR` to your existing host path instead of changing the data) before restarting. This is intentional — automatically moving a self-hoster's data during an upgrade is riskier than failing loudly and letting them do it deliberately. |
+| 9 | After upgrading, `docker compose up -d` fails because the env file named in `docker-compose.yml` (`.env`) is not found, or a previously-working custom stacks directory starts failing the path-mismatch check even though nothing about your setup changed | The deployment env file was renamed from `.env.local` to `.env` so Docker Compose's own top-level `${VAR}` interpolation can read it (see the callout in [Quickstart](#quickstart) step 2) | Rename your existing file in place: `mv .env.local .env`. The contents are unchanged — no values need editing, and no secrets need regenerating. |

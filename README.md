@@ -23,7 +23,7 @@ process, deployed as a Docker Compose stack.
 ## Quickstart (deploying Docktor)
 
 ```bash
-cp .env.example .env.local   # fill in the CHANGE_ME values
+cp .env.example .env   # fill in the CHANGE_ME values
 docker compose up -d
 ```
 
