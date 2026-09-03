@@ -1,8 +1,8 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "windows-scan-path-separator: On native Windows, the import-scan API (POST /api/stacks/import/scan) returns a directory path using forward slashes instead of the OS-native backslash-separated path, causing a test assertion mismatch and a real client-facing inconsistency for Windows users of the import/scan feature."
 created: 2026-09-03T00:00:00Z
-updated: 2026-09-03T00:30:00Z
+updated: 2026-09-03T00:00:00Z
 ---
 
 ## Current Focus
