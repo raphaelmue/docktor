@@ -20,13 +20,26 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env.local
+      - .env
     environment:
       # Must equal the host side of the stacks volume below, both driven by
       # DOCKTOR_STACKS_HOST_DIR — see the comment on that volume for why.
       # Setting it here (compose `environment:` outranks `env_file:`) also
-      # means a conflicting DOCKTOR_STACKS_DIR in .env.local can no longer
+      # means a conflicting DOCKTOR_STACKS_DIR in .env can no longer
       # silently override this and desync the two sides.
+      #
+      # The filename above is load-bearing, not a convention: Docker Compose
+      # resolves top-level `${VAR}` interpolation — which is what computes
+      # this entry and both sides of the stacks volume below — only from the
+      # real process environment or a project-root file named exactly `.env`.
+      # It never reads a service-level `env_file:` directive for
+      # interpolation purposes. Renaming this file breaks the stacks volume
+      # mapping silently (it falls back to the hardcoded default) rather than
+      # loudly. `env_file:` is still required alongside interpolation: the
+      # two serve different purposes — interpolation computes the container
+      # spec (this block, the volume below) at compose-parse time, while
+      # `env_file:` populates the container's actual runtime environment.
+      # Both are needed; neither can substitute for the other.
       DOCKTOR_STACKS_DIR: ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
@@ -67,15 +80,15 @@ services:
     restart: unless-stopped
     volumes:
       - ./dev-data/docktor/db:/var/lib/postgresql
-    # POSTGRES_PASSWORD is read from .env.local (same file docktor's DATABASE_URL
+    # POSTGRES_PASSWORD is read from .env (same file docktor's DATABASE_URL
     # comes from) rather than hardcoded here, so there is no guessable shipped
     # default and no way for the two to silently drift apart (WR-04). Set
-    # POSTGRES_PASSWORD in .env.local to the same password embedded in
+    # POSTGRES_PASSWORD in .env to the same password embedded in
     # DATABASE_URL — see docs/deployment.md. If it's left unset, the official
     # postgres image refuses to start rather than falling back to a known
     # default, which is the intended fail-loud behavior here.
     env_file:
-      - .env.local
+      - .env
     environment:
       POSTGRES_USER: docktor
       POSTGRES_DB: docktor

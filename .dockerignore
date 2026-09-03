@@ -1,0 +1,16 @@
+# Keeps the operator's filled-in secrets (DATABASE_URL, BETTER_AUTH_SECRET,
+# ENCRYPTION_KEY, POSTGRES_PASSWORD, ...) out of the Docker build context —
+# `docker-compose.yml`'s `docktor` service builds with `context: .`, so every
+# `docker compose up -d` otherwise uploads the whole project directory,
+# including these files, to the Docker daemon.
+
+# Deployment env files — root-anchored so this can't accidentally match a
+# path inside a workspace (e.g. server/.env or a test fixture). The tracked
+# .env.example template is intentionally NOT excluded; it's documentation.
+/.env
+/.env.local
+/.env.production
+
+# Pure build-context weight; not read by the Dockerfile's COPY lines.
+/.git
+/.planning
