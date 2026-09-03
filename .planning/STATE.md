@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 05.1
 current_phase_name: "Stabilization: fix blockers and majors surfaced during testing (INSERTED)"
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 05.1-09-PLAN.md
-last_updated: "2026-09-03T08:10:14.737Z"
-state_head: 22ea8f2bd7dba18300db7f7f383942128de19864
+stopped_at: Completed 05.1-10-PLAN.md (Tasks 1-2; Task 3 blocked-human)
+last_updated: "2026-09-03T08:17:14.050Z"
+state_head: 34246d110f270211a22aa99102b172d00b8673ac
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 66
-  completed_plans: 64
+  completed_plans: 65
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 05.1 (Stabilization: fix blockers and majors surfaced during testing (INSERTED)) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -113,6 +113,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P07 | 45min | 3 tasks | 14 files |
 | Phase 05.1 P08 | 2h30m | 3 tasks | 10 files |
 | Phase 05.1 P09 | 20min | 3 tasks | 5 files |
+| Phase 05.1 P10 | 25min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -241,6 +242,8 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-08]: docker-compose.yml drops the decorative /data and /backups mounts and no longer publishes Postgres 5432 (T-05.1-42); docker-compose.dev.yml's Postgres bumped 17->18 to match
 - [Phase 05.1]: [Phase 05.1-08]: found and fixed two live-discovered bugs blocking the documented quickstart — schema-sync.ts's --skip-generate argv was an invalid flag for this Prisma CLI (db push silently never applied the schema since 05.1-05 shipped), and DiskChecker.check()'s unguarded settings query crashed the whole server via an unhandled promise rejection on a fresh database
 - [Phase 05.1]: [Phase 05.1-09]: resolvePrismaCliEntrypoint() anchors CLI resolution on import.meta.url module identity (createRequire) rather than process.cwd() or relative-directory-segment counting — one implementation correct in vitest/tsx-from-source/built-image layouts; both Prisma CLI call sites now launch via process.execPath with no shell option, closing a native-Windows spawnSync ENOENT defect (G-05.1-1)
+- [Phase 05.1]: [Phase 05.1-10]: docker-compose.yml env_file: renamed .env.local -> .env (both services) so Compose's top-level ${VAR} interpolation can see DOCKTOR_STACKS_HOST_DIR; a flag-based (--env-file) alternative was explicitly rejected since any future bare docker compose command would silently reintroduce the mismatch
+- [Phase 05.1]: [Phase 05.1-10]: Task 3 (.env.example/.env.production header comment fixes) halted per its own precondition — Read/Bash/Write access to .env* paths denied by workspace permission settings; exact edits reported in 05.1-10-SUMMARY.md for a developer with access to apply
 
 ### Quick Tasks Completed
 
@@ -291,6 +294,7 @@ Recent decisions affecting current work:
 - [Phase 05.1-05] A human (or an unrestricted execution environment) must run Task 3's live cold-start check (throwaway postgres:18 + built image with /var/run/docker.sock mounted, polling GET /api/setup/status) to confirm the applied/already-current happy path and close D3 coverage — see 05.1-05-SUMMARY.md Known Limitation
 - [Phase 05.1-06] yarn db:push could not reach the dev DB in this sandboxed session (same TCP-payload-block class as 05.1-01/05.1-05, now reconfirmed at the raw-socket level) — a human on an unrestricted host must run it to apply Stack.configError/lastEnvHash before this plan's server behavior is live. WINDOWS.md #8.
 - [Phase 05.1-08] Human-check item 5 from the plan's <verify> block (creating a stack with a relative bind-mount volume through the app's UI/API and confirming the data lands at the documented host path) was deliberately not re-exercised live in this session — it would run docker compose up -d --remove-orphans via Docktor's own deploy pipeline on the same shared host where 05.1-03's identical live test caused a real incident. A human should complete this check (and click through the setup wizard in a real browser) before treating the quickstart as fully proven. See 05.1-08-SUMMARY.md coverage D5 rationale.
+- [Phase 05.1-10] .env.example line 3 and .env.production line 12 still tell operators to copy the template to .env.local instead of .env — blocked on workspace permission settings denying Read/Bash/Write access to .env* paths. A developer with access must apply the two one-line header edits documented in 05.1-10-SUMMARY.md before G-05.1-2 is fully closed.
 
 ### Roadmap Evolution
 
@@ -298,6 +302,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-03T08:10:12.351Z
-Stopped at: Completed 05.1-09-PLAN.md
+Last session: 2026-09-03T08:17:11.760Z
+Stopped at: Completed 05.1-10-PLAN.md (Tasks 1-2; Task 3 blocked-human)
 Resume file: None
