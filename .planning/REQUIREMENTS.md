@@ -79,11 +79,11 @@
 
 ### Proxy Configuration
 
-- [ ] **PRXY-01**: User can configure a domain, internal service/port, and TLS setting for a stack's service via the stack detail page
-- [ ] **PRXY-02**: When Nginx Proxy Manager is configured, Docktor creates/updates proxy hosts via the NPM API
-- [ ] **PRXY-03**: NPM API credentials (URL + username + password) are configurable in Settings
-- [ ] **PRXY-04**: User can remove a proxy configuration, which deletes the corresponding NPM proxy host
-- [ ] **PRXY-05**: Proxy operations are idempotent (re-creating an existing proxy host updates it rather than erroring)
+- [ ] **PRXY-01**: User can configure one or more domains, an internal service/port, and a TLS setting for a stack's service via the stack detail page
+- [ ] **PRXY-02**: Docktor auto-deploys and manages an `nginx-proxy` + `acme-companion` reverse-proxy stack; configuring a domain writes the required routing/TLS env vars into the target service's compose file and redeploys it
+- [ ] **PRXY-03**: ACME/Let's Encrypt registration email and proxy-stack settings are configurable in Settings
+- [ ] **PRXY-04**: User can remove a proxy configuration, which removes the routing/TLS env vars from the service's compose file and redeploys it
+- [ ] **PRXY-05**: Proxy operations are idempotent (re-applying an existing domain's env vars updates the service's config rather than erroring or duplicating)
 
 ## v2 Requirements
 

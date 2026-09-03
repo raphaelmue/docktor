@@ -70,7 +70,7 @@ Users can deploy, monitor, and manage Docker Compose stacks through a browser UI
 - [ ] Full migration wizard: stop → copy → convert volumes → rewrite paths → restart with rollback support
 
 **Post-MVP — Proxy Configuration:**
-- [ ] Nginx Proxy Manager integration: configure domain/port exposure per service via NPM API
+- [ ] Docktor-managed `nginx-proxy` + `acme-companion` integration: configure domain/port/TLS exposure per service by writing routing env vars into its compose config
 - [ ] Raw Nginx config generation for advanced users
 
 ### Out of Scope
@@ -116,6 +116,7 @@ Key architectural constraints:
 | SSE for log streaming (not WebSockets) | Simpler unidirectional streaming; sufficient for log display | — Pending |
 | Restic for backups | Encrypted, deduplicated, supports local/SFTP/S3 targets | — Pending |
 | Digest-based update detection (not pull-output text scraping) | Docker Compose CLI's stdout/stderr vocabulary for "already up to date" isn't a stable interface; comparing local image digests before/after pull is | Shipped Phase 02 — resolved UAT gap G-02-11 |
+| `nginx-proxy` + `acme-companion` for reverse proxy (not Nginx Proxy Manager) | NPM's REST API is officially undocumented (community-reverse-engineered only); `nginx-proxy`/`acme-companion` are Docker-socket-reactive, need no external API integration, and fit the existing YAML-first/event-driven architecture | — Pending (Phase 6) |
 
 ---
 *Last updated: 2026-08-30 after Phase 02 completion*

@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Notifications** - Alert users on container errors, disk warnings, and backup failures via SMTP (completed 2026-03-20)
 - [x] **Phase 4: Backup & Restore** - Enable encrypted, versioned stack backups with manual and scheduled restore (completed 2026-08-31)
 - [x] **Phase 5: Onboarding** - Guide new installs through setup with a first-run wizard and adopt existing stacks via brownfield import (completed 2026-04-08)
-- [ ] **Phase 6: Proxy Configuration** - Configure domain and TLS for services via Nginx Proxy Manager integration
+- [ ] **Phase 6: Proxy Configuration** - Configure domain and TLS for services via a Docktor-managed nginx-proxy + acme-companion stack
 
 ## Phase Details
 
@@ -246,10 +246,10 @@ Plans:
 **Requirements**: PRXY-01, PRXY-02, PRXY-03, PRXY-04, PRXY-05
 **Success Criteria** (what must be TRUE):
 
-  1. User can configure NPM API credentials (URL, username, password) in Settings
-  2. User can assign a domain, internal port, and TLS setting to a service from the stack detail page; the corresponding NPM proxy host is created or updated automatically
-  3. User can remove a proxy configuration from the UI; the NPM proxy host is deleted
-  4. Proxy operations are idempotent: reconfiguring an existing domain updates the NPM host rather than creating a duplicate
+  1. User can configure an ACME/Let's Encrypt email and proxy-stack settings in Settings; Docktor auto-deploys a managed `nginx-proxy` + `acme-companion` stack (offered as an optional First-Run Wizard step)
+  2. User can assign one or more domains, an internal port, and a TLS setting to a service from the stack detail page; Docktor writes the corresponding routing/TLS env vars into that service's compose file and redeploys it
+  3. User can remove a proxy configuration from the UI; the routing/TLS env vars are removed from the service's compose file and it is redeployed
+  4. Proxy operations are idempotent: reconfiguring an existing domain updates the service's env vars rather than creating a duplicate
 
 **Plans**: TBD
 
