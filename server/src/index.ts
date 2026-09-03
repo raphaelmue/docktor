@@ -1,11 +1,16 @@
 import {buildApp} from "./app.js";
-import {assertStacksDirMatchesHost} from "./lib/stacks-dir.js";
+import {assertStacksDirMatchesHost, ensureStacksDir} from "./lib/stacks-dir.js";
 import {syncDatabaseSchema} from "./lib/schema-sync.js";
 
-// Fail fast on a misconfigured DooD stacks-path mount before anything else
-// starts — no Fastify app exists yet, so this logs to the console directly.
+// Fail fast on a misconfigured DooD stacks-path mount, then guarantee the
+// managed stacks directory itself exists, before anything else starts — no
+// Fastify app exists yet, so this logs to the console directly. Order
+// matters: the assertion runs first, since creating a directory at a path
+// already known to be wrong would materialize the stray directory the
+// assertion exists to prevent.
 try {
     assertStacksDirMatchesHost();
+    await ensureStacksDir();
 } catch (err) {
     console.error(err);
     process.exit(1);
