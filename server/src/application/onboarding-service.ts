@@ -6,11 +6,16 @@ import {encrypt} from "../lib/crypto.js";
 import {slugify} from "../lib/slugify.js";
 import {AppError, BadRequestError, ConflictError} from "../lib/errors.js";
 import {createComposeConfig} from "../domain/compose-config.js";
+// Safe as a static import: application/index.ts never imports this module,
+// so there is no circular dependency.
+import {proxyService} from "./index.js";
+import type {ProxyService} from "./proxy-service.js";
 import type {
     WizardStep1Input,
     WizardStep2Input,
     WizardStep3Input,
     WizardStep4Input,
+    WizardStep6Input,
 } from "@docktor/shared";
 
 export interface Step1Result {
@@ -33,6 +38,10 @@ export class OnboardingService {
         private readonly settingsRepo: SettingsRepository,
         private readonly cryptoLib: {encrypt: typeof encrypt},
         private readonly stackRepo: StackRepository,
+        // Narrow Pick — handleWizardStep6 only ever needs to persist the
+        // acmeEmail setting and trigger a deploy, never the rest of
+        // ProxyService's domain-assignment surface.
+        private readonly proxy: Pick<ProxyService, "updateProxySettingsAndSync" | "deployProxyStack">,
         // WR-05: injectable so adoptInPlace's file read is unit-testable
         // without touching the real filesystem.
         private readonly fsLib: {readFile: typeof fs.readFile} = fs,
@@ -186,6 +195,25 @@ export class OnboardingService {
     }
 
     /**
+     * D-09/D-10: deploys the managed proxy stack from the First-Run
+     * Wizard's optional sixth step. The ACME email is persisted first (via
+     * ProxyService.updateProxySettingsAndSync, which only ever touches the
+     * setting when the proxy stack doesn't exist yet — this call always
+     * runs before the wizard's first deploy) so a deploy failure still
+     * leaves the email saved for a retry from Settings, then
+     * deployProxyStack() is called unconditionally to actually create and
+     * start the stack. Every error is left to propagate untouched — this
+     * method never wraps a ConflictError (port conflict) or BadRequestError
+     * (compose failure), since D-11 requires the caller to see the real
+     * reason. Does not mark the wizard complete — that stays the client's
+     * separate POST /api/setup/complete call.
+     */
+    async handleWizardStep6(input: WizardStep6Input): Promise<void> {
+        await this.proxy.updateProxySettingsAndSync({acmeEmail: input.acmeEmail ?? ""});
+        await this.proxy.deployProxyStack();
+    }
+
+    /**
      * T-05-09: has the wizard been marked fully complete?
      * Read by routes/setup.ts's preHandler to decide whether wizard routes
      * (steps 2-5, adopt, migrate) are still reachable.
@@ -205,7 +233,9 @@ export class OnboardingService {
     }
 }
 
-// Production singleton with real dependencies
+// Production singleton with real dependencies. Reuses the existing
+// proxyService singleton (imported above) rather than constructing a
+// second ProxyService.
 const settingsRepository = new SettingsRepository();
 const stackRepository = new StackRepository();
 
@@ -214,4 +244,5 @@ export const onboardingService = new OnboardingService(
     settingsRepository,
     {encrypt},
     stackRepository,
+    proxyService,
 );

@@ -10,6 +10,7 @@ import {
     wizardStep3Schema,
     wizardStep4Schema,
     wizardStep5Schema,
+    wizardStep6Schema,
 } from "@docktor/shared";
 
 // WR-07: unique-key row used as an atomic "first admin" lock — see step1
@@ -211,6 +212,32 @@ const setupRoutes: FastifyPluginAsyncZod = async (app) => {
                 namedVolumeSelections: namedVolMap,
             });
             return result;
+        },
+    );
+
+    // Step 6: Deploy the managed proxy stack (optional, terminal step — D-09/D-10)
+    app.post(
+        "/api/setup/step6",
+        {
+            schema: {
+                body: wizardStep6Schema,
+            },
+        },
+        async (request, reply) => {
+            // The plugin's preHandler above only closes this route once the
+            // wizard is *finished* (isWizardComplete()) — before an admin
+            // exists it would otherwise stay reachable, since userCount only
+            // becomes >0 once step1 succeeds. Mirrors /api/setup/complete's
+            // own guard below.
+            const userCount = await prisma.user.count();
+            if (userCount === 0) {
+                return reply
+                    .status(400)
+                    .send({error: "Cannot deploy the proxy stack before creating an admin account"});
+            }
+
+            await onboardingService.handleWizardStep6(request.body);
+            return {success: true};
         },
     );
 
