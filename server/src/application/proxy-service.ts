@@ -7,6 +7,12 @@ import {
     type ServiceProxyEnv,
     type ServiceProxyEnvRead,
 } from "../lib/compose-proxy-editor.js";
+import {
+    ACME_COMPANION_CONTAINER_NAME,
+    NGINX_PROXY_CONTAINER_NAME,
+    renderProxyStackCompose,
+} from "../lib/proxy-stack-compose.js";
+import {createComposeConfig} from "../domain/compose-config.js";
 import {withKeyedLock} from "../lib/keyed-mutex.js";
 import {Prisma} from "../generated/prisma/client.js";
 import type {AssignDomainInput} from "@docktor/shared";
@@ -14,6 +20,9 @@ import type {ProxyRepository} from "../repositories/proxy-repository.js";
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {StackService} from "./stack-service.js";
+import type {ProxySettings, SettingsService} from "./settings-service.js";
+import type {DockerodeClient} from "../infrastructure/dockerode-client.js";
+import type {StackStatus} from "../generated/prisma/enums.js";
 
 // Fixed id, not user-chosen — the proxy stack is a singleton Docktor-managed
 // Stack row (see RESEARCH.md's "proxy stack is a normal Stack row" pattern).
@@ -24,14 +33,155 @@ type ProxyConfigRow = Awaited<ReturnType<ProxyRepository["create"]>>;
 export class ProxyService {
     constructor(
         private readonly proxyRepo: ProxyRepository,
-        private readonly stackRepo: Pick<StackRepository, "findByIdOrThrow" | "findById" | "exists">,
-        private readonly fs: Pick<StackFilesystem, "readCompose" | "writeCompose">,
+        private readonly stackRepo: Pick<StackRepository, "findByIdOrThrow" | "findById" | "exists" | "create">,
+        private readonly fs: Pick<StackFilesystem, "readCompose" | "writeCompose" | "createDirectory">,
         private readonly stackService: Pick<StackService, "deployStack">,
+        private readonly settings: Pick<SettingsService, "getProxySettings" | "updateProxySettings">,
+        private readonly docker: Pick<DockerodeClient, "listContainers">,
     ) {}
 
     async listByStack(stackId: string) {
         await this.stackRepo.findByIdOrThrow(stackId);
         return this.proxyRepo.findByStackId(stackId);
+    }
+
+    /**
+     * Deploys (or redeploys) the Docktor-managed proxy stack. Serialized on
+     * PROXY_STACK_ID so two concurrent deploy requests can never both
+     * create the row. On first deploy: checks host ports 80/443 are free
+     * (D-11), renders the compose file, creates the managed stack
+     * directory, creates the Stack row with isProtected: true, then
+     * deploys through the normal StackService.deployStack pipeline. On
+     * redeploy (row already exists): skips the port pre-flight and row
+     * creation, re-renders and rewrites the compose file from the current
+     * ACME email, and redeploys — no duplicate row, no ConflictError.
+     */
+    async deployProxyStack(): Promise<void> {
+        return withKeyedLock(PROXY_STACK_ID, async () => {
+            const existing = await this.stackRepo.findById(PROXY_STACK_ID);
+
+            if (!existing) {
+                await this.assertHostPortsFree([80, 443]);
+
+                const {acmeEmail} = await this.settings.getProxySettings();
+                const composeContent = renderProxyStackCompose({acmeEmail});
+                const hostPath = await this.fs.createDirectory(PROXY_STACK_ID);
+                await this.fs.writeCompose(PROXY_STACK_ID, composeContent);
+                const composeConfig = createComposeConfig(composeContent);
+
+                await this.stackRepo.create({
+                    id: PROXY_STACK_ID,
+                    displayName: "Docktor Proxy",
+                    hostPath,
+                    composeConfig,
+                    isProtected: true,
+                });
+
+                await this.deployAndSurfaceFailure();
+                return;
+            }
+
+            await this.rewriteAndRedeployProxyStack();
+        });
+    }
+
+    /**
+     * Returns the proxy stack's current deployed/status alongside its
+     * settings — the single shape both GET /api/settings/proxy and
+     * POST /api/settings/proxy/deploy return.
+     */
+    async getProxyStackState(): Promise<{
+        deployed: boolean;
+        status: StackStatus | null;
+        acmeEmail: string;
+        showInDashboard: boolean;
+    }> {
+        const stack = await this.stackRepo.findById(PROXY_STACK_ID);
+        const {acmeEmail, showInDashboard} = await this.settings.getProxySettings();
+        return {
+            deployed: stack !== null,
+            status: stack ? (stack.status as StackStatus) : null,
+            acmeEmail,
+            showInDashboard,
+        };
+    }
+
+    /**
+     * Updates proxy.acmeEmail/proxy.showInDashboard, and — only when
+     * acmeEmail actually changed and the proxy stack is already deployed —
+     * re-renders and redeploys it so the running acme-companion container
+     * picks up the new DEFAULT_EMAIL. The comparison happens here (not in
+     * the route), keeping routes/proxy.ts a thin delegation per CLAUDE.md.
+     */
+    async updateProxySettingsAndSync(input: Partial<ProxySettings>): Promise<void> {
+        const before = await this.settings.getProxySettings();
+        await this.settings.updateProxySettings(input);
+
+        const emailChanged = input.acmeEmail !== undefined && input.acmeEmail !== before.acmeEmail;
+        if (!emailChanged) return;
+
+        const stackExists = await this.stackRepo.exists(PROXY_STACK_ID);
+        if (!stackExists) return;
+
+        await withKeyedLock(PROXY_STACK_ID, () => this.rewriteAndRedeployProxyStack());
+    }
+
+    /**
+     * Re-renders the compose file from the current ACME email, writes it,
+     * and redeploys. Shared by deployProxyStack's redeploy branch and
+     * updateProxySettingsAndSync — the single choke point that writes the
+     * proxy stack's compose file after its first deploy.
+     */
+    private async rewriteAndRedeployProxyStack(): Promise<void> {
+        const {acmeEmail} = await this.settings.getProxySettings();
+        const composeContent = renderProxyStackCompose({acmeEmail});
+        await this.fs.writeCompose(PROXY_STACK_ID, composeContent);
+        await this.deployAndSurfaceFailure();
+    }
+
+    /**
+     * Calls StackService.deployStack and throws BadRequestError containing
+     * the real `docker compose` stderr verbatim when it fails — never a
+     * paraphrase (D-11's "fail loudly" requirement).
+     */
+    private async deployAndSurfaceFailure(): Promise<void> {
+        const result = await this.stackService.deployStack(PROXY_STACK_ID);
+        if (!result.success) {
+            throw new BadRequestError(`Failed to deploy the proxy stack: ${result.errorMessage}`);
+        }
+    }
+
+    /**
+     * Resolves when no running container publishes any of the given host
+     * ports, ignoring the proxy stack's own two containers (so a redeploy
+     * never blocks on itself) and any non-running container. Never opens a
+     * socket — the only external call is listContainers(). This is
+     * deliberately NOT an in-process TCP bind test: Docktor runs
+     * Docker-outside-of-Docker and is not on the host network namespace, so
+     * a successful in-container bind proves nothing about the host
+     * (RESEARCH.md Pitfall 3). The genuine non-Docker-process case is
+     * caught instead by relaying docker compose's real stderr through
+     * deployAndSurfaceFailure.
+     */
+    private async assertHostPortsFree(ports: number[]): Promise<void> {
+        const protectedNames = new Set([NGINX_PROXY_CONTAINER_NAME, ACME_COMPANION_CONTAINER_NAME]);
+        const containers = await this.docker.listContainers(true);
+
+        for (const container of containers) {
+            if (container.State !== "running") continue;
+
+            const names = (container.Names ?? []).map((name) => name.replace(/^\//, ""));
+            if (names.some((name) => protectedNames.has(name))) continue;
+
+            for (const portBinding of container.Ports ?? []) {
+                if (portBinding.PublicPort !== undefined && ports.includes(portBinding.PublicPort)) {
+                    const displayName = names[0] ?? container.Id;
+                    throw new ConflictError(
+                        `Host port ${portBinding.PublicPort} is already published by container "${displayName}". Free the port and try again.`,
+                    );
+                }
+            }
+        }
     }
 
     /**

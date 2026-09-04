@@ -1,6 +1,6 @@
 import type {FastifyPluginAsyncZod} from "fastify-type-provider-zod";
 import {z} from "zod";
-import {assignDomainSchema} from "@docktor/shared";
+import {assignDomainSchema, proxySettingsSchema} from "@docktor/shared";
 import {requireAuth} from "../lib/auth-middleware.js";
 import {proxyService} from "../application/index.js";
 
@@ -37,6 +37,24 @@ const proxyRoutes: FastifyPluginAsyncZod = async (app) => {
             return reply.status(204).send();
         },
     );
+
+    app.get("/api/settings/proxy", async () => {
+        return proxyService.getProxyStackState();
+    });
+
+    app.put(
+        "/api/settings/proxy",
+        {schema: {body: proxySettingsSchema}},
+        async (request) => {
+            await proxyService.updateProxySettingsAndSync(request.body);
+            return {success: true};
+        },
+    );
+
+    app.post("/api/settings/proxy/deploy", async () => {
+        await proxyService.deployProxyStack();
+        return proxyService.getProxyStackState();
+    });
 };
 
 export default proxyRoutes;
