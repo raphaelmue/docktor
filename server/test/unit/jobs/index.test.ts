@@ -18,6 +18,9 @@ vi.mock("../../../src/jobs/notification-watcher.js", () => ({
 vi.mock("../../../src/jobs/backup-scheduler.js", () => ({
     backupScheduler: { start: vi.fn(), stop: vi.fn() },
 }))
+vi.mock("../../../src/jobs/proxy-cert-poller.js", () => ({
+    proxyCertPoller: { start: vi.fn(), stop: vi.fn() },
+}))
 vi.mock("../../../src/application/index.js", () => ({
     backupService: { recoverInProgressBackups: vi.fn() },
 }))
@@ -29,6 +32,7 @@ import { updateChecker } from "../../../src/jobs/update-checker.js"
 import { diskChecker } from "../../../src/jobs/disk-checker.js"
 import { notificationWatcher } from "../../../src/jobs/notification-watcher.js"
 import { backupScheduler } from "../../../src/jobs/backup-scheduler.js"
+import { proxyCertPoller } from "../../../src/jobs/proxy-cert-poller.js"
 import { backupService } from "../../../src/application/index.js"
 
 describe("startJobs", () => {
@@ -53,6 +57,7 @@ describe("startJobs", () => {
         expect(diskChecker.start).toHaveBeenCalledOnce()
         expect(notificationWatcher.start).toHaveBeenCalledOnce()
         expect(backupScheduler.start).toHaveBeenCalledOnce()
+        expect(proxyCertPoller.start).toHaveBeenCalledOnce()
     })
 
     it("does not throw and still starts the remaining jobs when backup recovery fails (e.g. DB not ready yet on cold start)", async () => {
@@ -68,6 +73,7 @@ describe("startJobs", () => {
         expect(diskChecker.start).toHaveBeenCalledOnce()
         expect(notificationWatcher.start).toHaveBeenCalledOnce()
         expect(backupScheduler.start).toHaveBeenCalledOnce()
+        expect(proxyCertPoller.start).toHaveBeenCalledOnce()
         expect(consoleErrorSpy).toHaveBeenCalled()
     })
 
@@ -82,6 +88,7 @@ describe("startJobs", () => {
         expect(diskChecker.start).toHaveBeenCalledOnce()
         expect(notificationWatcher.start).toHaveBeenCalledOnce()
         expect(backupScheduler.start).toHaveBeenCalledOnce()
+        expect(proxyCertPoller.start).toHaveBeenCalledOnce()
     })
 })
 
@@ -95,5 +102,6 @@ describe("stopJobs", () => {
         expect(diskChecker.stop).toHaveBeenCalledOnce()
         expect(notificationWatcher.stop).toHaveBeenCalledOnce()
         expect(backupScheduler.stop).toHaveBeenCalledOnce()
+        expect(proxyCertPoller.stop).toHaveBeenCalledOnce()
     })
 })
