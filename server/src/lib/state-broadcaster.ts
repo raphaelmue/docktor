@@ -47,6 +47,15 @@ export interface NotificationCreatedEvent {
     notificationId: string
 }
 
+export interface ProxyCertStatusEvent {
+    type: "proxy_cert_status"
+    proxyConfigId: string
+    stackId: string
+    domain: string
+    status: "pending" | "issued" | "failed"
+    message?: string
+}
+
 export type StateEvent =
     | ContainerStateEvent
     | StackStatusEvent
@@ -54,6 +63,7 @@ export type StateEvent =
     | ConfigErrorEvent
     | UpdateAvailableEvent
     | NotificationCreatedEvent
+    | ProxyCertStatusEvent
 
 export class StateBroadcaster extends EventEmitter {
     publish(event: StateEvent): void {

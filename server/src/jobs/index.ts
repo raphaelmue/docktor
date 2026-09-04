@@ -4,6 +4,7 @@ import {updateChecker} from "./update-checker.js"
 import {diskChecker} from "./disk-checker.js"
 import {notificationWatcher} from "./notification-watcher.js"
 import {backupScheduler} from "./backup-scheduler.js"
+import {proxyCertPoller} from "./proxy-cert-poller.js"
 
 // A job that fails to start (e.g. the DB isn't reachable yet on a cold
 // docker-compose start) must not prevent the other jobs — or the HTTP
@@ -27,6 +28,7 @@ export async function startJobs(): Promise<void> {
     await startJob("DiskChecker", () => diskChecker.start())
     await startJob("NotificationWatcher", () => notificationWatcher.start())
     await startJob("BackupScheduler", () => backupScheduler.start())
+    await startJob("ProxyCertPoller", () => proxyCertPoller.start())
 }
 
 export function stopJobs(): void {
@@ -36,4 +38,5 @@ export function stopJobs(): void {
     diskChecker.stop()
     notificationWatcher.stop()
     backupScheduler.stop()
+    proxyCertPoller.stop()
 }
