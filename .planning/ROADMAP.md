@@ -251,7 +251,7 @@ Plans:
   3. User can remove a proxy configuration from the UI; the routing/TLS env vars are removed from the service's compose file and it is redeployed
   4. Proxy operations are idempotent: reconfiguring an existing domain updates the service's env vars rather than creating a duplicate
 
-**Plans**: 5/6 plans executed
+**Plans**: 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -273,7 +273,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 06-05-PLAN.md — Client: Proxy tab, Settings > Proxy card, protected-stack action disabling, Playwright coverage
+- [x] 06-05-PLAN.md — Client: Proxy tab, Settings > Proxy card, protected-stack action disabling, Playwright coverage
 
 ## Progress
 
@@ -287,4 +287,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 17/17 | Complete    | 2026-08-31 |
 | 5. Onboarding | 11/10 | Complete    | 2026-08-31 |
-| 6. Proxy Configuration | 5/6 | In Progress|  |
+| 6. Proxy Configuration | 6/6 | In Progress|  |
