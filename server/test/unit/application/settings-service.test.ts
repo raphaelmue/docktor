@@ -6,6 +6,7 @@ function createMockSettingsRepository() {
         findByKey: vi.fn(),
         upsert: vi.fn(),
         findAll: vi.fn(),
+        getMany: vi.fn(),
     };
 }
 
@@ -82,6 +83,84 @@ describe("SettingsService", () => {
                     baseUrl: "notaurl",
                     timezone: "UTC",
                 }),
+            ).rejects.toThrow();
+
+            expect(mockRepo.upsert).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("getProxySettings (PRXY-03)", () => {
+        it("returns defaults of empty string / false when neither key is set", async () => {
+            mockRepo.getMany.mockResolvedValue({});
+
+            const result = await service.getProxySettings();
+
+            expect(result).toEqual({acmeEmail: "", showInDashboard: false});
+        });
+
+        it("returns the stored acmeEmail and showInDashboard: true when the setting value is the string 'true'", async () => {
+            mockRepo.getMany.mockResolvedValue({
+                "proxy.acmeEmail": "admin@example.com",
+                "proxy.showInDashboard": "true",
+            });
+
+            const result = await service.getProxySettings();
+
+            expect(result).toEqual({acmeEmail: "admin@example.com", showInDashboard: true});
+        });
+
+        it("treats any non-'true' stored value for showInDashboard as false", async () => {
+            mockRepo.getMany.mockResolvedValue({
+                "proxy.showInDashboard": "yes",
+            });
+
+            const result = await service.getProxySettings();
+
+            expect(result.showInDashboard).toBe(false);
+        });
+
+        it("requests only the two proxy.* keys from the repository — never falls back to smtp.from, instanceName, baseUrl or any user record", async () => {
+            mockRepo.getMany.mockResolvedValue({});
+
+            await service.getProxySettings();
+
+            expect(mockRepo.getMany).toHaveBeenCalledWith(["proxy.acmeEmail", "proxy.showInDashboard"]);
+            const requestedKeys = mockRepo.getMany.mock.calls[0][0];
+            expect(requestedKeys).not.toContain("smtp.from");
+            expect(requestedKeys).not.toContain("instanceName");
+            expect(requestedKeys).not.toContain("baseUrl");
+        });
+    });
+
+    describe("updateProxySettings (PRXY-03)", () => {
+        it("upserts only the keys present in the argument", async () => {
+            mockRepo.upsert.mockResolvedValue(undefined);
+
+            await service.updateProxySettings({acmeEmail: "admin@example.com"});
+
+            expect(mockRepo.upsert).toHaveBeenCalledWith("proxy.acmeEmail", "admin@example.com");
+            expect(mockRepo.upsert).toHaveBeenCalledTimes(1);
+        });
+
+        it("stringifies the showInDashboard boolean", async () => {
+            mockRepo.upsert.mockResolvedValue(undefined);
+
+            await service.updateProxySettings({showInDashboard: true});
+
+            expect(mockRepo.upsert).toHaveBeenCalledWith("proxy.showInDashboard", "true");
+        });
+
+        it("accepts an empty acmeEmail as valid (no registration email, D-09)", async () => {
+            mockRepo.upsert.mockResolvedValue(undefined);
+
+            await expect(service.updateProxySettings({acmeEmail: ""})).resolves.not.toThrow();
+
+            expect(mockRepo.upsert).toHaveBeenCalledWith("proxy.acmeEmail", "");
+        });
+
+        it("throws BadRequestError for a non-empty, invalid acmeEmail", async () => {
+            await expect(
+                service.updateProxySettings({acmeEmail: "not-an-email"}),
             ).rejects.toThrow();
 
             expect(mockRepo.upsert).not.toHaveBeenCalled();

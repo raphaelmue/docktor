@@ -6,7 +6,7 @@ function createMockRepo() {
     return {
         findByIdOrThrow: vi.fn(),
         findByIdWithRelations: vi.fn(),
-        findAll: vi.fn(),
+        findAll: vi.fn().mockResolvedValue([]),
         exists: vi.fn(),
         create: vi.fn(),
         replaceServices: vi.fn(),
@@ -56,6 +56,12 @@ function createMockBroadcaster() {
     };
 }
 
+function createMockSettings() {
+    return {
+        getProxySettings: vi.fn().mockResolvedValue({acmeEmail: "", showInDashboard: false}),
+    };
+}
+
 describe("StackService", () => {
     let service: StackService;
     let repo: ReturnType<typeof createMockRepo>;
@@ -63,6 +69,7 @@ describe("StackService", () => {
     let docker: ReturnType<typeof createMockDocker>;
     let events: ReturnType<typeof createMockStackEvents>;
     let broadcaster: ReturnType<typeof createMockBroadcaster>;
+    let settings: ReturnType<typeof createMockSettings>;
 
     beforeEach(() => {
         repo = createMockRepo();
@@ -70,7 +77,8 @@ describe("StackService", () => {
         docker = createMockDocker();
         events = createMockStackEvents();
         broadcaster = createMockBroadcaster();
-        service = new StackService(repo as any, fs as any, docker as any, events as any, broadcaster as any);
+        settings = createMockSettings();
+        service = new StackService(repo as any, fs as any, docker as any, events as any, broadcaster as any, settings as any);
     });
 
     describe("createStack", () => {
@@ -124,6 +132,40 @@ describe("StackService", () => {
             });
 
             expect(fs.writeEnv).toHaveBeenCalledWith("my-app", "FOO=bar");
+        });
+    });
+
+    describe("listStacks", () => {
+        const allStacks = [
+            {id: "my-app", displayName: "My App", isProtected: false},
+            {id: "docktor-proxy", displayName: "Docktor Proxy", isProtected: true},
+        ];
+
+        it("omits protected stacks when showInDashboard is false", async () => {
+            repo.findAll.mockResolvedValue(allStacks);
+            settings.getProxySettings.mockResolvedValue({acmeEmail: "", showInDashboard: false});
+
+            const result = await service.listStacks();
+
+            expect(result).toEqual([allStacks[0]]);
+        });
+
+        it("includes protected stacks when showInDashboard is true", async () => {
+            repo.findAll.mockResolvedValue(allStacks);
+            settings.getProxySettings.mockResolvedValue({acmeEmail: "", showInDashboard: true});
+
+            const result = await service.listStacks();
+
+            expect(result).toEqual(allStacks);
+        });
+
+        it("never omits a stack with isProtected: false, regardless of the setting", async () => {
+            repo.findAll.mockResolvedValue(allStacks);
+            settings.getProxySettings.mockResolvedValue({acmeEmail: "", showInDashboard: false});
+
+            const result = await service.listStacks();
+
+            expect(result.some((s: any) => s.id === "my-app")).toBe(true);
         });
     });
 
@@ -213,6 +255,22 @@ describe("StackService", () => {
             await expect(service.deleteStack("my-app")).rejects.toThrow(
                 BadRequestError,
             );
+        });
+
+        it("rejects a protected stack with BadRequestError before any docker call", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "docktor-proxy",
+                status: "STOPPED",
+                isProtected: true,
+            });
+
+            await expect(service.deleteStack("docktor-proxy")).rejects.toThrow(
+                BadRequestError,
+            );
+
+            expect(docker.down).not.toHaveBeenCalled();
+            expect(fs.removeDirectory).not.toHaveBeenCalled();
+            expect(repo.delete).not.toHaveBeenCalled();
         });
     });
 
@@ -350,6 +408,21 @@ describe("StackService", () => {
             );
             consoleErrorSpy.mockRestore();
         });
+
+        it("is reachable for a protected stack (isProtected does not block deployStack)", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "docktor-proxy",
+                status: "DRAFT",
+                isProtected: true,
+            });
+            docker.up.mockResolvedValue(undefined);
+            fs.readCompose.mockResolvedValue("services:\n  nginx-proxy:\n    image: nginxproxy/nginx-proxy:1.11-alpine\n");
+
+            const result = await service.deployStack("docktor-proxy");
+
+            expect(result.success).toBe(true);
+            expect(docker.up).toHaveBeenCalledWith("docktor-proxy");
+        });
     });
 
     describe("stopStack", () => {
@@ -389,6 +462,21 @@ describe("StackService", () => {
                 stackStatus: "ERROR",
             });
         });
+
+        it("rejects a protected stack with BadRequestError before any docker call", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "docktor-proxy",
+                status: "RUNNING",
+                isProtected: true,
+            });
+
+            await expect(service.stopStack("docktor-proxy")).rejects.toThrow(
+                BadRequestError,
+            );
+
+            expect(docker.stop).not.toHaveBeenCalled();
+            expect(repo.transitionStatus).not.toHaveBeenCalled();
+        });
     });
 
     describe("restartStack", () => {
@@ -410,6 +498,21 @@ describe("StackService", () => {
                 stackStatus: "RUNNING",
             });
             expect(repo.clearConfigChanged).toHaveBeenCalledWith("my-app");
+        });
+
+        it("rejects a protected stack with BadRequestError before any docker call", async () => {
+            repo.findByIdOrThrow.mockResolvedValue({
+                id: "docktor-proxy",
+                status: "RUNNING",
+                isProtected: true,
+            });
+
+            await expect(service.restartStack("docktor-proxy")).rejects.toThrow(
+                BadRequestError,
+            );
+
+            expect(docker.restart).not.toHaveBeenCalled();
+            expect(repo.transitionStatus).not.toHaveBeenCalled();
         });
     });
 
