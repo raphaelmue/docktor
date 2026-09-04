@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 06
 current_phase_name: Proxy Configuration
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-09-04T06:48:53.724Z"
-state_head: 3ea4f727ba41ae3fc9f582a7888915cd45def620
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-09-04T07:14:12.967Z"
+state_head: 58c3e7c4834caccd77ea7497b0092560e0670292
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 73
-  completed_plans: 69
+  completed_plans: 70
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 06 (Proxy Configuration) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -118,6 +118,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P12 | 20min | 2 tasks | 7 files |
 | Phase 06 P01 | 95min | 2 tasks | 13 files |
 | Phase 06 P02 | 65min | 2 tasks | 8 files |
+| Phase 06 P03 | 30min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -256,6 +257,8 @@ Recent decisions affecting current work:
 - [Phase 06]: [Phase 06-01]: Added StackRepository.findById() (Rule 3) — required by ProxyService's constructor Pick<> type, did not exist before
 - [Phase 06]: [Phase 06-02] hasIn-guarded deleteEnvKeyIfPresent fixes removeServiceProxyEnv throwing when a service has no environment block at all (not just a missing key)
 - [Phase 06]: [Phase 06-02] assignDomain/removeDomain wrap their entire body (not just the compose write) in withKeyedLock(stackId, ...) — T-06-09 serialization empirically verified via a manual two-call race reproduction with the lock bypassed
+- [Phase 06]: [Phase 06-03] renderProxyStackCompose is a template literal (not a yaml Document-API edit) since the proxy stack's compose file is Docktor-authored with no prior content to preserve
+- [Phase 06]: [Phase 06-03] deployAndSurfaceFailure relays StackService.deployStack's real errorMessage verbatim through BadRequestError (never a paraphrase), the single choke point for D-11's fail-loudly requirement
 
 ### Quick Tasks Completed
 
@@ -308,6 +311,7 @@ Recent decisions affecting current work:
 - [Phase 05.1-08] Human-check item 5 from the plan's <verify> block (creating a stack with a relative bind-mount volume through the app's UI/API and confirming the data lands at the documented host path) was deliberately not re-exercised live in this session — it would run docker compose up -d --remove-orphans via Docktor's own deploy pipeline on the same shared host where 05.1-03's identical live test caused a real incident. A human should complete this check (and click through the setup wizard in a real browser) before treating the quickstart as fully proven. See 05.1-08-SUMMARY.md coverage D5 rationale.
 - [Phase 05.1-10] .env.example line 3 and .env.production line 12 still tell operators to copy the template to .env.local instead of .env — blocked on workspace permission settings denying Read/Bash/Write access to .env* paths. A developer with access must apply the two one-line header edits documented in 05.1-10-SUMMARY.md before G-05.1-2 is fully closed.
 - [Phase 06-01] Live dev-DB schema push (Task 2) and the new integration test (server/test/integration/proxy.test.ts) could not run in this sandboxed session — same documented host-level TCP-to-Docker-published-port block as 05.1-01/05.1-05/05.1-06. A developer on an unrestricted host must run: yarn dotenv -e .env.development -- prisma db push --accept-data-loss --config=server/prisma/prisma.config.ts && yarn db:generate, then verify via information_schema.columns, and separately run yarn workspace @docktor/server test:integration test/integration/proxy.test.ts
+- [Phase 06-03] Task 3 human-check (live proxy-stack deploy on host ports 80/443, docker ps/network ls confirmation, dashboard-hiding + stop/restart/delete-refusal check) not performed live in this session — execution host is shared with real unrelated Docker workloads and STATE.md documents a prior incident (05.1-03) where a live docker compose test on this host stopped real production containers. A human on a dedicated/verified-clear host must perform this before phase UAT closes.
 
 ### Roadmap Evolution
 
@@ -315,6 +319,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-04T06:48:51.238Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-09-04T07:14:10.665Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
