@@ -40,7 +40,8 @@ describe("ProxyStep", () => {
         await user.click(screen.getByRole("button", {name: "Deploy Proxy Stack"}));
 
         expect(await screen.findByRole("button", {name: "Deploy Proxy Stack"})).toBeInTheDocument();
-        expect(onSubmit).toHaveBeenCalledWith({acmeEmail: ""});
+        expect(onSubmit).toHaveBeenCalledTimes(1);
+        expect(onSubmit.mock.calls[0][0]).toEqual({acmeEmail: ""});
     });
 
     it("shows a validation message and does not call onSubmit for a malformed email", async () => {
