@@ -3,43 +3,64 @@ import {Link, useNavigate, useParams} from "react-router";
 import {toast} from "sonner";
 import {useStack} from "@/hooks/use-stack";
 import {
-    deleteStack,
-    deployStack,
     getComposeContent,
     getEnvContent,
-    restartStack,
-    stopStack,
     updateStack,
 } from "@/lib/stacks-api";
 import {StackStatusBadge} from "@/components/domain/stack/stack-status-badge";
-import {Button} from "@/components/ui/button";
+import {LogViewer} from "@/components/domain/stack/log-viewer";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Button} from "@/components/ui/button";
 import {Textarea} from "@/components/ui/textarea";
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {Alert, AlertDescription} from "@/components/ui/alert";
-import {AlertTriangle, Play, RotateCcw, Save, Square, Trash2,} from "lucide-react";
-import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,} from "@/components/ui/breadcrumb";
+import {AlertTriangle, RefreshCw, Save,} from "lucide-react";
+import {cn} from "@/lib/utils";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageDescription, PageHeader, PageTitle} from "@/components/common/layout/page";
+import {ScrollArea} from "@/components/ui/scroll-area";
+import {StackActions} from "./components/stack-actions";
+import {BackupsTab} from "./components/backups-tab";
+import {ServicesTab} from "./components/services-tab";
+import {EventLogCard} from "./components/event-log-card";
+import {StatusLogCard} from "./components/status-log-card";
+import {ProxyTab} from "./components/proxy-tab";
 
 export default function StackDetailPage() {
-    const {id = ""} = useParams<{id: string}>();
+    const {id = "", tab} = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
-    const {stack, loading, error, refetch} = useStack(id);
+    const {stack, loading, isRefreshing, error, refetch} = useStack(id);
+
+    const VALID_TABS = ["overview", "compose", "environment", "logs", "backups", "proxy"] as const;
+    type Tab = typeof VALID_TABS[number];
+    const activeTab: Tab = VALID_TABS.includes(tab as Tab) ? (tab as Tab) : "overview";
 
     const [composeContent, setComposeContent] = useState("");
     const [envContent, setEnvContent] = useState("");
     const [composeDirty, setComposeDirty] = useState(false);
     const [envDirty, setEnvDirty] = useState(false);
-    const [actionLoading, setActionLoading] = useState(false);
+    const [logsService, setLogsService] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         if (!id) return;
-        getComposeContent(id).then((r) => setComposeContent(r.content));
-        getEnvContent(id).then((r) => setEnvContent(r.content));
-    }, [id]);
+        // Only reload compose/env content if user hasn't made local changes
+        if (!composeDirty) {
+            getComposeContent(id).then((r) => setComposeContent(r.content));
+        }
+        if (!envDirty) {
+            getEnvContent(id).then((r) => setEnvContent(r.content));
+        }
+    }, [id, stack?.lastKnownHash, composeDirty, envDirty]);
 
-    if (loading) {
+    if (loading && !stack) {
         return (
             <Page>
                 <PageHeader
@@ -51,7 +72,7 @@ export default function StackDetailPage() {
                                         <Link to="/stacks">Stacks</Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
-                                <BreadcrumbSeparator />
+                                <BreadcrumbSeparator/>
                                 <BreadcrumbItem>
                                     <BreadcrumbPage>Loading...</BreadcrumbPage>
                                 </BreadcrumbItem>
@@ -80,7 +101,7 @@ export default function StackDetailPage() {
                                         <Link to="/stacks">Stacks</Link>
                                     </BreadcrumbLink>
                                 </BreadcrumbItem>
-                                <BreadcrumbSeparator />
+                                <BreadcrumbSeparator/>
                                 <BreadcrumbItem>
                                     <BreadcrumbPage>Error</BreadcrumbPage>
                                 </BreadcrumbItem>
@@ -99,61 +120,46 @@ export default function StackDetailPage() {
         );
     }
 
-    function handleAction(action: () => Promise<unknown>, label: string) {
-        setActionLoading(true);
+    function handleSaveCompose() {
         toast.promise(
             (async () => {
-                try {
-                    await action();
-                    await refetch();
-                } finally {
-                    setActionLoading(false);
-                }
+                await updateStack(id, {composeContent});
+                setComposeDirty(false);
+                refetch();
             })(),
             {
-                loading: `${label}...`,
-                success: `${label} completed`,
-                error: (err) => err?.message ?? `${label} failed`,
+                loading: "Saving compose...",
+                success: "Save compose completed",
+                error: (err: Error) => err?.message ?? "Save compose failed",
             },
         );
     }
 
-    function handleSaveCompose() {
-        handleAction(async () => {
-            await updateStack(id, {composeContent});
-            setComposeDirty(false);
-        }, "Save compose");
-    }
-
     function handleSaveEnv() {
-        handleAction(async () => {
-            await updateStack(id, {envContent});
-            setEnvDirty(false);
-        }, "Save environment");
-    }
-
-    function handleDelete() {
-        if (!stack || !confirm(`Delete stack "${stack.displayName}"?`)) return;
-        handleAction(async () => {
-            await deleteStack(id);
-            navigate("/stacks");
-        }, "Delete");
+        toast.promise(
+            (async () => {
+                await updateStack(id, {envContent});
+                setEnvDirty(false);
+                refetch();
+            })(),
+            {
+                loading: "Saving environment...",
+                success: "Save environment completed",
+                error: (err: Error) => err?.message ?? "Save environment failed",
+            },
+        );
     }
 
     const status = stack.status;
-    const canDeploy = [
-        "DRAFT",
-        "STOPPED",
-        "ERROR",
-        "RUNNING",
-        "HEALTHY",
-        "UNHEALTHY",
-    ].includes(status);
-    const canStop = ["RUNNING", "HEALTHY", "UNHEALTHY", "ERROR"].includes(
-        status,
-    );
-    const canRestart = ["RUNNING", "HEALTHY", "UNHEALTHY"].includes(status);
-    const canDelete = ["DRAFT", "STOPPED", "ERROR"].includes(status);
+
+    const tabLabels: Record<Tab, string> = {
+        overview: "Overview",
+        compose: "Compose",
+        environment: "Environment",
+        logs: "Logs",
+        backups: "Backups",
+        proxy: "Proxy",
+    };
 
     return (
         <Page>
@@ -166,9 +172,15 @@ export default function StackDetailPage() {
                                     <Link to="/stacks">Stacks</Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
-                            <BreadcrumbSeparator />
+                            <BreadcrumbSeparator/>
                             <BreadcrumbItem>
-                                <BreadcrumbPage>{stack.displayName}</BreadcrumbPage>
+                                <BreadcrumbLink asChild>
+                                    <Link to={`/stacks/${id}${activeTab !== 'overview' ? `/${activeTab}` : ''}`}>{stack.displayName}</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator/>
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>{tabLabels[activeTab]}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -181,220 +193,123 @@ export default function StackDetailPage() {
                     )}
                 </div>
                 <PageActions>
-                    <StackStatusBadge status={status} />
-                    {canDeploy && (
-                        <Button
-                            size="sm"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => deployStack(id), "Deploy")
-                            }
-                        >
-                            <Play className="h-4 w-4 mr-1" />
-                            Deploy
-                        </Button>
-                    )}
-                    {canStop && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => stopStack(id), "Stop")
-                            }
-                        >
-                            <Square className="h-4 w-4 mr-1" />
-                            Stop
-                        </Button>
-                    )}
-                    {canRestart && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoading}
-                            onClick={() =>
-                                handleAction(() => restartStack(id), "Restart")
-                            }
-                        >
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            Restart
-                        </Button>
-                    )}
-                    {canDelete && (
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={actionLoading}
-                            onClick={handleDelete}
-                        >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Delete
-                        </Button>
-                    )}
+                    <span
+                        className={cn(
+                            "flex items-center gap-1 text-xs text-muted-foreground transition-opacity",
+                            isRefreshing ? "opacity-100" : "opacity-0",
+                        )}
+                        aria-hidden={!isRefreshing}
+                    >
+                        <RefreshCw className="h-3 w-3 animate-spin"/>
+                        Refreshing
+                    </span>
+                    <StackStatusBadge status={status}/>
+                    <StackActions
+                        stackId={id}
+                        stackName={stack.displayName}
+                        status={status}
+                        isProtected={stack.isProtected}
+                        onAction={refetch}
+                    />
                 </PageActions>
             </PageHeader>
 
             <PageContent>
-                {stack.configChanged && (
-                    <Alert>
-                        <AlertTriangle className="h-4 w-4" />
+                {stack.configError && (
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4"/>
                         <AlertDescription>
+                            Configuration file has an error: {stack.configError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {stack.configChanged && (
+                    <Alert className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-800">
+                        <AlertTriangle className="h-4 w-4"/>
+                        <AlertDescription className="text-yellow-800 dark:text-yellow-200">
                             Configuration has changed since last deployment.
                             Re-deploy to apply changes.
                         </AlertDescription>
                     </Alert>
                 )}
 
-                <Tabs defaultValue="overview">
+                <Tabs value={activeTab} onValueChange={(v) => navigate(`/stacks/${id}/${v}`)}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="compose">Compose</TabsTrigger>
                         <TabsTrigger value="environment">Environment</TabsTrigger>
+                        <TabsTrigger value="logs">Logs</TabsTrigger>
+                        <TabsTrigger value="backups">Backups</TabsTrigger>
+                        <TabsTrigger value="proxy">Proxy</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4 mt-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Services</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {stack.services.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No services defined
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Name</TableHead>
-                                                <TableHead>Image</TableHead>
-                                                <TableHead>Tag</TableHead>
-                                                <TableHead>Ports</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {stack.services.map((svc) => (
-                                                <TableRow key={svc.id}>
-                                                    <TableCell className="font-medium">
-                                                        {svc.serviceName}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {svc.image}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {svc.imageTag ?? "latest"}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {svc.ports
-                                                            ? JSON.parse(
-                                                                  svc.ports,
-                                                              )
-                                                                  .map(
-                                                                      (p: {
-                                                                          host: number;
-                                                                          container: number;
-                                                                      }) =>
-                                                                          `${p.host}:${p.container}`,
-                                                                  )
-                                                                  .join(", ")
-                                                            : "-"}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <ServicesTab
+                            services={stack.services}
+                            stackId={id}
+                            stackStatus={status}
+                            onViewLogs={(serviceName) => {
+                                setLogsService(serviceName);
+                                navigate(`/stacks/${id}/logs`);
+                            }}
+                            onUpgraded={refetch}
+                        />
 
                         <Card>
                             <CardHeader>
                                 <CardTitle>Recent Deployments</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {stack.deployments.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No deployments yet
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Date</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead>Error</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {stack.deployments.map((dep) => (
-                                                <TableRow key={dep.id}>
-                                                    <TableCell>
-                                                        {new Date(
-                                                            dep.deployedAt,
-                                                        ).toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {dep.success ? (
-                                                            <span className="text-green-600">
+                                <ScrollArea className={"h-64"}>
+                                    {stack.deployments.length === 0 ? (
+                                        <p className="text-muted-foreground">
+                                            No deployments yet
+                                        </p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Date</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead>Error</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {stack.deployments.map((dep) => (
+                                                    <TableRow key={dep.id}>
+                                                        <TableCell>
+                                                            {new Date(
+                                                                dep.deployedAt,
+                                                            ).toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {dep.success ? (
+                                                                <span className="text-green-600">
                                                                 Success
                                                             </span>
-                                                        ) : (
-                                                            <span className="text-red-600">
+                                                            ) : (
+                                                                <span className="text-red-600">
                                                                 Failed
                                                             </span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                                                        {dep.errorMessage ?? "-"}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell
+                                                            className="text-sm text-muted-foreground max-w-xs truncate">
+                                                            {dep.errorMessage ?? "-"}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </ScrollArea>
                             </CardContent>
                         </Card>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Status Log</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {stack.statusLogs.length === 0 ? (
-                                    <p className="text-muted-foreground">
-                                        No status changes
-                                    </p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {stack.statusLogs.map((log) => (
-                                            <div
-                                                key={log.id}
-                                                className="flex items-start gap-3 text-sm"
-                                            >
-                                                <span className="text-muted-foreground whitespace-nowrap">
-                                                    {new Date(
-                                                        log.createdAt,
-                                                    ).toLocaleString()}
-                                                </span>
-                                                <span>
-                                                    {log.fromStatus && (
-                                                        <>
-                                                            {log.fromStatus} →{" "}
-                                                        </>
-                                                    )}
-                                                    {log.toStatus}
-                                                </span>
-                                                {log.message && (
-                                                    <span className="text-muted-foreground">
-                                                        — {log.message}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <StatusLogCard statusLogs={stack.statusLogs}/>
+
+                        <EventLogCard stackId={id}/>
                     </TabsContent>
 
                     <TabsContent value="compose" className="space-y-4 mt-4">
@@ -403,10 +318,10 @@ export default function StackDetailPage() {
                                 <CardTitle>docker-compose.yml</CardTitle>
                                 <Button
                                     size="sm"
-                                    disabled={!composeDirty || actionLoading}
+                                    disabled={!composeDirty}
                                     onClick={handleSaveCompose}
                                 >
-                                    <Save className="h-4 w-4 mr-1" />
+                                    <Save className="h-4 w-4 mr-1"/>
                                     Save
                                 </Button>
                             </CardHeader>
@@ -429,10 +344,10 @@ export default function StackDetailPage() {
                                 <CardTitle>.env</CardTitle>
                                 <Button
                                     size="sm"
-                                    disabled={!envDirty || actionLoading}
+                                    disabled={!envDirty}
                                     onClick={handleSaveEnv}
                                 >
-                                    <Save className="h-4 w-4 mr-1" />
+                                    <Save className="h-4 w-4 mr-1"/>
                                     Save
                                 </Button>
                             </CardHeader>
@@ -447,6 +362,26 @@ export default function StackDetailPage() {
                                 />
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="logs" className="mt-4 w-full max-w-full overflow-hidden">
+                        <LogViewer
+                            stackId={id}
+                            serviceNames={stack.services.map((s) => s.serviceName)}
+                            initialService={logsService}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="backups" className="mt-4">
+                        <BackupsTab
+                            stackId={id}
+                            stackName={stack.displayName}
+                            stackStatus={status}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="proxy" className="mt-4">
+                        <ProxyTab stackId={id} services={stack.services} />
                     </TabsContent>
                 </Tabs>
             </PageContent>

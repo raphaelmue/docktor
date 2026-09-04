@@ -16,7 +16,7 @@ export const TRANSITIONS: Record<Action, readonly StackStatus[]> = {
     DELETE: ["DRAFT", "STOPPED", "ERROR"],
     UPDATE: ["DRAFT", "STOPPED", "ERROR", "RUNNING", "HEALTHY", "UNHEALTHY"],
     BACKUP: ["RUNNING", "HEALTHY", "UNHEALTHY", "STOPPED"],
-    RESTORE: ["STOPPED", "ERROR"],
+    RESTORE: ["RUNNING", "HEALTHY", "UNHEALTHY", "STOPPED", "ERROR"],
 } as const;
 
 export const ACTION_TARGET: Record<Action, StackStatus> = {

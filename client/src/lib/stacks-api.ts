@@ -8,7 +8,9 @@ export interface Stack {
     hostPath: string;
     status: string;
     configChanged: boolean;
+    configError: string | null;
     lastKnownHash: string | null;
+    isProtected: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -23,6 +25,9 @@ export interface Service {
     volumes: string | null;
     containerId: string | null;
     containerState: string | null;
+    healthStatus: string | null;
+    updateAvailable?: boolean;
+    latestTag?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -46,6 +51,16 @@ export interface StackDetail extends StackWithServices {
         message: string | null;
         createdAt: string;
     }[];
+}
+
+export type StackEventType = "config_changed" | "config_error" | "update_available";
+
+export interface StackEvent {
+    id: string;
+    type: StackEventType;
+    message: string | null;
+    payload: string | null;
+    createdAt: string;
 }
 
 export function listStacks() {
@@ -99,4 +114,48 @@ export function getComposeContent(id: string) {
 
 export function getEnvContent(id: string) {
     return apiFetch<{content: string}>(`/api/stacks/${id}/env`);
+}
+
+export function updateImages(id: string) {
+    return apiFetch<{success: boolean; noUpdates: boolean}>(`/api/stacks/${id}/update`, {
+        method: "POST",
+    });
+}
+
+export interface ServiceTagsResponse {
+    currentTag: string;
+    latestTag: string | null;
+    candidates: string[];
+}
+
+export interface UpgradeServiceResponse {
+    success: boolean;
+    changed: boolean;
+    previousTag: string | null;
+    newTag: string;
+}
+
+export function getServiceTags(stackId: string, serviceName: string) {
+    return apiFetch<ServiceTagsResponse>(
+        `/api/stacks/${encodeURIComponent(stackId)}/services/${encodeURIComponent(serviceName)}/tags`,
+    );
+}
+
+export function upgradeService(stackId: string, serviceName: string, targetTag: string) {
+    return apiFetch<UpgradeServiceResponse>(
+        `/api/stacks/${encodeURIComponent(stackId)}/services/${encodeURIComponent(serviceName)}/upgrade`,
+        {
+            method: "POST",
+            body: JSON.stringify({targetTag}),
+        },
+    );
+}
+
+// getStackEvents forwards limit as a query parameter only when supplied, so
+// the server's own default (20) governs when the caller omits it.
+export function getStackEvents(stackId: string, limit?: number) {
+    const query = limit !== undefined ? `?limit=${limit}` : "";
+    return apiFetch<StackEvent[]>(
+        `/api/stacks/${encodeURIComponent(stackId)}/events${query}`,
+    );
 }

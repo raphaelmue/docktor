@@ -2,6 +2,7 @@ export class ApiError extends Error {
     constructor(
         message: string,
         public status: number,
+        public fields?: Record<string, string>,
     ) {
         super(message);
         this.name = "ApiError";
@@ -33,6 +34,7 @@ export async function apiFetch<T>(
         throw new ApiError(
             body.error ?? `Request failed with status ${res.status}`,
             res.status,
+            body.fields,
         );
     }
 

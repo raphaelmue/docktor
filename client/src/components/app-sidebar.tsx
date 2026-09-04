@@ -1,5 +1,5 @@
 import {Link, useLocation} from "react-router";
-import {Layers, LayoutDashboard} from "lucide-react";
+import {Layers, LayoutDashboard, Settings} from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -18,6 +18,7 @@ import {Separator} from "@/components/ui/separator";
 const navItems = [
     {to: "/", label: "Dashboard", icon: LayoutDashboard},
     {to: "/stacks", label: "Stacks", icon: Layers},
+    {to: "/settings", label: "Settings", icon: Settings},
 ];
 
 export function AppSidebar() {

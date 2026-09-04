@@ -1,0 +1,19 @@
+enum StackEventType {
+  config_changed
+  config_error
+  update_available
+}
+
+model StackEvent {
+  id      String         @id @default(cuid())
+  stackId String
+  stack   Stack          @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  type    StackEventType
+  message String?        // validation error text for config_error; "image:tag" for update_available
+  payload String?        // JSON — extra context (e.g., {"oldHash":"abc","newHash":"def"})
+
+  createdAt DateTime @default(now())
+
+  @@index([stackId, createdAt])
+}

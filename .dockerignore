@@ -1,0 +1,23 @@
+# Keeps the operator's filled-in secrets (DATABASE_URL, BETTER_AUTH_SECRET,
+# ENCRYPTION_KEY, POSTGRES_PASSWORD, ...) out of the Docker build context —
+# `docker-compose.yml`'s `docktor` service builds with `context: .`, so every
+# `docker compose up -d` otherwise uploads the whole project directory,
+# including these files, to the Docker daemon.
+
+# Deployment env files — root-anchored so this can't accidentally match a
+# path inside a workspace (e.g. server/.env or a test fixture). The tracked
+# .env.example template is intentionally NOT excluded; it's documentation.
+/.env
+/.env.local
+/.env.production
+
+# Pure build-context weight; not read by the Dockerfile's COPY lines.
+/.git
+/.planning
+
+# The db service's live Postgres data directory (docker-compose.yml's
+# `./dev-data/docktor/db:/var/lib/postgresql` bind mount). Not excluding this
+# would upload the operator's actual database files to the Docker daemon as
+# build context on every rebuild — the same class of leak this file exists to
+# prevent for secrets, just for data instead of credentials.
+/dev-data

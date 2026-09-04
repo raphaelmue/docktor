@@ -50,3 +50,6 @@ tsconfig.tsbuildinfo
 
 # AI
 .claude/
+.dual-graph/
+.gsd/
+.planning/*.lock

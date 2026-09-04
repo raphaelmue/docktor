@@ -1,0 +1,13 @@
+model ImageUpdateCheck {
+  id            String   @id @default(cuid())
+  imageRef      String   @unique  // canonical form: e.g. "nginx:latest", "ghcr.io/user/app:1.2.3"
+  lastCheckedAt DateTime
+  latestTag     String?  // newest discovered tag (null if check failed or digest-only)
+  latestDigest  String?  // digest of latest image
+  currentDigest String?  // digest of running image when check ran
+  hasUpdate     Boolean  @default(false)
+  checkError    String?  // last error message if check failed
+  availableTags String?  // JSON-encoded array of upgrade candidate tags, newest first
+
+  updatedAt DateTime @updatedAt
+}

@@ -1,18 +1,7 @@
-import {
-    ChevronLeft,
-    ChevronRight,
-    ChevronsLeft,
-    ChevronsRight,
-} from "lucide-react";
+import {ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,} from "lucide-react";
 import {useSearchParams} from "react-router";
 import {Button} from "@/components/ui/button";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
 
 interface TablePaginationProps {
     currentPage: number;

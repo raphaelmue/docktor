@@ -2,6 +2,10 @@ import fs from "node:fs/promises";
 import {getComposePath, getEnvPath, getStackPath,} from "../lib/stacks-dir.js";
 
 export class StackFilesystem {
+    getStackDirectory(stackId: string): string {
+        return getStackPath(stackId);
+    }
+
     async createDirectory(stackId: string): Promise<string> {
         const hostPath = getStackPath(stackId);
         await fs.mkdir(hostPath, {recursive: true});

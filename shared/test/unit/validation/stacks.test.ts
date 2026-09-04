@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {createStackSchema, stackIdSchema, updateStackSchema} from "../../../src/validation/stacks.js";
+import {createStackSchema, dockerTagSchema, stackIdSchema, updateStackSchema, upgradeServiceSchema} from "../../../src/validation/stacks.js";
 
 describe("stackIdSchema", () => {
     it("accepts valid slug", () => {
@@ -113,5 +113,63 @@ describe("updateStackSchema", () => {
 
     it("rejects empty composeContent when provided", () => {
         expect(updateStackSchema.safeParse({composeContent: ""}).success).toBe(false);
+    });
+});
+
+describe("dockerTagSchema", () => {
+    it("accepts a simple semver tag", () => {
+        expect(dockerTagSchema.safeParse("1.26").success).toBe(true);
+    });
+
+    it("accepts letters, digits, underscore, period and hyphen", () => {
+        expect(dockerTagSchema.safeParse("v1.2.3-alpine_3").success).toBe(true);
+    });
+
+    it("accepts a single character tag", () => {
+        expect(dockerTagSchema.safeParse("a").success).toBe(true);
+    });
+
+    it("rejects an empty string", () => {
+        expect(dockerTagSchema.safeParse("").success).toBe(false);
+    });
+
+    it("rejects a tag starting with a period or hyphen", () => {
+        expect(dockerTagSchema.safeParse(".1.26").success).toBe(false);
+        expect(dockerTagSchema.safeParse("-1.26").success).toBe(false);
+    });
+
+    it("rejects whitespace", () => {
+        expect(dockerTagSchema.safeParse("1.26 latest").success).toBe(false);
+    });
+
+    it("rejects a slash — cannot smuggle a path segment", () => {
+        expect(dockerTagSchema.safeParse("1.26/evil").success).toBe(false);
+    });
+
+    it("rejects YAML metacharacters that could break out of a scalar value", () => {
+        expect(dockerTagSchema.safeParse('1.26"\nservices: {}').success).toBe(false);
+        expect(dockerTagSchema.safeParse("1.26: evil").success).toBe(false);
+    });
+
+    it("rejects a tag over 128 characters", () => {
+        expect(dockerTagSchema.safeParse("a".repeat(129)).success).toBe(false);
+    });
+
+    it("accepts a tag at exactly 128 characters", () => {
+        expect(dockerTagSchema.safeParse("a".repeat(128)).success).toBe(true);
+    });
+});
+
+describe("upgradeServiceSchema", () => {
+    it("accepts a valid targetTag", () => {
+        expect(upgradeServiceSchema.safeParse({targetTag: "1.26"}).success).toBe(true);
+    });
+
+    it("rejects a missing targetTag", () => {
+        expect(upgradeServiceSchema.safeParse({}).success).toBe(false);
+    });
+
+    it("rejects an invalid targetTag", () => {
+        expect(upgradeServiceSchema.safeParse({targetTag: "not a tag!"}).success).toBe(false);
     });
 });

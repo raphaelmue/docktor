@@ -6,6 +6,9 @@ model Stack {
   // Filesystem
   hostPath         String // absolute host path, e.g. "/opt/docktor/stacks/my-nextcloud"
   isAdoptedInPlace Boolean     @default(false) // true = brownfield adopt, limited features
+  // Marks a Docktor-managed stack (e.g. the nginx-proxy/acme-companion proxy
+  // stack) that the normal stop/restart/delete stack actions must refuse (D-12).
+  isProtected      Boolean     @default(false)
 
   // State machine
   status           StackStatus @default(DRAFT)
@@ -15,6 +18,13 @@ model Stack {
   lastKnownHash    String? // SHA256 of docker-compose.yml
   lastParsedAt     DateTime?
   configChanged    Boolean     @default(false) // true = file changed since last deploy
+  // Latest unresolved compose parse error message (from the YAML/compose parser).
+  // Null when the file currently parses. Independent of configChanged — both
+  // flags can be true at once (a validly edited file that was then broken).
+  configError      String?
+  // SHA256 of the stack's .env file, tracked separately from lastKnownHash so
+  // an external .env edit can never be mistaken for a compose-file change.
+  lastEnvHash      String?
 
   // Import provenance (brownfield migration)
   importedFrom     String? // original host path before migration
@@ -33,11 +43,14 @@ model Stack {
   backupRetention  String? // JSON retention policy, null = use global default
 
   // Relations
-  services     Service[]
-  proxyConfigs ProxyConfig[]
-  backups      Backup[]
-  statusLogs   StatusLog[]
-  deployments  Deployment[]
+  services      Service[]
+  proxyConfigs  ProxyConfig[]
+  backups       Backup[]
+  statusLogs    StatusLog[]
+  stackEvents   StackEvent[]
+  deployments   Deployment[]
+  notifications Notification[]
+  incidents     StackIncident[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -36,12 +36,12 @@ services:
         expect(services[0].ports).toEqual([{host: 53, container: 53, protocol: "udp"}]);
     });
 
-    it("returns empty array for empty content", () => {
-        expect(parseComposeContent("")).toEqual([]);
+    it("throws for empty content", () => {
+        expect(() => parseComposeContent("")).toThrow("Compose file missing 'services' key");
     });
 
-    it("returns empty array for YAML without services key", () => {
-        expect(parseComposeContent("version: '3'\n")).toEqual([]);
+    it("throws for YAML without services key", () => {
+        expect(() => parseComposeContent("version: '3'\n")).toThrow("Compose file missing 'services' key");
     });
 
     it("handles multiple services", () => {
@@ -83,6 +83,19 @@ services:
 
         expect(services[0].image).toBe("ghcr.io/org/app");
         expect(services[0].imageTag).toBe("v1.2.3");
+    });
+
+    it("throws for a sequence-valued services key", () => {
+        const content = "services:\n  - app\n  - db\n";
+        expect(() => parseComposeContent(content)).toThrow(/mapping of service names/);
+    });
+
+    it("still parses a normal mapping with one service", () => {
+        const services = parseComposeContent("services:\n  app:\n    image: alpine:3.19\n");
+
+        expect(services).toHaveLength(1);
+        expect(services[0].serviceName).toBe("app");
+        expect(services[0].image).toBe("alpine");
     });
 });
 

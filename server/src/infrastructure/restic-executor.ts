@@ -1,0 +1,256 @@
+import {spawn} from "node:child_process";
+
+export interface ResticRunResult {
+    exitCode: number;
+    stderr: string;
+}
+
+/**
+ * True when a restic error means "the repository has not been initialized yet".
+ * Restic's documented exit code for this (10) is not what restic 0.16.x actually
+ * returns for a missing local-backend config — it returns the generic exit code 1
+ * for this case (confirmed by direct reproduction), the same code a wrong password
+ * also produces. Matching restic's stable "unable to open config file" stderr text
+ * distinguishes the two; exitCode 10 is kept as a harmless fallback in case a future
+ * restic version does use it.
+ */
+export function isRepositoryNotFoundError(err: unknown): boolean {
+    if (!(err instanceof Error)) return false;
+    if ((err as {exitCode?: number}).exitCode === 10) return true;
+    return err.message.includes("unable to open config file");
+}
+
+export interface ResticSnapshot {
+    id: string;
+    time: string;
+    hostname: string;
+    tags: string[] | null;
+    paths: string[];
+    short_id: string;
+}
+
+export interface BackupRepoConfig {
+    repoType: "local" | "sftp" | "s3";
+    repoPath?: string;
+    sftpHost?: string;
+    sftpUser?: string;
+    sftpKey?: string;
+    s3Endpoint?: string;
+    s3Bucket?: string;
+    s3AccessKey?: string;
+    s3SecretKey?: string;
+    password: string; // already decrypted
+}
+
+export interface RetentionPolicy {
+    keepDaily: number;
+    keepWeekly: number;
+    keepMonthly: number;
+}
+
+export class ResticExecutor {
+    private readonly binary: string;
+
+    constructor(binary?: string) {
+        this.binary = binary ?? process.env.RESTIC_BINARY ?? "restic";
+    }
+
+    /**
+     * Spawn the restic binary with provided args and env, streaming stdout lines
+     * via the optional onLine callback.
+     *
+     * Credentials must NEVER appear on the CLI — they belong in the env object.
+     *
+     * @param cwd - Optional working directory for the restic process. Use this to run
+     *              restic from the stack directory so backups use relative paths.
+     */
+    async run(
+        args: string[],
+        env: Record<string, string>,
+        onLine?: (line: string) => void,
+        cwd?: string,
+    ): Promise<ResticRunResult> {
+        console.log(`[ResticExecutor] Running: ${this.binary}`, args, cwd ? `(cwd: ${cwd})` : '')
+        return new Promise((resolve, reject) => {
+            const child = spawn(this.binary, args, {
+                env: {...process.env, ...env},
+                stdio: ["ignore", "pipe", "pipe"],
+                cwd: cwd ?? undefined,
+            });
+
+            let stderrBuf = "";
+            let lineBuf = "";
+            let stderrLineBuf = "";
+
+            child.stdout.on("data", (chunk: Buffer) => {
+                const text = chunk.toString("utf8")
+                console.log(`[ResticExecutor] stdout chunk (${text.length} bytes): ${text.substring(0, 100)}...`)
+                lineBuf += text;
+                const lines = lineBuf.split("\n");
+                // Last element may be incomplete — keep it in the buffer
+                lineBuf = lines.pop() ?? "";
+                for (const line of lines) {
+                    if (line.trim()) {
+                        console.log(`[ResticExecutor] Emitting line: ${line.substring(0, 80)}`)
+                        onLine?.(line);
+                    }
+                }
+            });
+
+            child.stderr.on("data", (chunk: Buffer) => {
+                const text = chunk.toString("utf8");
+                stderrBuf += text;  // Keep accumulating for error message
+
+                // Also emit lines to onLine callback with [stderr] prefix
+                stderrLineBuf += text;
+                const lines = stderrLineBuf.split("\n");
+                stderrLineBuf = lines.pop() ?? "";
+                for (const line of lines) {
+                    if (line.trim()) {
+                        console.log(`[ResticExecutor] Emitting stderr: ${line.substring(0, 80)}`);
+                        onLine?.(`[stderr] ${line}`);
+                    }
+                }
+            });
+
+            child.on("error", reject);
+
+            child.on("close", (code) => {
+                console.log(`[ResticExecutor] Process exited with code ${code}`)
+                // Flush any partial stdout line remaining in the buffer
+                if (lineBuf.trim()) onLine?.(lineBuf.trim());
+                // Flush any partial stderr line remaining in the buffer
+                if (stderrLineBuf.trim()) onLine?.(`[stderr] ${stderrLineBuf.trim()}`);
+
+                const exitCode = code ?? 1;
+                if (exitCode !== 0) {
+                    const error = new Error(`restic exited with code ${exitCode}: ${stderrBuf}`);
+                    (error as Error & {exitCode: number}).exitCode = exitCode;
+                    (error as Error & {stderr: string}).stderr = stderrBuf;
+                    reject(error);
+                } else {
+                    resolve({exitCode: 0, stderr: stderrBuf});
+                }
+            });
+        });
+    }
+
+    /**
+     * Returns the args array to pass to restic for a backup operation.
+     * Format: [".", "--exclude", "./logs", "--exclude", "./backups", "--tag", stackId, "--json"]
+     * The caller prepends "backup" as the subcommand when needed.
+     *
+     * IMPORTANT: Caller must set cwd to stackPath when calling run() so that "." resolves correctly.
+     */
+    buildBackupArgs(stackPath: string, stackId: string): string[] {
+        return [
+            ".",
+            "--exclude", "./logs",
+            "--exclude", "./backups",
+            "--tag", stackId,
+            "--json"
+        ];
+    }
+
+    /** Returns ["forget", "--tag", stackId, "--keep-daily", N, "--keep-weekly", N, "--keep-monthly", N, "--prune"] */
+    buildForgetArgs(stackId: string, policy: RetentionPolicy): string[] {
+        return [
+            "forget",
+            "--tag",
+            stackId,
+            "--keep-daily",
+            String(policy.keepDaily),
+            "--keep-weekly",
+            String(policy.keepWeekly),
+            "--keep-monthly",
+            String(policy.keepMonthly),
+            "--prune",
+        ];
+    }
+
+    /**
+     * Returns ["restore", snapshotId, "--target", "."]
+     *
+     * IMPORTANT: Caller must set cwd to stackPath when calling run() so that "." resolves correctly.
+     */
+    buildRestoreArgs(snapshotId: string, targetPath: string): string[] {
+        return ["restore", snapshotId, "--target", "."];
+    }
+
+    /** Returns ["init"] */
+    buildInitArgs(): string[] {
+        return ["init"];
+    }
+
+    /**
+     * Lists snapshots for the given tag. Returns [] if the repository has not
+     * been initialised yet (exit code 10). Throws on other non-zero exit codes.
+     */
+    async snapshots(env: Record<string, string>, tag: string): Promise<ResticSnapshot[]> {
+        const lines: string[] = [];
+        try {
+            await this.run(
+                ["snapshots", "--tag", tag, "--json"],
+                env,
+                (l) => lines.push(l),
+            );
+        } catch (err) {
+            if (isRepositoryNotFoundError(err)) return []; // Repository not initialized
+            throw err;
+        }
+
+        const json = lines.join("");
+        return JSON.parse(json) as ResticSnapshot[];
+    }
+
+    /**
+     * Builds the env object needed to authenticate restic against the configured
+     * backend. Credentials are injected here — never on the CLI.
+     */
+    buildEnv(config: BackupRepoConfig): Record<string, string> {
+        const base: Record<string, string> = {
+            RESTIC_REPOSITORY: this.buildRepoUrl(config),
+            RESTIC_PASSWORD: config.password,
+        };
+
+        if (config.repoType === "s3") {
+            return {
+                ...base,
+                AWS_ACCESS_KEY_ID: config.s3AccessKey ?? "",
+                AWS_SECRET_ACCESS_KEY: config.s3SecretKey ?? "",
+            };
+        }
+
+        return base;
+    }
+
+    /** Builds the RESTIC_REPOSITORY URL string for the given backend type. */
+    buildRepoUrl(config: BackupRepoConfig): string {
+        if (config.repoType === "local") {
+            return config.repoPath ?? "";
+        }
+        if (config.repoType === "sftp") {
+            return `sftp:${config.sftpUser}@${config.sftpHost}:${config.repoPath ?? "/backups"}`;
+        }
+        // s3
+        const endpoint = config.s3Endpoint ?? "s3.amazonaws.com";
+        return `s3:${endpoint}/${config.s3Bucket}`;
+    }
+
+    /**
+     * Checks whether the restic binary is available and returns its version.
+     */
+    async checkVersion(): Promise<{available: boolean; version?: string}> {
+        try {
+            const lines: string[] = [];
+            await this.run(["version"], {}, (l) => lines.push(l));
+            const versionLine = lines[0] ?? "";
+            const match = versionLine.match(/restic\s+([\d.]+)/);
+            return {available: true, version: match?.[1]};
+        } catch {
+            return {available: false};
+        }
+    }
+}
+
+export const resticExecutor = new ResticExecutor();

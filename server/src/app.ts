@@ -3,27 +3,43 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
-import {
-    serializerCompiler,
-    validatorCompiler,
-    type ZodTypeProvider,
-} from "fastify-type-provider-zod";
+import {serializerCompiler, validatorCompiler, type ZodTypeProvider,} from "fastify-type-provider-zod";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
+import setupRoutes from "./routes/setup.js";
 import authRoutes from "./routes/auth.js";
 import stackRoutes from "./routes/stacks.js";
+import settingsRoutes from "./routes/settings.js";
+import eventsRoutes from "./routes/events.js";
+import notificationRoutes from "./routes/notifications.js";
+import backupRoutes from "./routes/backups.js";
+import importRoutes from "./routes/imports.js";
+import proxyRoutes from "./routes/proxy.js";
 import {AppError} from "./lib/errors.js";
+import {startJobs, stopJobs} from "./jobs/index.js";
+import {prisma} from "./lib/db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// WR-01: shape of a single validation issue attached to FastifyError by
+// fastify-type-provider-zod (Zod-style `path`) or ajv (`instancePath`).
+interface ValidationIssue {
+    path?: Array<string | number>;
+    instancePath?: string;
+    message: string;
+}
 
 const envToLogger: Record<string, object | boolean> = {
     development: {
         transport: {
             target: "pino-pretty",
-            options: {translateTime: "HH:MM:ss Z", ignore: "pid,hostname"},
+            options: {translateTime: "HH:MM:ss Z", ignore: "pid,hostname,reqId,req,res"},
         },
+        level: "info",
     },
-    production: true,
+    production: {
+        level: "warn",
+    },
     test: false,
 };
 
@@ -32,6 +48,7 @@ export async function buildApp() {
 
     const app = Fastify({
         logger: envToLogger[env] ?? true,
+        disableRequestLogging: true,
     }).withTypeProvider<ZodTypeProvider>();
 
     app.setValidatorCompiler(validatorCompiler);
@@ -44,6 +61,33 @@ export async function buildApp() {
 
     await app.register(fastifyCookie);
 
+    // First-run detection: redirect to setup wizard if no users exist
+    app.addHook("onRequest", async (request, reply) => {
+        // Skip for setup routes, auth routes, and static assets
+        if (
+            // WR-08: exact-prefix match (with trailing slash) so a
+            // hypothetical "/api/setupanything" route can't be accidentally
+            // exempted from this security-relevant gate by a loose prefix.
+            request.url.startsWith("/api/setup/") ||
+            request.url === "/api/setup" ||
+            request.url.startsWith("/api/auth/") ||
+            request.url === "/setup" ||
+            !request.url.startsWith("/api/")
+        ) {
+            return;
+        }
+
+        // Check if any users exist
+        const userCount = await prisma.user.count();
+
+        if (userCount === 0) {
+            return reply.status(503).send({
+                error: "Setup required",
+                redirectTo: "/setup",
+            });
+        }
+    });
+
     // Global error handler for AppError subclasses
     app.setErrorHandler((error: FastifyError | AppError, _request, reply) => {
         if (error instanceof AppError) {
@@ -51,9 +95,21 @@ export async function buildApp() {
         }
         // Zod validation errors (from type-provider-zod validator compiler)
         if (error.statusCode === 400 && "validation" in error) {
+            // Safe: fastify-type-provider-zod attaches a `validation` array to
+            // FastifyError on validation failures; the base FastifyError type
+            // doesn't declare this field, but its shape is documented by the
+            // plugin (Zod issues use `path`, ajv-style issues use `instancePath`).
+            const issues = (error as FastifyError & {validation?: ValidationIssue[]}).validation ?? []
+            const fields: Record<string, string> = {}
+            for (const issue of issues) {
+                // Zod issues: { path: ["fieldName", ...], message: "..." }
+                const field = Array.isArray(issue.path) ? issue.path[0] : issue.instancePath?.replace(/^\//, "")
+                if (field) fields[String(field)] = issue.message
+            }
             return reply.status(400).send({
                 error: "Validation error",
-                details: (error as any).validation,
+                fields: Object.keys(fields).length > 0 ? fields : undefined,
+                details: issues,
             });
         }
         if (error.name === "ZodError") {
@@ -64,8 +120,28 @@ export async function buildApp() {
     });
 
     // API routes
+    await app.register(setupRoutes);
     await app.register(authRoutes);
     await app.register(stackRoutes);
+    await app.register(settingsRoutes);
+    await app.register(eventsRoutes);
+    await app.register(notificationRoutes);
+    await app.register(backupRoutes);
+    await app.register(importRoutes);
+    await app.register(proxyRoutes);
+
+    // Jobs: start/stop with server lifecycle (skipped in test environment)
+    if (process.env.NODE_ENV !== "test") {
+        app.addHook("onReady", async () => {
+            await startJobs();
+            app.log.info("Jobs started");
+        });
+
+        app.addHook("onClose", async () => {
+            stopJobs();
+            app.log.info("Jobs stopped");
+        });
+    }
 
     // In production, serve the built client SPA
     const clientDistPath =

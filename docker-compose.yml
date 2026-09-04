@@ -1,44 +1,96 @@
+# Docktor self-host deployment — this is the documented, copy-pasteable
+# quickstart described in docs/deployment.md. See that file for the full
+# setup walkthrough and the complete environment-variable reference.
+#
+# For local development instead (yarn dev against a bare Postgres, no
+# Docktor container), use docker-compose.dev.yml.
+
 services:
+  # The Docktor application itself: Fastify API, background jobs, SSE
+  # streams, and the built React SPA, all served from one process.
   docktor:
-    image: docktor/docktor:latest
+    # image: docktor/docktor:latest
+    build:
+      context: .
     container_name: docktor
     restart: unless-stopped
     ports:
-      - "8443:3000"
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Must equal the host side of the stacks volume below, both driven by
+      # DOCKTOR_STACKS_HOST_DIR — see the comment on that volume for why.
+      # Setting it here (compose `environment:` outranks `env_file:`) also
+      # means a conflicting DOCKTOR_STACKS_DIR in .env can no longer
+      # silently override this and desync the two sides.
+      #
+      # The filename above is load-bearing, not a convention: Docker Compose
+      # resolves top-level `${VAR}` interpolation — which is what computes
+      # this entry and both sides of the stacks volume below — only from the
+      # real process environment or a project-root file named exactly `.env`.
+      # It never reads a service-level `env_file:` directive for
+      # interpolation purposes. Renaming this file breaks the stacks volume
+      # mapping silently (it falls back to the hardcoded default) rather than
+      # loudly. `env_file:` is still required alongside interpolation: the
+      # two serve different purposes — interpolation computes the container
+      # spec (this block, the volume below) at compose-parse time, while
+      # `env_file:` populates the container's actual runtime environment.
+      # Both are needed; neither can substitute for the other.
+      DOCKTOR_STACKS_DIR: ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
     volumes:
       # Docker socket — allows Docktor to manage containers on the host
+      # (Docker-outside-of-Docker). This grants the container
+      # host-root-equivalent reach: anyone who can exec into this
+      # container can control every container on the host. Required for
+      # Docktor's core function; understand this before deploying.
       - /var/run/docker.sock:/var/run/docker.sock
 
-      # Stacks directory — where all managed stacks live
-      - /opt/docktor/stacks:/stacks
+      # Stacks directory — where all managed stacks live.
+      # Host and container paths MUST be byte-identical: Docktor drives the
+      # HOST's Docker daemon over the socket above (Docker-outside-of-Docker).
+      # `docker compose` running inside this container resolves relative
+      # bind mounts declared in a managed stack's compose file against its
+      # own filesystem view, then sends the resulting absolute path to the
+      # host daemon. If the two sides of this mapping differ, that path
+      # doesn't exist on the host and the daemon silently creates a stray
+      # directory there instead of writing into the real stack directory
+      # (see .planning/todos/pending/2026-08-28-dood-bind-mount-path-mismatch.md).
+      # Override DOCKTOR_STACKS_HOST_DIR (not this line) to relocate.
+      - ${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}:${DOCKTOR_STACKS_HOST_DIR:-/opt/docktor/stacks}
 
-      # Docktor's own persistent data (config, logs)
-      - /opt/docktor/data:/data
-
-      # Restic backup repository
-      - /opt/docktor/backups:/backups
-
-      # Brownfield: host filesystem access for scanning existing stacks
+      # Read-only view of the host's entire root filesystem. Used for the
+      # brownfield-import scan (discovering existing docker-compose.yml
+      # files elsewhere on the host) and to let disk-space monitoring see
+      # the host's real usage via DOCKER_DATA_PATH=/host/var/lib/docker
+      # (see .env.example) rather than this container's own tiny
+      # filesystem. Grants read access to the entire host disk; understand
+      # this before deploying.
       - /:/host:ro
-    environment:
-      - DATABASE_URL=postgresql://docktor:CHANGE_ME@db:5432/docktor
-      - DOCKTOR_BASE_URL=https://docktor.example.com
-      - DOCKTOR_STACKS_DIR=/stacks
-      - DOCKTOR_DATA_DIR=/data
-      - DOCKTOR_BACKUP_DIR=/backups
 
+  # Postgres database. Docktor stores derived stack/service metadata here;
+  # the compose file on disk (under the stacks volume above) remains the
+  # source of truth for what actually gets deployed.
   db:
-    image: postgres:17
+    image: postgres:18
     container_name: docktor-db
     restart: unless-stopped
     volumes:
-      - /opt/docktor/db:/var/lib/postgresql/data
+      - ./dev-data/docktor/db:/var/lib/postgresql
+    # POSTGRES_PASSWORD is read from .env (same file docktor's DATABASE_URL
+    # comes from) rather than hardcoded here, so there is no guessable shipped
+    # default and no way for the two to silently drift apart (WR-04). Set
+    # POSTGRES_PASSWORD in .env to the same password embedded in
+    # DATABASE_URL — see docs/deployment.md. If it's left unset, the official
+    # postgres image refuses to start rather than falling back to a known
+    # default, which is the intended fail-loud behavior here.
+    env_file:
+      - .env
     environment:
       POSTGRES_USER: docktor
-      POSTGRES_PASSWORD: CHANGE_ME
       POSTGRES_DB: docktor
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U docktor" ]

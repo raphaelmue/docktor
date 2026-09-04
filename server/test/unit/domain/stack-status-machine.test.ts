@@ -1,11 +1,11 @@
 import {describe, expect, it} from "vitest";
 import {
+    type Action,
+    ACTION_TARGET,
     assertTransition,
     canTransition,
     TransitionError,
     TRANSITIONS,
-    ACTION_TARGET,
-    type Action,
 } from "../../../src/domain/stack-status-machine.js";
 import type {StackStatus} from "../../../src/generated/prisma/enums.js";
 

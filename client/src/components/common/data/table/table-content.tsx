@@ -1,13 +1,6 @@
 import {useNavigate} from "react-router";
 import {useIsMobile} from "@/hooks/use-mobile";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/components/ui/table";
 import {Card, CardContent} from "@/components/ui/card";
 import type {TableColumn} from "./data-table";
 

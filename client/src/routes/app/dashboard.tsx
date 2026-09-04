@@ -2,6 +2,7 @@ import {Link} from "react-router";
 import {AlertTriangle, Layers, Play, Plus, Square} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {Skeleton} from "@/components/ui/skeleton";
 import {Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage} from "@/components/ui/breadcrumb";
 import {Page, PageActions, PageContent, PageHeader, PageTitle} from "@/components/common/layout/page";
 import {StackList} from "@/components/domain/stack/stack-list";
@@ -55,9 +56,11 @@ export default function Dashboard() {
                             <Layers className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">
-                                {loading ? "-" : total}
-                            </div>
+                            {loading ? (
+                                <Skeleton className="h-8 w-12" />
+                            ) : (
+                                <div className="text-2xl font-bold">{total}</div>
+                            )}
                         </CardContent>
                     </Card>
                     <Card>
@@ -68,9 +71,11 @@ export default function Dashboard() {
                             <Play className="h-4 w-4 text-green-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-600">
-                                {loading ? "-" : running}
-                            </div>
+                            {loading ? (
+                                <Skeleton className="h-8 w-12" />
+                            ) : (
+                                <div className="text-2xl font-bold text-green-600">{running}</div>
+                            )}
                         </CardContent>
                     </Card>
                     <Card>
@@ -81,9 +86,11 @@ export default function Dashboard() {
                             <Square className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">
-                                {loading ? "-" : stopped}
-                            </div>
+                            {loading ? (
+                                <Skeleton className="h-8 w-12" />
+                            ) : (
+                                <div className="text-2xl font-bold">{stopped}</div>
+                            )}
                         </CardContent>
                     </Card>
                     <Card>
@@ -94,9 +101,11 @@ export default function Dashboard() {
                             <AlertTriangle className="h-4 w-4 text-red-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-red-600">
-                                {loading ? "-" : errors}
-                            </div>
+                            {loading ? (
+                                <Skeleton className="h-8 w-12" />
+                            ) : (
+                                <div className="text-2xl font-bold text-red-600">{errors}</div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
