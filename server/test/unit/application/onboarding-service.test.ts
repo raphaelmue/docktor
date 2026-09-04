@@ -1,6 +1,7 @@
 import {describe, it, expect, vi, beforeEach} from "vitest";
 import {OnboardingService} from "../../../src/application/onboarding-service.js";
 import {ConflictError, BadRequestError} from "../../../src/lib/errors.js";
+import {wizardStep6Schema} from "@docktor/shared";
 
 function createMockSettingsRepo() {
     return {
@@ -228,6 +229,24 @@ describe("OnboardingService", () => {
                 "Duplicate Stack",
             )).rejects.toThrow('Stack "duplicate-stack" already exists');
             expect(mockFsLib.readFile).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("wizardStep6Schema (D-09)", () => {
+        it("accepts an empty acmeEmail", () => {
+            expect(wizardStep6Schema.safeParse({acmeEmail: ""}).success).toBe(true);
+        });
+
+        it("accepts a valid email", () => {
+            expect(wizardStep6Schema.safeParse({acmeEmail: "admin@example.com"}).success).toBe(true);
+        });
+
+        it("accepts a missing acmeEmail (optional)", () => {
+            expect(wizardStep6Schema.safeParse({}).success).toBe(true);
+        });
+
+        it("rejects a malformed email", () => {
+            expect(wizardStep6Schema.safeParse({acmeEmail: "nope"}).success).toBe(false);
         });
     });
 
