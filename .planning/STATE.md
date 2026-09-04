@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 06
 current_phase_name: Proxy Configuration
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-09-04T07:14:12.967Z"
-state_head: 58c3e7c4834caccd77ea7497b0092560e0670292
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-09-04T07:40:05.435Z"
+state_head: 6a2a6049c94e5bed876325249ba57b6e200bd07a
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 73
-  completed_plans: 70
+  completed_plans: 71
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 06 (Proxy Configuration) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -119,6 +119,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 06 P01 | 95min | 2 tasks | 13 files |
 | Phase 06 P02 | 65min | 2 tasks | 8 files |
 | Phase 06 P03 | 30min | 3 tasks | 12 files |
+| Phase 06 P04 | 25min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -259,6 +260,8 @@ Recent decisions affecting current work:
 - [Phase 06]: [Phase 06-02] assignDomain/removeDomain wrap their entire body (not just the compose write) in withKeyedLock(stackId, ...) — T-06-09 serialization empirically verified via a manual two-call race reproduction with the lock bypassed
 - [Phase 06]: [Phase 06-03] renderProxyStackCompose is a template literal (not a yaml Document-API edit) since the proxy stack's compose file is Docktor-authored with no prior content to preserve
 - [Phase 06]: [Phase 06-03] deployAndSurfaceFailure relays StackService.deployStack's real errorMessage verbatim through BadRequestError (never a paraphrase), the single choke point for D-11's fail-loudly requirement
+- [Phase 06]: [Phase 06-04] PROXY_STACK_ID redeclared as a local literal in jobs/proxy-cert-poller.ts (not imported from proxy-service.ts) — keeps this job's unit-test module graph free of the Prisma/compose-editor/StackService import chain, matching state-poller.ts/file-watcher.ts's precedent
+- [Phase 06]: [Phase 06-04] ProxyCertPoller.reconcile() aborts the whole pass untouched (no writes, no publishes, one log line) on a certs-directory read failure, and fetches the acme-companion log tail at most once per reconcile only when at least one TLS-enabled row still lacks a certificate file
 
 ### Quick Tasks Completed
 
@@ -319,6 +322,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-04T07:14:10.665Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-09-04T07:40:02.552Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None
