@@ -32,9 +32,10 @@ import {
 import {ApiError} from "@/lib/api";
 import {cn} from "@/lib/utils";
 import {useContainerEvents} from "@/hooks/use-container-events";
+import {ProxySettingsCard} from "@/routes/app/settings/components/proxy-settings-card";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
-const VALID_TABS = ["general", "notifications", "backup"] as const;
+const VALID_TABS = ["general", "notifications", "backup", "proxy"] as const;
 type Tab = typeof VALID_TABS[number];
 
 interface TimezoneComboboxProps {
@@ -1031,6 +1032,7 @@ export default function SettingsPage() {
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="notifications">Notifications</TabsTrigger>
                         <TabsTrigger value="backup">Backup</TabsTrigger>
+                        <TabsTrigger value="proxy">Proxy</TabsTrigger>
                     </TabsList>
                     <TabsContent value="general">
                         <Card>
@@ -1110,6 +1112,9 @@ export default function SettingsPage() {
                     <TabsContent value="backup" className="space-y-6">
                         <BackupRepositoryCard />
                         <BackupDefaultsCard />
+                    </TabsContent>
+                    <TabsContent value="proxy" className="space-y-6">
+                        <ProxySettingsCard />
                     </TabsContent>
                 </Tabs>
             </PageContent>

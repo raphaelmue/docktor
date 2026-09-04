@@ -26,6 +26,12 @@ vi.mock("@/lib/backups-api", () => ({
     triggerBackup: vi.fn(),
 }));
 
+// Bumped from the 5s default: userEvent interactions with a Radix
+// DropdownMenu + Tooltip flake under this host's full-parallel-suite
+// resource contention — the same documented class of flake as
+// proxy-tab.test.tsx/stack-detail-page.test.tsx (05.1-01-SUMMARY.md/STATE.md).
+vi.setConfig({testTimeout: 15000});
+
 vi.mock("sonner", () => ({
     toast: {
         promise: vi.fn(),

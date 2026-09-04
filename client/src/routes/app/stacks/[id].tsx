@@ -208,6 +208,7 @@ export default function StackDetailPage() {
                         stackId={id}
                         stackName={stack.displayName}
                         status={status}
+                        isProtected={stack.isProtected}
                         onAction={refetch}
                     />
                 </PageActions>
