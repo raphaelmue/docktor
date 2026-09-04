@@ -251,7 +251,7 @@ Plans:
   3. User can remove a proxy configuration from the UI; the routing/TLS env vars are removed from the service's compose file and it is redeployed
   4. Proxy operations are idempotent: reconfiguring an existing domain updates the service's env vars rather than creating a duplicate
 
-**Plans**: 4/6 plans executed
+**Plans**: 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -269,7 +269,7 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion — 06-04 and 06-06 are independent of each other)*
 
 - [x] 06-04-PLAN.md — ProxyCertPoller, the proxy_cert_status SSE event, and the useProxyStatus hook
-- [ ] 06-06-PLAN.md — Optional First-Run Wizard proxy step (step 6, terminal)
+- [x] 06-06-PLAN.md — Optional First-Run Wizard proxy step (step 6, terminal)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -287,4 +287,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Notifications | 5/5 | Complete   | 2026-03-20 |
 | 4. Backup & Restore | 17/17 | Complete    | 2026-08-31 |
 | 5. Onboarding | 11/10 | Complete    | 2026-08-31 |
-| 6. Proxy Configuration | 4/6 | In Progress|  |
+| 6. Proxy Configuration | 5/6 | In Progress|  |
