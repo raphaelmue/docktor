@@ -13,6 +13,7 @@ const STEPS = [
   {number: 3, title: "Backup", required: false},
   {number: 4, title: "Notifications", required: false},
   {number: 5, title: "Import", required: false},
+  {number: 6, title: "Proxy", required: false},
 ];
 
 export function WizardStepper({currentStep, completedSteps, onStepClick}: Readonly<WizardStepperProps>) {

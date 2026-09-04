@@ -4,6 +4,7 @@ import type {
   WizardStep2Input,
   WizardStep3Input,
   WizardStep4Input,
+  WizardStep6Input,
 } from "@docktor/shared";
 import type {
   MigrationPreview,
@@ -57,6 +58,13 @@ export function submitStep3(input: WizardStep3Input) {
 
 export function submitStep4(input: WizardStep4Input) {
   return apiFetch<{success: boolean}>("/api/setup/step4", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitStep6(input: WizardStep6Input) {
+  return apiFetch<{success: boolean}>("/api/setup/step6", {
     method: "POST",
     body: JSON.stringify(input),
   });

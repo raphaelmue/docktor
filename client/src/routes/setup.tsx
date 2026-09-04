@@ -2,17 +2,18 @@ import {useState, useEffect} from "react";
 import {useNavigate, Link} from "react-router";
 import {toast} from "sonner";
 import {signIn} from "@/lib/auth-client";
-import {checkSetupStatus, completeSetup, submitStep1, submitStep2, submitStep3, submitStep4} from "@/lib/setup-api";
+import {checkSetupStatus, completeSetup, submitStep1, submitStep2, submitStep3, submitStep4, submitStep6} from "@/lib/setup-api";
 import {WizardStepper} from "@/routes/setup/components/wizard-stepper";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
-import type {WizardStep1Input, WizardStep2Input, WizardStep3Input, WizardStep4Input} from "@docktor/shared";
+import type {WizardStep1Input, WizardStep2Input, WizardStep3Input, WizardStep4Input, WizardStep6Input} from "@docktor/shared";
 
 import {AccountStep} from "@/routes/setup/components/account-step";
 import {SettingsStep} from "@/routes/setup/components/settings-step";
 import {BackupStep} from "@/routes/setup/components/backup-step";
 import {NotificationsStep} from "@/routes/setup/components/notifications-step";
 import {BrownfieldStep} from "@/routes/setup/components/brownfield-step";
+import {ProxyStep} from "@/routes/setup/components/proxy-step";
 
 export default function SetupPage() {
   const navigate = useNavigate();
@@ -27,6 +28,9 @@ export default function SetupPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [stepLoading, setStepLoading] = useState(false);
+  // D-11: a failed proxy-stack deploy on step 6 is surfaced inline on
+  // ProxyStep (raw server error, unwrapped) rather than as a toast.
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const loadSetupStatus = () => {
     setLoading(true);
@@ -127,7 +131,7 @@ export default function SetupPage() {
 
   const handleSkip = async (step: number) => {
     markStepComplete(step);
-    if (step === 5) {
+    if (step === 6) {
       await notifyWizardComplete();
       navigate("/");
     } else {
@@ -135,10 +139,28 @@ export default function SetupPage() {
     }
   };
 
-  const handleFinish = async () => {
+  // Import (step 5) is no longer the wizard's terminal step — Proxy (step 6)
+  // is. Advances instead of finishing.
+  const handleStep5 = async () => {
     markStepComplete(5);
-    await notifyWizardComplete();
-    navigate("/");
+    setCurrentStep(6);
+  };
+
+  const handleStep6 = async (data: WizardStep6Input) => {
+    setStepLoading(true);
+    setDeployError(null);
+    try {
+      await submitStep6(data);
+      markStepComplete(6);
+      toast.success("Proxy stack deployed");
+      await notifyWizardComplete();
+      navigate("/");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to deploy the proxy stack";
+      setDeployError(message);
+    } finally {
+      setStepLoading(false);
+    }
   };
 
   const handleStepClick = (step: number) => {
@@ -234,7 +256,16 @@ export default function SetupPage() {
         <BrownfieldStep
           onBack={() => setCurrentStep(4)}
           onSkip={() => handleSkip(5)}
-          onFinish={handleFinish}
+          onFinish={handleStep5}
+        />
+      )}
+      {currentStep === 6 && (
+        <ProxyStep
+          onSubmit={handleStep6}
+          onBack={() => setCurrentStep(5)}
+          onSkip={() => handleSkip(6)}
+          loading={stepLoading}
+          deployError={deployError}
         />
       )}
     </div>

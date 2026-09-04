@@ -109,6 +109,13 @@ async function reachBrownfieldStep(page: Page) {
     await skipToBrownfieldStep(page);
 }
 
+/** Continues from step 5 (Import) to step 6 (Proxy) — Import is no longer terminal. */
+async function reachProxyStep(page: Page) {
+    await reachBrownfieldStep(page);
+    await page.getByRole("button", {name: "Next"}).click(); // step 5 -> 6
+    await expect(page.getByRole("button", {name: /step 6: proxy/i})).toHaveAttribute("aria-current", "step");
+}
+
 test.describe("Setup Wizard", () => {
     test.describe("First-run wizard flow", () => {
         // WIZ-01: first boot lands on the wizard, not the login form.
@@ -148,8 +155,8 @@ test.describe("Setup Wizard", () => {
             await expect(page).toHaveURL(/\/login$/);
         });
 
-        test("should show 5-step stepper with Account as first step", async ({page}) => {
-            // WIZ-07: Wizard UI
+        test("should show 6-step stepper with Account as first step and Proxy as sixth", async ({page}) => {
+            // WIZ-07 / D-10: Wizard UI, Proxy appended as the new terminal step
             await mockSetupIncomplete(page);
             await page.goto("/setup");
 
@@ -158,6 +165,7 @@ test.describe("Setup Wizard", () => {
             await expect(page.getByRole("button", {name: /step 3: backup/i})).toBeVisible();
             await expect(page.getByRole("button", {name: /step 4: notifications/i})).toBeVisible();
             await expect(page.getByRole("button", {name: /step 5: import/i})).toBeVisible();
+            await expect(page.getByRole("button", {name: /step 6: proxy/i})).toBeVisible();
         });
 
         test("should create admin account and auto-login on step 1 submit", async ({page}) => {
@@ -200,9 +208,21 @@ test.describe("Setup Wizard", () => {
             await expect(page.getByText("Import Existing Stacks")).toBeVisible();
         });
 
-        test("should redirect to dashboard after wizard completion", async ({page}) => {
-            // WIZ-07: Post-wizard redirect
+        test("should advance from Import to the Proxy step instead of finishing (D-10)", async ({page}) => {
+            // Import (step 5) is no longer the wizard's terminal step — Proxy
+            // (step 6) is, per D-10.
             await reachBrownfieldStep(page);
+
+            await page.getByRole("button", {name: "Next"}).click();
+
+            await expect(page.getByRole("button", {name: /step 6: proxy/i})).toHaveAttribute("aria-current", "step");
+            await expect(page.getByRole("button", {name: "Deploy Proxy Stack"})).toBeVisible();
+        });
+
+        test("should skip the proxy step and reach the dashboard with nothing deployed", async ({page}) => {
+            // PRXY-02: skipping the terminal step deploys nothing and still
+            // completes the wizard.
+            await reachProxyStep(page);
 
             await page.route("**/api/setup/complete", (route) =>
                 route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({success: true})}),
@@ -216,8 +236,50 @@ test.describe("Setup Wizard", () => {
                 route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify([])}),
             );
 
-            await page.getByRole("button", {name: "Finish Setup"}).click();
+            await page.getByRole("button", {name: "Skip"}).click();
             await expect(page).toHaveURL("/");
+        });
+
+        test("should submit the proxy step and reach the dashboard after deploying", async ({page}) => {
+            // D-09/D-10: submitting (with or without an ACME email) deploys the
+            // proxy stack and finishes the wizard.
+            await reachProxyStep(page);
+
+            await page.route("**/api/setup/step6", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({success: true})}),
+            );
+            await page.route("**/api/setup/complete", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({success: true})}),
+            );
+            await page.route("**/api/auth/get-session", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(mockAuthSession)}),
+            );
+            await page.route("**/api/stacks", (route) =>
+                route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify([])}),
+            );
+
+            await page.getByRole("button", {name: "Deploy Proxy Stack"}).click();
+            await expect(page).toHaveURL("/");
+        });
+
+        test("should keep the user on the proxy step and show the raw error on a failed deploy (D-11)", async ({page}) => {
+            await reachProxyStep(page);
+
+            await page.route("**/api/setup/step6", (route) =>
+                route.fulfill({
+                    status: 409,
+                    contentType: "application/json",
+                    body: JSON.stringify({
+                        error: 'Host port 80 is already published by container "web-1". Free the port and try again.',
+                    }),
+                }),
+            );
+
+            await page.getByRole("button", {name: "Deploy Proxy Stack"}).click();
+
+            await expect(page.getByText(/could not deploy the proxy stack — ports 80\/443 are already in use/i)).toBeVisible();
+            await expect(page.getByText(/host port 80 is already published by container "web-1"/i)).toBeVisible();
+            await expect(page.getByRole("button", {name: /step 6: proxy/i})).toHaveAttribute("aria-current", "step");
         });
 
         test("should show 'Setup Complete' if visiting /setup after completion", async ({page}) => {

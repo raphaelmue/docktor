@@ -5,12 +5,16 @@ import {scanDirectories, adoptStack, previewMigration, executeMigration} from "@
 interface BrownfieldStepProps {
   onBack: () => void;
   onSkip: () => void;
+  // 06-06: Import is no longer the wizard's terminal step (Proxy is) — this
+  // now advances to step 6 rather than finishing the wizard. Prop kept as
+  // onFinish to minimize churn; its contract is simply "proceed past this
+  // step."
   onFinish: () => void;
 }
 
 // Thin wizard wrapper around the shared BrownfieldImport component, wired to
 // setup-api.ts (/api/setup/*, reachable only while the wizard is
-// incomplete). Owns only the wizard-specific Back/Skip/Finish footer — every
+// incomplete). Owns only the wizard-specific Back/Skip/Next footer — every
 // other behaviour (scan/adopt/migrate) lives in BrownfieldImport.
 export function BrownfieldStep({onBack, onSkip, onFinish}: Readonly<BrownfieldStepProps>) {
   return (
@@ -27,7 +31,7 @@ export function BrownfieldStep({onBack, onSkip, onFinish}: Readonly<BrownfieldSt
             Skip
           </Button>
           <Button type="button" onClick={onFinish}>
-            Finish Setup
+            Next
           </Button>
         </div>
       </div>
