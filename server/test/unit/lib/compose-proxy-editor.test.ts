@@ -3,6 +3,7 @@ import {
     ComposeProxyEditError,
     PROXY_NETWORK_NAME,
     readServiceProxyEnv,
+    removeServiceProxyEnv,
     setServiceProxyEnv,
 } from "../../../src/lib/compose-proxy-editor.js";
 
@@ -164,6 +165,103 @@ describe("setServiceProxyEnv", () => {
         } catch (err) {
             expect(err).toBeInstanceOf(ComposeProxyEditError);
             expect((err as ComposeProxyEditError).reason).toBe("no-services");
+        }
+    });
+});
+
+describe("removeServiceProxyEnv", () => {
+    it("deletes VIRTUAL_HOST, VIRTUAL_PORT and LETSENCRYPT_HOST when present", () => {
+        const withEnv = setServiceProxyEnv("services:\n  web:\n    image: nginx:latest\n", "web", {
+            virtualHost: "app.example.com",
+            virtualPort: "8080",
+            letsencryptHost: "app.example.com",
+        });
+
+        const result = removeServiceProxyEnv(withEnv, "web");
+
+        expect(result).not.toContain("VIRTUAL_HOST");
+        expect(result).not.toContain("VIRTUAL_PORT");
+        expect(result).not.toContain("LETSENCRYPT_HOST");
+    });
+
+    it("is a no-op when the env keys are already absent", () => {
+        const content = "services:\n  web:\n    image: nginx:latest\n";
+
+        expect(() => removeServiceProxyEnv(content, "web")).not.toThrow();
+        expect(removeServiceProxyEnv(content, "web")).toBe(content);
+    });
+
+    it("removes only docktor_proxy from the service's networks, leaving other entries in their original order", () => {
+        const content =
+            "services:\n  web:\n    image: nginx:latest\n    networks:\n      - default\n      - docktor_proxy\n      - other\n";
+
+        const result = removeServiceProxyEnv(content, "web");
+
+        expect(result).toBe("services:\n  web:\n    image: nginx:latest\n    networks:\n      - default\n      - other\n");
+    });
+
+    it("deletes the networks key entirely when it becomes empty", () => {
+        const content = "services:\n  web:\n    image: nginx:latest\n    networks:\n      - docktor_proxy\n";
+
+        const result = removeServiceProxyEnv(content, "web");
+
+        expect(result).toBe("services:\n  web:\n    image: nginx:latest\n");
+    });
+
+    it("leaves a second service's VIRTUAL_HOST and docktor_proxy network entry intact, and leaves the top-level networks.docktor_proxy declaration present", () => {
+        const content = [
+            "services:",
+            "  web:",
+            "    image: nginx:latest",
+            "    environment:",
+            "      VIRTUAL_HOST: app.example.com",
+            '      VIRTUAL_PORT: "8080"',
+            "    networks:",
+            "      - docktor_proxy",
+            "  api:",
+            "    image: node:latest",
+            "    environment:",
+            "      VIRTUAL_HOST: api.example.com",
+            '      VIRTUAL_PORT: "3000"',
+            "    networks:",
+            "      - docktor_proxy",
+            "networks:",
+            "  docktor_proxy:",
+            "    external: true",
+            "",
+        ].join("\n");
+
+        const result = removeServiceProxyEnv(content, "web");
+
+        expect(result).toBe(
+            [
+                "services:",
+                "  web:",
+                "    image: nginx:latest",
+                "  api:",
+                "    image: node:latest",
+                "    environment:",
+                "      VIRTUAL_HOST: api.example.com",
+                '      VIRTUAL_PORT: "3000"',
+                "    networks:",
+                "      - docktor_proxy",
+                "networks:",
+                "  docktor_proxy:",
+                "    external: true",
+                "",
+            ].join("\n"),
+        );
+    });
+
+    it("raises ComposeProxyEditError with reason 'service-not-found' for an unknown service", () => {
+        const content = "services:\n  web:\n    image: nginx:latest\n";
+
+        try {
+            removeServiceProxyEnv(content, "missing");
+            expect.fail("expected ComposeProxyEditError to be thrown");
+        } catch (err) {
+            expect(err).toBeInstanceOf(ComposeProxyEditError);
+            expect((err as ComposeProxyEditError).reason).toBe("service-not-found");
         }
     });
 });

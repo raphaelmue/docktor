@@ -206,5 +206,36 @@ describe("Proxy API", () => {
 
             expect(res.statusCode).toBe(401);
         });
+
+        it("removes the domain and returns 204, then returns 404 on a repeat delete", async () => {
+            const hostPath = await seedStack("web-stack");
+            await seedStack("docktor-proxy", {isProtected: true});
+
+            const assignRes = await app.inject({
+                method: "POST",
+                url: "/api/stacks/web-stack/services/web/proxy",
+                headers: {cookie},
+                payload: {domain: "app.example.com", internalPort: 8080, tlsEnabled: true},
+            });
+            expect(assignRes.statusCode).toBe(201);
+            const proxyConfigId = assignRes.json().id;
+
+            const deleteRes = await app.inject({
+                method: "DELETE",
+                url: `/api/proxy-configs/${proxyConfigId}`,
+                headers: {cookie},
+            });
+            expect(deleteRes.statusCode).toBe(204);
+
+            const composeContent = await fs.readFile(path.join(hostPath, "docker-compose.yml"), "utf-8");
+            expect(composeContent).not.toContain("VIRTUAL_HOST");
+
+            const repeat = await app.inject({
+                method: "DELETE",
+                url: `/api/proxy-configs/${proxyConfigId}`,
+                headers: {cookie},
+            });
+            expect(repeat.statusCode).toBe(404);
+        });
     });
 });
