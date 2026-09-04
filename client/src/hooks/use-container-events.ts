@@ -46,7 +46,19 @@ export interface NotificationCreatedEvent {
     notificationId: string
 }
 
-export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | ConfigErrorEvent | UpdateAvailableEvent | NotificationCreatedEvent
+// Structurally identical to server/src/lib/state-broadcaster.ts's
+// ProxyCertStatusEvent — this file is a hand-maintained mirror of the
+// server's StateEvent union, so field names must stay byte-identical.
+export interface ProxyCertStatusEvent {
+    type: "proxy_cert_status"
+    proxyConfigId: string
+    stackId: string
+    domain: string
+    status: "pending" | "issued" | "failed"
+    message?: string
+}
+
+export type StateEvent = ContainerStateEvent | StackStatusEvent | ConfigChangedEvent | ConfigErrorEvent | UpdateAvailableEvent | NotificationCreatedEvent | ProxyCertStatusEvent
 
 const BASE = globalThis.location?.port === "5173" ? "http://localhost:3000" : ""
 
