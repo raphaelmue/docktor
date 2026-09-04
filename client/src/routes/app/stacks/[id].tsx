@@ -32,13 +32,14 @@ import {BackupsTab} from "./components/backups-tab";
 import {ServicesTab} from "./components/services-tab";
 import {EventLogCard} from "./components/event-log-card";
 import {StatusLogCard} from "./components/status-log-card";
+import {ProxyTab} from "./components/proxy-tab";
 
 export default function StackDetailPage() {
     const {id = "", tab} = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
     const {stack, loading, isRefreshing, error, refetch} = useStack(id);
 
-    const VALID_TABS = ["overview", "compose", "environment", "logs", "backups"] as const;
+    const VALID_TABS = ["overview", "compose", "environment", "logs", "backups", "proxy"] as const;
     type Tab = typeof VALID_TABS[number];
     const activeTab: Tab = VALID_TABS.includes(tab as Tab) ? (tab as Tab) : "overview";
 
@@ -157,6 +158,7 @@ export default function StackDetailPage() {
         environment: "Environment",
         logs: "Logs",
         backups: "Backups",
+        proxy: "Proxy",
     };
 
     return (
@@ -238,6 +240,7 @@ export default function StackDetailPage() {
                         <TabsTrigger value="environment">Environment</TabsTrigger>
                         <TabsTrigger value="logs">Logs</TabsTrigger>
                         <TabsTrigger value="backups">Backups</TabsTrigger>
+                        <TabsTrigger value="proxy">Proxy</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4 mt-4">
@@ -374,6 +377,10 @@ export default function StackDetailPage() {
                             stackName={stack.displayName}
                             stackStatus={status}
                         />
+                    </TabsContent>
+
+                    <TabsContent value="proxy" className="mt-4">
+                        <ProxyTab stackId={id} services={stack.services} />
                     </TabsContent>
                 </Tabs>
             </PageContent>

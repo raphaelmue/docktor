@@ -1,6 +1,7 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {MemoryRouter} from "react-router";
 import {ProxyTab} from "@/routes/app/stacks/components/proxy-tab";
 import {
     assignDomain,
@@ -20,6 +21,15 @@ if (!Element.prototype.hasPointerCapture) {
 }
 if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = vi.fn();
+}
+// jsdom has no ResizeObserver — Radix's Switch (via @radix-ui/react-use-size)
+// requires one to measure the thumb on mount.
+if (typeof globalThis.ResizeObserver === "undefined") {
+    globalThis.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+    } as unknown as typeof ResizeObserver;
 }
 
 vi.mock("@/lib/proxy-api", () => ({
@@ -50,6 +60,14 @@ vi.mock("sonner", () => ({
         }),
     },
 }));
+
+// Bumped from the 5s default: this suite is CPU-bound (userEvent interactions
+// + full ProxyTab render with Form/Select/AlertDialog) and flakes under this
+// host's full-parallel-suite resource contention, the same documented class
+// of flake as stack-detail-page.test.tsx/service-upgrade-dialog.test.tsx
+// (05.1-01-SUMMARY.md/STATE.md) — every test here passes reliably in
+// isolation or in small groups.
+vi.setConfig({testTimeout: 15000});
 
 const mockGetProxyConfigs = vi.mocked(getProxyConfigs);
 const mockGetProxySettings = vi.mocked(getProxySettings);
@@ -103,7 +121,11 @@ function makeState(overrides: Partial<ProxyState> = {}): ProxyState {
 }
 
 function renderTab(services: Service[] = [makeService()]) {
-    return render(<ProxyTab stackId="my-app" services={services} />);
+    return render(
+        <MemoryRouter>
+            <ProxyTab stackId="my-app" services={services} />
+        </MemoryRouter>,
+    );
 }
 
 beforeEach(() => {
