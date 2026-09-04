@@ -83,7 +83,7 @@
 - [ ] **PRXY-02**: Docktor auto-deploys and manages an `nginx-proxy` + `acme-companion` reverse-proxy stack; configuring a domain writes the required routing/TLS env vars into the target service's compose file and redeploys it
 - [ ] **PRXY-03**: ACME/Let's Encrypt registration email and proxy-stack settings are configurable in Settings
 - [ ] **PRXY-04**: User can remove a proxy configuration, which removes the routing/TLS env vars from the service's compose file and redeploys it
-- [ ] **PRXY-05**: Proxy operations are idempotent (re-applying an existing domain's env vars updates the service's config rather than erroring or duplicating)
+- [x] **PRXY-05**: Proxy operations are idempotent (re-applying an existing domain's env vars updates the service's config rather than erroring or duplicating)
 
 ## v2 Requirements
 
@@ -170,7 +170,7 @@
 | PRXY-02 | Phase 6 | Pending |
 | PRXY-03 | Phase 6 | Pending |
 | PRXY-04 | Phase 6 | Pending |
-| PRXY-05 | Phase 6 | Pending |
+| PRXY-05 | Phase 6 | Complete |
 
 **Coverage:**
 

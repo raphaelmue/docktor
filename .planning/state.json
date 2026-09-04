@@ -31,7 +31,7 @@
     {
       "number": "6",
       "name": "Proxy Configuration",
-      "status": "pending"
+      "status": "in_progress"
     }
   ],
   "next": {
@@ -39,5 +39,5 @@
     "label": "Advance to the next step (verify)",
     "reason": "Phase 6 of 7 · ready to verify"
   },
-  "updated_at": "2026-09-03T22:57:20.338Z"
+  "updated_at": "2026-09-04T06:48:27.360Z"
 }

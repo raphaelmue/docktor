@@ -4,14 +4,14 @@ milestone: v1.0
 current_phase: 06
 current_phase_name: Proxy Configuration
 status: Phase 02 (Observability) complete — 16/16 plans, UAT 16/18 passed (2 acknowledged skips), Nyquist validated, security-verified (0 open threats), UI-audited (18/24)
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-09-03T22:57:50.028Z"
-state_head: 3e096c18462b8c03a46588f5436ec64b189ef50c
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-09-04T06:48:53.724Z"
+state_head: 3ea4f727ba41ae3fc9f582a7888915cd45def620
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 73
-  completed_plans: 68
+  completed_plans: 69
 milestone_name: milestone
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-30)
 ## Current Position
 
 Phase: 06 (Proxy Configuration) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 
 _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15, 04-16), READY TO EXECUTE. This is a re-planned already-executed phase, not the project's current focus; run `/gsd-execute-phase 04 --gaps-only` when ready to close these gaps._
 
@@ -117,6 +117,7 @@ _Phase 04 (backup-restore) gap-closure planning complete — 2 new plans (04-15,
 | Phase 05.1 P11 | 20min | 2 tasks | 4 files |
 | Phase 05.1 P12 | 20min | 2 tasks | 7 files |
 | Phase 06 P01 | 95min | 2 tasks | 13 files |
+| Phase 06 P02 | 65min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -253,6 +254,8 @@ Recent decisions affecting current work:
 - [Phase 05.1]: [Phase 05.1-12]: directoryDisplayName() lives in a new client/src/lib/path-display.ts (not utils.ts) as an import-free pure string utility tolerant of POSIX/Windows/mixed separators
 - [Phase 06]: [Phase 06-01]: Resolved LETSENCRYPT_HOST vs ACME_HOST via a deterministic grep of the actual acme-companion:2.6.3 image (not doc pages) — both LETSENCRYPT_HOST/LETSENCRYPT_EMAIL confirmed present
 - [Phase 06]: [Phase 06-01]: Added StackRepository.findById() (Rule 3) — required by ProxyService's constructor Pick<> type, did not exist before
+- [Phase 06]: [Phase 06-02] hasIn-guarded deleteEnvKeyIfPresent fixes removeServiceProxyEnv throwing when a service has no environment block at all (not just a missing key)
+- [Phase 06]: [Phase 06-02] assignDomain/removeDomain wrap their entire body (not just the compose write) in withKeyedLock(stackId, ...) — T-06-09 serialization empirically verified via a manual two-call race reproduction with the lock bypassed
 
 ### Quick Tasks Completed
 
@@ -312,6 +315,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-03T22:57:47.629Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-09-04T06:48:51.238Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
