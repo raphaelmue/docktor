@@ -50,6 +50,7 @@ export class StackRepository {
         description?: string | null;
         hostPath: string;
         composeConfig: ComposeConfig;
+        isProtected?: boolean;
     }) {
         return prisma.stack.create({
             data: {
@@ -57,6 +58,7 @@ export class StackRepository {
                 displayName: data.displayName,
                 description: data.description ?? null,
                 hostPath: data.hostPath,
+                isProtected: data.isProtected ?? false,
                 lastKnownHash: data.composeConfig.hash,
                 lastParsedAt: new Date(),
                 services: {

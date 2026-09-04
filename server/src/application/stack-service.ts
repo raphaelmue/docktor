@@ -9,6 +9,7 @@ import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {DockerExecutor} from "../infrastructure/docker-executor.js";
 import type {StateBroadcaster} from "../lib/state-broadcaster.js";
+import type {SettingsService} from "./settings-service.js";
 import type {StackStatus, StackEventType} from "../generated/prisma/enums.js";
 
 /**
@@ -34,6 +35,7 @@ export class StackService {
         private readonly docker: DockerExecutor,
         private readonly events: StackEventReadRepo,
         private readonly broadcaster: Pick<StateBroadcaster, "publish">,
+        private readonly settings: Pick<SettingsService, "getProxySettings">,
     ) {}
 
     async createStack(input: CreateStackInput) {
@@ -63,8 +65,16 @@ export class StackService {
         });
     }
 
+    /**
+     * Filters out protected stacks (e.g. the Docktor-managed proxy stack)
+     * from the dashboard list unless the user opts in via
+     * proxy.showInDashboard — kept in the service, not the route, per
+     * CLAUDE.md's "routes only call application services" rule.
+     */
     async listStacks() {
-        return this.repo.findAll();
+        const all = await this.repo.findAll();
+        const {showInDashboard} = await this.settings.getProxySettings();
+        return showInDashboard ? all : all.filter((s) => !s.isProtected);
     }
 
     async getStack(id: string) {
@@ -149,6 +159,7 @@ export class StackService {
 
     async deleteStack(id: string) {
         const stack = await this.repo.findByIdOrThrow(id);
+        this.assertNotProtected(stack, "deleted");
         this.guardTransition(stack.status as StackStatus, "DELETE");
 
         try {
@@ -233,6 +244,7 @@ export class StackService {
 
     async stopStack(id: string) {
         const stack = await this.repo.findByIdOrThrow(id);
+        this.assertNotProtected(stack, "stopped");
         this.guardTransition(stack.status as StackStatus, "STOP");
 
         await this.transitionStatus(
@@ -257,6 +269,7 @@ export class StackService {
 
     async restartStack(id: string) {
         const stack = await this.repo.findByIdOrThrow(id);
+        this.assertNotProtected(stack, "restarted");
         this.guardTransition(stack.status as StackStatus, "RESTART");
 
         await this.docker.restart(id);
@@ -549,6 +562,23 @@ export class StackService {
             this.broadcaster.publish({type: "config_changed", stackId: id, newHash});
         } catch (err) {
             console.error(`[StackService] failed to publish config_changed for "${id}":`, err);
+        }
+    }
+
+    /**
+     * D-12: refuses stop/restart/delete on a Docktor-managed protected
+     * stack (e.g. the proxy stack) server-side, before guardTransition runs
+     * and before any docker call — a direct API call must be refused
+     * exactly like a disabled UI button (T-06-13). deployStack and
+     * updateImages are deliberately NOT guarded: ProxyService.deployProxyStack
+     * calls deployStack on this very stack, and D-12 names only
+     * stop/restart/delete.
+     */
+    private assertNotProtected(stack: {id: string; isProtected: boolean}, action: string): void {
+        if (stack.isProtected) {
+            throw new BadRequestError(
+                `Stack "${stack.id}" is managed by Docktor and cannot be ${action} directly`,
+            );
         }
     }
 

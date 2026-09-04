@@ -20,9 +20,10 @@ const repo = new StackRepository();
 const fs = new StackFilesystem();
 const docker = new DockerExecutor();
 
-export const stackService = new StackService(repo, fs, docker, stackEventRepository, stateEventBroadcaster);
 export const settingsRepository = new SettingsRepository();
 export const settingsService = new SettingsService(settingsRepository);
+
+export const stackService = new StackService(repo, fs, docker, stackEventRepository, stateEventBroadcaster, settingsService);
 export const notificationService = new NotificationService(
     new NotificationRepository(),
     settingsService,

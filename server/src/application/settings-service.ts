@@ -11,10 +11,20 @@ const SETTING_KEYS = {
     TIMEZONE: "timezone",
 } as const
 
+const PROXY_SETTING_KEYS = {
+    ACME_EMAIL: "proxy.acmeEmail",
+    SHOW_IN_DASHBOARD: "proxy.showInDashboard",
+} as const
+
 export interface GeneralSettings {
     instanceName: string
     baseUrl: string
     timezone: string
+}
+
+export interface ProxySettings {
+    acmeEmail: string
+    showInDashboard: boolean
 }
 
 const DEFAULTS: GeneralSettings = {
@@ -132,5 +142,47 @@ export class SettingsService {
             baseUrl: data.baseUrl ?? current.baseUrl,
             timezone: data.timezone ?? current.timezone,
         }
+    }
+
+    /**
+     * Reads only the two proxy.* keys — never falls back to smtp.from,
+     * instanceName, baseUrl or any user record (T-06-18's mitigation: the
+     * ACME registration email must be a value the user entered for that
+     * purpose, never derived from another stored address).
+     */
+    async getProxySettings(): Promise<ProxySettings> {
+        const values = await this.repo.getMany([
+            PROXY_SETTING_KEYS.ACME_EMAIL,
+            PROXY_SETTING_KEYS.SHOW_IN_DASHBOARD,
+        ])
+        return {
+            acmeEmail: values[PROXY_SETTING_KEYS.ACME_EMAIL] ?? "",
+            showInDashboard: values[PROXY_SETTING_KEYS.SHOW_IN_DASHBOARD] === "true",
+        }
+    }
+
+    /**
+     * Upserts only the keys present in the argument. An empty acmeEmail is
+     * valid (D-09 — no registration email required); a non-empty value must
+     * be a valid email address. No encryption — an ACME registration
+     * address is not a secret.
+     */
+    async updateProxySettings(data: Partial<ProxySettings>): Promise<void> {
+        if (data.acmeEmail !== undefined && data.acmeEmail !== "") {
+            const emailResult = z.string().email().safeParse(data.acmeEmail)
+            if (!emailResult.success) {
+                throw new BadRequestError("ACME email must be a valid email address")
+            }
+        }
+
+        const updates: Array<{key: string; value: string}> = []
+        if (data.acmeEmail !== undefined) {
+            updates.push({key: PROXY_SETTING_KEYS.ACME_EMAIL, value: data.acmeEmail})
+        }
+        if (data.showInDashboard !== undefined) {
+            updates.push({key: PROXY_SETTING_KEYS.SHOW_IN_DASHBOARD, value: String(data.showInDashboard)})
+        }
+
+        await Promise.all(updates.map(({key, value}) => this.repo.upsert(key, value)))
     }
 }
