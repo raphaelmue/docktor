@@ -1,10 +1,11 @@
-import {afterAll, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
+import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi} from "vitest";
 import {cleanDatabase, createTestUser, getApp, getPrisma, startContainer, stopContainer} from "./setup.js";
 import type {FastifyInstance} from "fastify";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {DockerExecutor} from "../../src/infrastructure/docker-executor.js";
+import {DockerodeClient} from "../../src/infrastructure/dockerode-client.js";
 
 const COMPOSE_CONTENT = "services:\n  web:\n    image: nginx:latest\n";
 
@@ -27,6 +28,7 @@ describe("Proxy API", () => {
         vi.spyOn(DockerExecutor.prototype, "composePull").mockResolvedValue("");
         vi.spyOn(DockerExecutor.prototype, "ps").mockResolvedValue([]);
         vi.spyOn(DockerExecutor.prototype, "imageDigest").mockResolvedValue(null);
+        vi.spyOn(DockerodeClient.prototype, "listContainers").mockResolvedValue([]);
     }, 60_000);
 
     afterAll(async () => {
@@ -236,6 +238,93 @@ describe("Proxy API", () => {
                 headers: {cookie},
             });
             expect(repeat.statusCode).toBe(404);
+        });
+    });
+
+    describe("GET/PUT/POST /api/settings/proxy* (PRXY-02, PRXY-03)", () => {
+        afterEach(() => {
+            vi.mocked(DockerodeClient.prototype.listContainers).mockReset().mockResolvedValue([]);
+            vi.mocked(DockerExecutor.prototype.up).mockReset().mockResolvedValue(undefined);
+        });
+
+        it("GET returns not-deployed state before the proxy stack exists", async () => {
+            const res = await app.inject({method: "GET", url: "/api/settings/proxy", headers: {cookie}});
+
+            expect(res.statusCode).toBe(200);
+            const body = res.json();
+            expect(body.deployed).toBe(false);
+            expect(body.status).toBeNull();
+        });
+
+        it("PUT persists acmeEmail and showInDashboard through the Setting table", async () => {
+            const res = await app.inject({
+                method: "PUT",
+                url: "/api/settings/proxy",
+                headers: {cookie},
+                payload: {acmeEmail: "admin@example.com", showInDashboard: true},
+            });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.json()).toEqual({success: true});
+
+            const rows = await getPrisma().setting.findMany({where: {key: {in: ["proxy.acmeEmail", "proxy.showInDashboard"]}}});
+            const map = Object.fromEntries(rows.map((r: {key: string; value: string}) => [r.key, r.value]));
+            expect(map["proxy.acmeEmail"]).toBe("admin@example.com");
+            expect(map["proxy.showInDashboard"]).toBe("true");
+        });
+
+        it("POST deploy creates the docktor-proxy Stack row with isProtected: true and returns the deployed state", async () => {
+            const res = await app.inject({method: "POST", url: "/api/settings/proxy/deploy", headers: {cookie}});
+
+            expect(res.statusCode).toBe(200);
+            const body = res.json();
+            expect(body.deployed).toBe(true);
+
+            const stack = await getPrisma().stack.findUnique({where: {id: "docktor-proxy"}});
+            expect(stack).not.toBeNull();
+            expect(stack?.isProtected).toBe(true);
+        });
+
+        it("POST deploy is idempotent — a second call creates no duplicate row", async () => {
+            const first = await app.inject({method: "POST", url: "/api/settings/proxy/deploy", headers: {cookie}});
+            expect(first.statusCode).toBe(200);
+
+            const second = await app.inject({method: "POST", url: "/api/settings/proxy/deploy", headers: {cookie}});
+            expect(second.statusCode).toBe(200);
+
+            const stacks = await getPrisma().stack.findMany({where: {id: "docktor-proxy"}});
+            expect(stacks).toHaveLength(1);
+        });
+
+        it("POST deploy returns 409 when a running container already publishes host port 80", async () => {
+            vi.mocked(DockerodeClient.prototype.listContainers).mockResolvedValue([
+                {Id: "c1", Names: ["/some-other-app"], State: "running", Ports: [{PublicPort: 80}]},
+            ] as any);
+
+            const res = await app.inject({method: "POST", url: "/api/settings/proxy/deploy", headers: {cookie}});
+
+            expect(res.statusCode).toBe(409);
+            const stack = await getPrisma().stack.findUnique({where: {id: "docktor-proxy"}});
+            expect(stack).toBeNull();
+        });
+
+        it("POST deploy returns 400 with the real compose failure reason when docker compose fails", async () => {
+            vi.mocked(DockerExecutor.prototype.up).mockRejectedValue(new Error("bind: address already in use"));
+
+            const res = await app.inject({method: "POST", url: "/api/settings/proxy/deploy", headers: {cookie}});
+
+            expect(res.statusCode).toBe(400);
+            expect(res.json().message ?? res.json().error).toContain("bind: address already in use");
+        });
+
+        it("returns 401 without a session cookie on each settings route", async () => {
+            const getRes = await app.inject({method: "GET", url: "/api/settings/proxy"});
+            const putRes = await app.inject({method: "PUT", url: "/api/settings/proxy", payload: {acmeEmail: ""}});
+            const postRes = await app.inject({method: "POST", url: "/api/settings/proxy/deploy"});
+
+            expect(getRes.statusCode).toBe(401);
+            expect(putRes.statusCode).toBe(401);
+            expect(postRes.statusCode).toBe(401);
         });
     });
 });

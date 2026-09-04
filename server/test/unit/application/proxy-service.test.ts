@@ -1,8 +1,12 @@
 import {describe, expect, it, vi} from "vitest";
-import {ProxyService} from "../../../src/application/proxy-service.js";
+import {PROXY_STACK_ID, ProxyService} from "../../../src/application/proxy-service.js";
 import {BadRequestError, ConflictError, NotFoundError} from "../../../src/lib/errors.js";
 import {Prisma} from "../../../src/generated/prisma/client.js";
 import {readServiceProxyEnv, setServiceProxyEnv, PROXY_NETWORK_NAME} from "../../../src/lib/compose-proxy-editor.js";
+import {
+    ACME_COMPANION_CONTAINER_NAME,
+    NGINX_PROXY_CONTAINER_NAME,
+} from "../../../src/lib/proxy-stack-compose.js";
 
 interface FakeRow {
     id: string;
@@ -78,14 +82,39 @@ function createFakeProxyRepo(initialRows: FakeRow[] = []) {
 function createMockStackRepo() {
     return {
         findByIdOrThrow: vi.fn().mockResolvedValue({id: "web-stack"}),
-        findById: vi.fn(),
+        findById: vi.fn().mockResolvedValue(null),
         exists: vi.fn().mockResolvedValue(true),
+        create: vi.fn().mockImplementation(async (data: any) => ({
+            id: data.id,
+            displayName: data.displayName,
+            hostPath: data.hostPath,
+            isProtected: data.isProtected ?? false,
+            status: "DRAFT",
+        })),
     };
 }
 
 function createMockStackService() {
     return {
-        deployStack: vi.fn().mockResolvedValue(undefined),
+        deployStack: vi.fn().mockResolvedValue({success: true}),
+    };
+}
+
+function createMockSettings(overrides: {acmeEmail?: string; showInDashboard?: boolean} = {}) {
+    return {
+        getProxySettings: vi.fn().mockResolvedValue({
+            acmeEmail: overrides.acmeEmail ?? "",
+            showInDashboard: overrides.showInDashboard ?? false,
+        }),
+        updateProxySettings: vi.fn().mockResolvedValue(undefined),
+    };
+}
+
+function createMockDocker(
+    containers: Array<{Id: string; Names: string[]; State: string; Ports: Array<{PublicPort?: number}>}> = [],
+) {
+    return {
+        listContainers: vi.fn().mockResolvedValue(containers),
     };
 }
 
@@ -102,9 +131,11 @@ function createFakeFs(initialContent: string, opts: {delayed?: boolean} = {}) {
     const writeCompose = vi.fn(async (_stackId: string, newContent: string) => {
         content = newContent;
     });
+    const createDirectory = vi.fn().mockResolvedValue("/stacks/docktor-proxy");
     return {
         readCompose,
         writeCompose,
+        createDirectory,
         get content() {
             return content;
         },
@@ -116,10 +147,12 @@ function buildService(
     stackRepo = createMockStackRepo(),
     fs = createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
     stackService = createMockStackService(),
+    settings = createMockSettings(),
+    docker = createMockDocker(),
 ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any);
-    return {service, repo, stackRepo, fs, stackService};
+    const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any);
+    return {service, repo, stackRepo, fs, stackService, settings, docker};
 }
 
 describe("ProxyService.removeDomain (PRXY-04)", () => {
@@ -258,9 +291,12 @@ describe("ProxyService.assignDomain — rollback on failure", () => {
         const fs = {
             readCompose: vi.fn().mockResolvedValue("services:\n  web:\n    image: nginx:latest\n"),
             writeCompose: vi.fn().mockRejectedValue(new Error("disk full")),
+            createDirectory: vi.fn().mockResolvedValue("/stacks/web-stack"),
         };
+        const settings = createMockSettings();
+        const docker = createMockDocker();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any);
+        const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any);
 
         await expect(
             service.assignDomain("web-stack", "web", {domain: "app.example.com", internalPort: 8080, tlsEnabled: false}),
@@ -366,6 +402,202 @@ describe("ProxyService — concurrent compose writes against one stack (T-06-09,
         const fileDomains = new Set((readBack.virtualHost ?? "").split(",").filter(Boolean));
 
         expect(fileDomains).toEqual(finalDomains);
+    });
+});
+
+describe("ProxyService.deployProxyStack (PRXY-02)", () => {
+    it("checks host ports free, writes the compose file, creates the Stack row with isProtected: true and id docktor-proxy, then deploys", async () => {
+        const stackRepo = createMockStackRepo();
+        const fs = createFakeFs("");
+        const stackService = createMockStackService();
+        const settings = createMockSettings({acmeEmail: "admin@example.com"});
+        const docker = createMockDocker([]);
+        const {service} = buildService(createFakeProxyRepo(), stackRepo, fs, stackService, settings, docker);
+
+        await service.deployProxyStack();
+
+        expect(docker.listContainers).toHaveBeenCalled();
+        expect(fs.createDirectory).toHaveBeenCalledWith(PROXY_STACK_ID);
+        expect(fs.writeCompose).toHaveBeenCalledWith(PROXY_STACK_ID, expect.stringContaining("nginx-proxy"));
+        expect(stackRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({id: PROXY_STACK_ID, displayName: "Docktor Proxy", isProtected: true}),
+        );
+        expect(stackService.deployStack).toHaveBeenCalledWith(PROXY_STACK_ID);
+    });
+
+    it("throws ConflictError naming the container when a running container publishes host port 80", async () => {
+        const docker = createMockDocker([
+            {Id: "c1", Names: ["/some-other-app"], State: "running", Ports: [{PublicPort: 80}]},
+        ]);
+        const {service, stackRepo} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs(""),
+            createMockStackService(),
+            createMockSettings(),
+            docker,
+        );
+
+        await expect(service.deployProxyStack()).rejects.toBeInstanceOf(ConflictError);
+        await expect(service.deployProxyStack()).rejects.toThrow(/some-other-app/);
+        expect(stackRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("resolves (no ConflictError) when the same container publishing port 80 is stopped", async () => {
+        const docker = createMockDocker([
+            {Id: "c1", Names: ["/some-other-app"], State: "exited", Ports: [{PublicPort: 80}]},
+        ]);
+        const {service} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs(""),
+            createMockStackService(),
+            createMockSettings(),
+            docker,
+        );
+
+        await expect(service.deployProxyStack()).resolves.not.toThrow();
+    });
+
+    it("ignores containers named docktor-proxy-nginx and docktor-proxy-acme when checking for port conflicts", async () => {
+        const docker = createMockDocker([
+            {Id: "c1", Names: [`/${NGINX_PROXY_CONTAINER_NAME}`], State: "running", Ports: [{PublicPort: 80}]},
+            {Id: "c2", Names: [`/${ACME_COMPANION_CONTAINER_NAME}`], State: "running", Ports: [{PublicPort: 443}]},
+        ]);
+        const {service} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs(""),
+            createMockStackService(),
+            createMockSettings(),
+            docker,
+        );
+
+        await expect(service.deployProxyStack()).resolves.not.toThrow();
+    });
+
+    it("does not call listContainers/assertHostPortsFree and creates no second row when the docktor-proxy stack already exists", async () => {
+        const stackRepo = createMockStackRepo();
+        stackRepo.findById.mockResolvedValue({id: PROXY_STACK_ID, status: "RUNNING", isProtected: true});
+        const fs = createFakeFs("");
+        const stackService = createMockStackService();
+        const docker = createMockDocker();
+        const {service} = buildService(createFakeProxyRepo(), stackRepo, fs, stackService, createMockSettings(), docker);
+
+        await service.deployProxyStack();
+
+        expect(docker.listContainers).not.toHaveBeenCalled();
+        expect(stackRepo.create).not.toHaveBeenCalled();
+        expect(fs.writeCompose).toHaveBeenCalledWith(PROXY_STACK_ID, expect.stringContaining("nginx-proxy"));
+        expect(stackService.deployStack).toHaveBeenCalledWith(PROXY_STACK_ID);
+    });
+
+    it("throws BadRequestError whose message contains the real deployStack errorMessage verbatim when deployStack fails", async () => {
+        const stackService = createMockStackService();
+        stackService.deployStack.mockResolvedValue({success: false, errorMessage: "bind: address already in use"});
+        const {service} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs(""),
+            stackService,
+            createMockSettings(),
+            createMockDocker(),
+        );
+
+        await expect(service.deployProxyStack()).rejects.toThrow(/bind: address already in use/);
+    });
+});
+
+describe("ProxyService.getProxyStackState", () => {
+    it("returns deployed: false and status: null when the proxy stack does not exist", async () => {
+        const {service} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs(""),
+            createMockStackService(),
+            createMockSettings({acmeEmail: "admin@example.com", showInDashboard: true}),
+        );
+
+        const result = await service.getProxyStackState();
+
+        expect(result).toEqual({
+            deployed: false,
+            status: null,
+            acmeEmail: "admin@example.com",
+            showInDashboard: true,
+        });
+    });
+
+    it("returns deployed: true and the Stack row's status when the proxy stack exists", async () => {
+        const stackRepo = createMockStackRepo();
+        stackRepo.findById.mockResolvedValue({id: PROXY_STACK_ID, status: "RUNNING", isProtected: true});
+        const {service} = buildService(
+            createFakeProxyRepo(),
+            stackRepo,
+            createFakeFs(""),
+            createMockStackService(),
+            createMockSettings({acmeEmail: "admin@example.com", showInDashboard: false}),
+        );
+
+        const result = await service.getProxyStackState();
+
+        expect(result).toEqual({
+            deployed: true,
+            status: "RUNNING",
+            acmeEmail: "admin@example.com",
+            showInDashboard: false,
+        });
+    });
+});
+
+describe("ProxyService.updateProxySettingsAndSync (PRXY-03)", () => {
+    it("re-renders and redeploys when acmeEmail changed and the proxy stack exists", async () => {
+        const stackRepo = createMockStackRepo();
+        stackRepo.findById.mockResolvedValue({id: PROXY_STACK_ID, status: "RUNNING", isProtected: true});
+        stackRepo.exists.mockResolvedValue(true);
+        const settings = createMockSettings({acmeEmail: "old@example.com"});
+        settings.getProxySettings
+            .mockResolvedValueOnce({acmeEmail: "old@example.com", showInDashboard: false})
+            .mockResolvedValueOnce({acmeEmail: "new@example.com", showInDashboard: false});
+        const fs = createFakeFs("");
+        const stackService = createMockStackService();
+        const {service} = buildService(createFakeProxyRepo(), stackRepo, fs, stackService, settings);
+
+        await service.updateProxySettingsAndSync({acmeEmail: "new@example.com"});
+
+        expect(settings.updateProxySettings).toHaveBeenCalledWith({acmeEmail: "new@example.com"});
+        expect(fs.writeCompose).toHaveBeenCalledWith(PROXY_STACK_ID, expect.stringContaining("nginx-proxy"));
+        expect(stackService.deployStack).toHaveBeenCalledWith(PROXY_STACK_ID);
+    });
+
+    it("does not redeploy when acmeEmail is unchanged", async () => {
+        const stackRepo = createMockStackRepo();
+        stackRepo.findById.mockResolvedValue({id: PROXY_STACK_ID, status: "RUNNING", isProtected: true});
+        const settings = createMockSettings({acmeEmail: "same@example.com"});
+        const fs = createFakeFs("");
+        const stackService = createMockStackService();
+        const {service} = buildService(createFakeProxyRepo(), stackRepo, fs, stackService, settings);
+
+        await service.updateProxySettingsAndSync({acmeEmail: "same@example.com", showInDashboard: true});
+
+        expect(settings.updateProxySettings).toHaveBeenCalledWith({acmeEmail: "same@example.com", showInDashboard: true});
+        expect(fs.writeCompose).not.toHaveBeenCalled();
+        expect(stackService.deployStack).not.toHaveBeenCalled();
+    });
+
+    it("does not redeploy when acmeEmail changed but the proxy stack does not exist yet", async () => {
+        const stackRepo = createMockStackRepo();
+        stackRepo.findById.mockResolvedValue(null);
+        stackRepo.exists.mockResolvedValue(false);
+        const settings = createMockSettings({acmeEmail: "old@example.com"});
+        const fs = createFakeFs("");
+        const stackService = createMockStackService();
+        const {service} = buildService(createFakeProxyRepo(), stackRepo, fs, stackService, settings);
+
+        await service.updateProxySettingsAndSync({acmeEmail: "new@example.com"});
+
+        expect(fs.writeCompose).not.toHaveBeenCalled();
+        expect(stackService.deployStack).not.toHaveBeenCalled();
     });
 });
 
