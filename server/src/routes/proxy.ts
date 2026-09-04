@@ -29,12 +29,12 @@ const proxyRoutes: FastifyPluginAsyncZod = async (app) => {
         },
     );
 
-    // Stub — URL shape fixed by this tracer, body filled in by 06-02.
     app.delete(
         "/api/proxy-configs/:proxyConfigId",
         {schema: {params: proxyConfigParamsSchema}},
-        async (_request, reply) => {
-            return reply.status(501).send({error: "Not implemented"});
+        async (request, reply) => {
+            await proxyService.removeDomain(request.params.proxyConfigId);
+            return reply.status(204).send();
         },
     );
 };

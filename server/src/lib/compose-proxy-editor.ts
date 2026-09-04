@@ -1,4 +1,4 @@
-import {isScalar, isSeq, parseDocument, type Document, type Scalar} from "yaml";
+import {isMap, isScalar, isSeq, parseDocument, type Document, type Scalar} from "yaml";
 
 // The shared external Docker network every proxied service joins (D-03).
 // The proxy stack's own compose file owns the definition (non-external,
@@ -100,18 +100,60 @@ export function setServiceProxyEnv(content: string, serviceName: string, env: Se
 }
 
 /**
- * Removes the proxy-related environment keys for one service. Not used by
- * the tracer slice (assignDomain is the only write path in this plan), but
- * declared alongside setServiceProxyEnv so 06-02's removeDomain() has the
- * mirror-image function to call.
+ * Deletes a `services.{serviceName}.environment.{key}` scalar when it's
+ * present, and is a true no-op otherwise. `deleteIn` throws when an
+ * intermediate path segment (here, `environment` itself) doesn't exist at
+ * all, so `hasIn` guards every call — a service with no `environment` block
+ * yet (e.g. a domain removed before any other env var was ever written)
+ * must not raise.
+ */
+function deleteEnvKeyIfPresent(doc: Document, serviceName: string, key: string): void {
+    const path = ["services", serviceName, "environment", key];
+    if (doc.hasIn(path)) {
+        doc.deleteIn(path);
+    }
+}
+
+/**
+ * Removes one service's proxy routing: deletes `VIRTUAL_HOST`,
+ * `VIRTUAL_PORT` and `LETSENCRYPT_HOST` from its `environment` block
+ * (no-op for any key already absent) and removes the shared
+ * `docktor_proxy` entry from its `networks` list, preserving every other
+ * network entry in its original order and deleting the `networks` key
+ * entirely when it becomes empty. The top-level `networks.docktor_proxy`
+ * declaration is deliberately left untouched — another service in the same
+ * compose file may still reference it. The mirror-image of
+ * setServiceProxyEnv; callers (ProxyService.removeDomain) must call this
+ * only after re-checking whether any ProxyConfig rows remain for the
+ * service — a service with remaining domains should call setServiceProxyEnv
+ * with the re-rendered aggregate instead.
  */
 export function removeServiceProxyEnv(content: string, serviceName: string): string {
     const doc = parseDocument(content);
     assertServiceExists(doc, serviceName);
 
-    doc.deleteIn(["services", serviceName, "environment", "VIRTUAL_HOST"]);
-    doc.deleteIn(["services", serviceName, "environment", "VIRTUAL_PORT"]);
-    doc.deleteIn(["services", serviceName, "environment", "LETSENCRYPT_HOST"]);
+    deleteEnvKeyIfPresent(doc, serviceName, "VIRTUAL_HOST");
+    deleteEnvKeyIfPresent(doc, serviceName, "VIRTUAL_PORT");
+    deleteEnvKeyIfPresent(doc, serviceName, "LETSENCRYPT_HOST");
+
+    // Mirrors the networks cleanup below: an environment block Docktor just
+    // emptied out shouldn't linger as a bare `environment: {}` in the file.
+    const environmentPath = ["services", serviceName, "environment"];
+    const environmentNode = doc.getIn(environmentPath);
+    if (isMap(environmentNode) && environmentNode.items.length === 0) {
+        doc.deleteIn(environmentPath);
+    }
+
+    const networksPath = ["services", serviceName, "networks"];
+    const networksNode = doc.getIn(networksPath);
+    if (isSeq(networksNode)) {
+        const remaining = (networksNode.toJSON() as string[]).filter((name) => name !== PROXY_NETWORK_NAME);
+        if (remaining.length === 0) {
+            doc.deleteIn(networksPath);
+        } else {
+            doc.setIn(networksPath, remaining);
+        }
+    }
 
     return doc.toString({lineWidth: 0});
 }
