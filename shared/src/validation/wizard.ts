@@ -60,3 +60,12 @@ export const wizardStep5Schema = z.object({
 });
 
 export type WizardStep5Input = z.infer<typeof wizardStep5Schema>;
+
+// Step 6: Proxy stack deployment (optional) — D-09 makes the ACME email
+// explicitly non-blocking (empty string is valid), reusing proxySettingsSchema's
+// email wording so the wizard and Settings cannot drift.
+export const wizardStep6Schema = z.object({
+    acmeEmail: z.string().email().or(z.literal("")).optional(),
+});
+
+export type WizardStep6Input = z.infer<typeof wizardStep6Schema>;
