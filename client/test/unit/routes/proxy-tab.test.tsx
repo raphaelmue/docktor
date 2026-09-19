@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
-import {render, screen, waitFor} from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter} from "react-router";
 import {ProxyTab} from "@/routes/app/stacks/components/proxy-tab";
@@ -11,6 +11,7 @@ import {
     type ProxyConfig,
     type ProxyState,
 } from "@/lib/proxy-api";
+import {getCertificates, type Certificate} from "@/lib/certificates-api";
 import {useProxyStatus} from "@/hooks/use-proxy-status";
 import type {Service} from "@/lib/stacks-api";
 
@@ -37,6 +38,10 @@ vi.mock("@/lib/proxy-api", () => ({
     getProxySettings: vi.fn(),
     assignDomain: vi.fn(),
     removeDomain: vi.fn(),
+}));
+
+vi.mock("@/lib/certificates-api", () => ({
+    getCertificates: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-proxy-status", () => ({
@@ -74,6 +79,7 @@ const mockGetProxySettings = vi.mocked(getProxySettings);
 const mockAssignDomain = vi.mocked(assignDomain);
 const mockRemoveDomain = vi.mocked(removeDomain);
 const mockUseProxyStatus = vi.mocked(useProxyStatus);
+const mockGetCertificates = vi.mocked(getCertificates);
 
 function makeService(overrides: Partial<Service> = {}): Service {
     return {
@@ -104,6 +110,19 @@ function makeConfig(overrides: Partial<ProxyConfig> = {}): ProxyConfig {
         certStatus: "pending",
         certMessage: null,
         certCheckedAt: null,
+        certSource: "acme",
+        certificateId: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        ...overrides,
+    };
+}
+
+function makeCertificate(overrides: Partial<Certificate> = {}): Certificate {
+    return {
+        id: "cert-1",
+        domainPattern: "example.com",
+        expiresAt: null,
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
         ...overrides,
@@ -135,6 +154,8 @@ beforeEach(() => {
     mockRemoveDomain.mockReset();
     mockUseProxyStatus.mockReset();
     mockUseProxyStatus.mockReturnValue({statuses: {}});
+    mockGetCertificates.mockReset();
+    mockGetCertificates.mockResolvedValue([]);
 });
 
 describe("ProxyTab", () => {
@@ -295,5 +316,72 @@ describe("ProxyTab", () => {
                 "This service already publishes port 8080 directly to the host. Enabling the proxy will not remove that binding — both will remain active.",
             ),
         ).toBeInTheDocument();
+    });
+
+    describe("certificate source (D-11)", () => {
+        it("defaults the certificate source to automatic and shows no certificate picker", async () => {
+            mockGetProxyConfigs.mockResolvedValue([]);
+            mockGetProxySettings.mockResolvedValue(makeState());
+
+            renderTab();
+            await screen.findByText("No domains configured");
+
+            expect(screen.getByRole("combobox", {name: /certificate source/i})).toHaveTextContent(
+                /automatic/i,
+            );
+            expect(screen.queryByRole("combobox", {name: /^certificate$/i})).not.toBeInTheDocument();
+        });
+
+        it("reveals a certificate picker fed by getCertificates when the uploaded source is chosen", async () => {
+            mockGetProxyConfigs.mockResolvedValue([]);
+            mockGetProxySettings.mockResolvedValue(makeState());
+            mockGetCertificates.mockResolvedValue([makeCertificate({id: "cert-1", domainPattern: "example.com"})]);
+            const user = userEvent.setup();
+
+            renderTab();
+            await screen.findByText("No domains configured");
+
+            const sourceTrigger = screen.getByRole("combobox", {name: /certificate source/i});
+            await user.click(sourceTrigger);
+            const sourceListbox = await screen.findByRole("listbox");
+            await user.click(within(sourceListbox).getByRole("option", {name: /one of my certificates/i}));
+
+            const certTrigger = await screen.findByRole("combobox", {name: /^certificate$/i});
+            await user.click(certTrigger);
+            const certListbox = await screen.findByRole("listbox");
+            expect(within(certListbox).getByRole("option", {name: "example.com"})).toBeInTheDocument();
+            expect(mockGetCertificates).toHaveBeenCalled();
+        });
+
+        it("explains where to add a certificate when none exist and the uploaded source is selected", async () => {
+            mockGetProxyConfigs.mockResolvedValue([]);
+            mockGetProxySettings.mockResolvedValue(makeState());
+            mockGetCertificates.mockResolvedValue([]);
+            const user = userEvent.setup();
+
+            renderTab();
+            await screen.findByText("No domains configured");
+
+            const sourceTrigger = screen.getByRole("combobox", {name: /certificate source/i});
+            await user.click(sourceTrigger);
+            const sourceListbox = await screen.findByRole("listbox");
+            await user.click(within(sourceListbox).getByRole("option", {name: /one of my certificates/i}));
+
+            expect(await screen.findByText(/haven't uploaded any certificates yet/i)).toBeInTheDocument();
+        });
+
+        it("shows each domain's certificate source in the per-domain listing", async () => {
+            mockGetProxyConfigs.mockResolvedValue([
+                makeConfig({id: "cfg-1", domain: "a.example.com", certSource: "acme"}),
+                makeConfig({id: "cfg-2", domain: "b.example.com", certSource: "custom", serviceName: "api"}),
+            ]);
+            mockGetProxySettings.mockResolvedValue(makeState());
+
+            renderTab([makeService(), makeService({id: "svc-2", serviceName: "api"})]);
+
+            await screen.findByText("a.example.com");
+            expect(screen.getByText("Automatic")).toBeInTheDocument();
+            expect(screen.getByText("Custom certificate")).toBeInTheDocument();
+        });
     });
 });

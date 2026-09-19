@@ -4,9 +4,13 @@ title: Document deployment config: clean .env and docker-compose.yml
 area: docs
 severity: major
 files:
+
   - Dockerfile
   - docker-compose.yml
   - docker-compose.dev.yml
+
+completed: 2026-09-16
+status: completed
 ---
 
 ## Problem
@@ -94,6 +98,7 @@ caught before a user ever hit it.
 ## Solution
 
 TBD — likely scope:
+
 - Write a `.env.example` at the repo root covering every env var the server reads
   (`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_BASE_URL`, etc.), each with a
   one-line comment on what it does and whether it's required.
@@ -106,3 +111,24 @@ TBD — likely scope:
   documentation."
 - Coordinate with the deferred migration-strategy decision above; the documented
   compose file's schema-sync story depends on which way that resolves.
+
+## Resolution
+
+Closed by Phase 09 plan 09-01 (`09-01-SUMMARY.md`), per Phase 09's D-01 decision:
+every defect this todo originally listed had already been fixed and documented
+across earlier phases before this plan ran; 09-01's own work was a drift check
+that found and fixed one remaining stale reference, then closed this todo with
+the trace below.
+
+| # | Defect (Problem section) | Fixed by |
+|---|---------------------------|----------|
+| 1 | Dockerfile referenced a non-existent root-level `prisma/` directory | Commit `b7a91fe` (already fixed before this todo was filed; the todo's own Problem text records it) |
+| 2 | Dockerfile's final stage copied `@docktor/shared` to the wrong path, causing `ERR_MODULE_NOT_FOUND` at boot | Commit `0819d40` (already fixed before this todo was filed) |
+| 3 | Missing schema-sync step — fresh `docker compose up` crashed on a missing table | Phase 05.1 plan **05.1-05** (`syncDatabaseSchema()`/`schema-sync.ts` guarded `prisma db push` step wired into startup), hardened by a live-discovered bugfix in Phase 05.1 plan **05.1-08** (`--skip-generate` was an invalid flag, silently no-op'ing the push) |
+| 4 | Undocumented `BETTER_AUTH_*` — no `.env.example` entry, unhelpful crash | Phase 05.1 plan **05.1-08** (created `.env.example`/`.env.production` with `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` documented as REQUIRED) |
+| 5 | Wrong env file / wrong `NODE_ENV` produced a false "no frontend" symptom | Phase 05.1 plan **05.1-08** (`.env.example` documents `NODE_ENV=production` as required with an explanation of what it gates), plus Phase 05.1 plan **05.1-10** (renamed the loaded env file from `.env.local` to `.env` so the documented copy command actually takes effect) |
+| 6 | `docker-compose.yml` never set `BETTER_AUTH_URL`/`BETTER_AUTH_SECRET`; dead `DOCKTOR_BASE_URL` looked load-bearing | Commit `6c9e69e` (already fixed before this todo was filed); `DOCKTOR_BASE_URL`'s dead-code status independently reconfirmed in Phase 02-observability plan **02-08** |
+| 7 | `DOCKTOR_STACKS_DIR`/`DOCKTOR_DATA_DIR`/`DOCKTOR_BACKUP_DIR` set per-deployment when they're fixed container paths; `/data`/`/backups` mounts wired to no app code | Phase 02-observability plan **02-08** (moved `DOCKTOR_STACKS_DIR` to a fixed Dockerfile `ENV`); Phase 05.1 plan **05.1-08** (dropped the decorative `/data`/`/backups` mounts and the two dead env vars entirely, and stopped publishing Postgres `5432`) |
+| 8 | Docker-outside-of-Docker bind-mount path mismatch — relative volumes in managed stacks silently misplaced data | Phase 05.1 plan **05.1-03** (canonical `/opt/docktor/stacks` path + `DOCKTOR_STACKS_HOST_DIR`/`DOCKTOR_STACKS_DIR` pairing + `assertStacksDirMatchesHost()`), Phase 05.1 plan **05.1-10** (renamed `docker-compose.yml`'s `env_file:` target from `.env.local` to `.env` so Compose's top-level `${VAR}` interpolation actually sees the pairing), Phase **07-01** (`assertStacksDirIsMounted()` mountinfo-based detection catching a never-attached stacks volume) |
+
+**Drift found and fixed by this plan (09-01), not by an earlier phase:** `.env.example` line 3's header comment still instructed operators to copy the template to `.env.local` — a leftover from before Phase 05.1-10's `docker-compose.yml` rename (05.1-10 fixed `docker-compose.yml`, `docs/deployment.md`, and `README.md`, but its own Task 3 for the env templates' header comments was blocked by a workspace permission restriction denying `.env*` access, per `05.1-10-SUMMARY.md`). 09-01 Task 1 fixed `.env.example`'s header; `.env.production`'s equivalent header line (~line 12) remained blocked by the identical permission restriction in this session too — see `09-01-SUMMARY.md`'s remaining-gap entry for the exact edit a developer with access must apply. 09-01 Task 2 additionally found and fixed a second, previously-undocumented drift: `docs/deployment.md`'s environment-variable table stated `DOCKTOR_FS_POLLING`'s default as "auto-detected," but the shipped `Dockerfile` bakes it to `true` unconditionally — the table now states the actual shipped default.

@@ -625,6 +625,7 @@ __metadata:
     "@docktor/shared": "workspace:*"
     "@fastify/cookie": "npm:^11.0.2"
     "@fastify/cors": "npm:^10.0.2"
+    "@fastify/multipart": "npm:^10.1.1"
     "@fastify/static": "npm:^8.1.0"
     "@testcontainers/postgresql": "npm:^11.12.0"
     "@types/dockerode": "npm:^3.3.35"
@@ -953,6 +954,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fastify/busboy@npm:^3.0.0":
+  version: 3.2.2
+  resolution: "@fastify/busboy@npm:3.2.2"
+  checksum: 10c0/d19f67952b7e2b3305606444d3e9da8dc20e18537e52ec2f367429d4b4846fcbbd1b5b6b4e79c00dbf59c1734af2b2135a2dedb5b28eaa7f21b72eef40ca8f2f
+  languageName: node
+  linkType: hard
+
 "@fastify/cookie@npm:^11.0.2":
   version: 11.0.2
   resolution: "@fastify/cookie@npm:11.0.2"
@@ -970,6 +978,13 @@ __metadata:
     fastify-plugin: "npm:^5.0.0"
     mnemonist: "npm:0.40.0"
   checksum: 10c0/22db9e27fd45e4926cf8636a3a73c3989e1f385947097eed4ac6d021a8a878a3fb0da42b56259de1cd1c2a7f439978d5db9f436c8d8aa8d6630bbff3254e6c83
+  languageName: node
+  linkType: hard
+
+"@fastify/deepmerge@npm:^3.0.0":
+  version: 3.2.1
+  resolution: "@fastify/deepmerge@npm:3.2.1"
+  checksum: 10c0/2c0f8b627537834822ec761842e3a57965d3fb59e011ac5f2215b618ce34698e277bcbe4f586b09e4f03347391f292cfef9dccb6bda7b019ea9420d8767ade49
   languageName: node
   linkType: hard
 
@@ -1002,6 +1017,19 @@ __metadata:
   dependencies:
     dequal: "npm:^2.0.3"
   checksum: 10c0/dfa884a8f62d53f71de273fdcd0e501b213367767a7d8c522ae87ba6fb571b3eea85175d6e019036d7c0c5419be60305abe54899b9459f76ed5333358699efcb
+  languageName: node
+  linkType: hard
+
+"@fastify/multipart@npm:^10.1.1":
+  version: 10.1.1
+  resolution: "@fastify/multipart@npm:10.1.1"
+  dependencies:
+    "@fastify/busboy": "npm:^3.0.0"
+    "@fastify/deepmerge": "npm:^3.0.0"
+    "@fastify/error": "npm:^4.0.0"
+    fastify-plugin: "npm:^6.0.0"
+    secure-json-parse: "npm:^4.0.0"
+  checksum: 10c0/25b551a0794798b05af689f2cd5532ba85d9e4f19c40e09f84db5013826d939ee0c0ec3f2fbcbb130d1d84d9f729b84d692aafd0bc34931e87f282eb85465272
   languageName: node
   linkType: hard
 
@@ -5883,6 +5911,13 @@ __metadata:
   version: 5.1.0
   resolution: "fastify-plugin@npm:5.1.0"
   checksum: 10c0/61b330b8cb03a3581b796d745137499a782934abcf65dbf9a41d07248520cfd220b3ae8b16afeaf81af712e68e1ac24352895132cfeb2b372c66662c0170f365
+  languageName: node
+  linkType: hard
+
+"fastify-plugin@npm:^6.0.0":
+  version: 6.0.0
+  resolution: "fastify-plugin@npm:6.0.0"
+  checksum: 10c0/4d9207efcbb0e6e8bd849eb8e00b097ae2d73590b1499f51d0bed135d08664e19d9428f2e8fc1a126b55ec4d2ac011dbcc72e753c255c46a751d6d34b57e5d4f
   languageName: node
   linkType: hard
 

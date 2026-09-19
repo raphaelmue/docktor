@@ -47,4 +47,30 @@ describe("CertStatusBadge", () => {
 
         expect(screen.queryByRole("region")).not.toBeInTheDocument();
     });
+
+    it('renders a distinct "Expiring soon" badge for the expiring status', () => {
+        render(<CertStatusBadge status="expiring" />);
+
+        expect(screen.getByText(/expiring soon/i)).toBeInTheDocument();
+        expect(screen.queryByText("Secured")).not.toBeInTheDocument();
+        expect(screen.queryByText("Cert failed")).not.toBeInTheDocument();
+        expect(screen.queryByText("Cert pending")).not.toBeInTheDocument();
+    });
+
+    it("renders the accompanying message on the expiring badge when present", () => {
+        render(<CertStatusBadge status="expiring" message="Certificate expires 2026-10-15" />);
+
+        expect(screen.getByText(/expiring soon/i)).toBeInTheDocument();
+        expect(screen.getByText("Certificate expires 2026-10-15")).toBeInTheDocument();
+    });
+
+    it("does not use the destructive badge variant for the expiring status", () => {
+        render(<CertStatusBadge status="expiring" />);
+
+        const badge = screen.getByText(/expiring soon/i);
+        // shadcn's Badge stamps a data-variant attribute matching the
+        // variant prop it was given — the destructive variant must never
+        // appear here, since an expiring certificate is still working.
+        expect(badge.getAttribute("data-variant")).not.toBe("destructive");
+    });
 });

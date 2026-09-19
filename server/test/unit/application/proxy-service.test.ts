@@ -1,4 +1,5 @@
 import {describe, expect, it, vi} from "vitest";
+import {parseDocument} from "yaml";
 import {PROXY_STACK_ID, ProxyService} from "../../../src/application/proxy-service.js";
 import {BadRequestError, ConflictError, NotFoundError} from "../../../src/lib/errors.js";
 import {Prisma} from "../../../src/generated/prisma/client.js";
@@ -15,6 +16,8 @@ interface FakeRow {
     domain: string;
     internalPort: number;
     tlsEnabled: boolean;
+    certSource?: string;
+    certificateId?: string | null;
 }
 
 /**
@@ -23,9 +26,16 @@ interface FakeRow {
  * real Prisma.PrismaClientKnownRequestError with code P2002), so
  * ProxyService's error-translation and adoption-skip logic can be exercised
  * exactly as it runs against the real repository.
+ *
+ * Every row (whether supplied as an initial row or created via create())
+ * defaults to certSource: "acme"/certificateId: null unless the caller says
+ * otherwise — this is the single point that keeps every pre-existing test in
+ * this file (written before certSource existed) exercising exactly the same
+ * ACME-sourced behavior it did before, while letting new tests opt a row
+ * into certSource: "custom" explicitly.
  */
 function createFakeProxyRepo(initialRows: FakeRow[] = []) {
-    const rows: FakeRow[] = [...initialRows];
+    const rows: FakeRow[] = initialRows.map((row) => ({certSource: "acme", certificateId: null, ...row}));
     let counter = rows.length;
 
     const create = vi.fn(async (data: Omit<FakeRow, "id">) => {
@@ -35,7 +45,7 @@ function createFakeProxyRepo(initialRows: FakeRow[] = []) {
                 clientVersion: "test",
             });
         }
-        const row: FakeRow = {id: `row-${++counter}`, ...data};
+        const row: FakeRow = {id: `row-${++counter}`, certSource: "acme", certificateId: null, ...data};
         rows.push(row);
         return row;
     });
@@ -118,6 +128,13 @@ function createMockDocker(
     };
 }
 
+/** A stand-in for the narrowed CertificateRepository dependency assignDomain confirms a custom cert exists against. */
+function createMockCertRepo() {
+    return {
+        findByIdOrThrow: vi.fn().mockResolvedValue({id: "cert-1", domainPattern: "*.example.com"}),
+    };
+}
+
 /** A fake filesystem holding a single compose string in closure. */
 function createFakeFs(initialContent: string, opts: {delayed?: boolean} = {}) {
     let content = initialContent;
@@ -149,10 +166,11 @@ function buildService(
     stackService = createMockStackService(),
     settings = createMockSettings(),
     docker = createMockDocker(),
+    certRepo = createMockCertRepo(),
 ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any);
-    return {service, repo, stackRepo, fs, stackService, settings, docker};
+    const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any, certRepo as any);
+    return {service, repo, stackRepo, fs, stackService, settings, docker, certRepo};
 }
 
 describe("ProxyService.removeDomain (PRXY-04)", () => {
@@ -283,6 +301,232 @@ describe("ProxyService.assignDomain — adoption of hand-written domains", () =>
     });
 });
 
+describe("ProxyService.assignDomain — certificate source (D-11)", () => {
+    it("persists an explicit ACME certificate source and a null certificate link when certSource is the default", async () => {
+        const {service, repo} = buildService();
+
+        const result = await service.assignDomain("web-stack", "web", {
+            domain: "app.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+
+        expect(repo.create).toHaveBeenCalledWith(
+            expect.objectContaining({domain: "app.example.com", certSource: "acme", certificateId: null}),
+        );
+        expect((result as any).certSource).toBe("acme");
+        expect((result as any).certificateId).toBeNull();
+    });
+
+    it("confirms the referenced certificate exists and persists both certSource and certificateId when custom", async () => {
+        const certRepo = createMockCertRepo();
+        const {service, repo} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+            createMockStackService(),
+            createMockSettings(),
+            createMockDocker(),
+            certRepo,
+        );
+
+        const result = await service.assignDomain("web-stack", "web", {
+            domain: "app.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        expect(certRepo.findByIdOrThrow).toHaveBeenCalledWith("cert-1");
+        expect(repo.create).toHaveBeenCalledWith(
+            expect.objectContaining({domain: "app.example.com", certSource: "custom", certificateId: "cert-1"}),
+        );
+        expect((result as any).certificateId).toBe("cert-1");
+    });
+
+    it("throws BadRequestError and writes no compose file when certSource is custom but no certificateId is given", async () => {
+        const certRepo = createMockCertRepo();
+        const {service, repo, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+            createMockStackService(),
+            createMockSettings(),
+            createMockDocker(),
+            certRepo,
+        );
+
+        await expect(
+            service.assignDomain("web-stack", "web", {
+                domain: "app.example.com",
+                internalPort: 8080,
+                tlsEnabled: true,
+                certSource: "custom",
+            } as any),
+        ).rejects.toBeInstanceOf(BadRequestError);
+
+        expect(certRepo.findByIdOrThrow).not.toHaveBeenCalled();
+        expect(fs.writeCompose).not.toHaveBeenCalled();
+        expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it("throws a not-found error and writes no compose file when the referenced certificate id is unknown", async () => {
+        const certRepo = createMockCertRepo();
+        certRepo.findByIdOrThrow.mockRejectedValue(new NotFoundError('Certificate "missing-cert" not found'));
+        const {service, repo, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+            createMockStackService(),
+            createMockSettings(),
+            createMockDocker(),
+            certRepo,
+        );
+
+        await expect(
+            service.assignDomain("web-stack", "web", {
+                domain: "app.example.com",
+                internalPort: 8080,
+                tlsEnabled: true,
+                certSource: "custom",
+                certificateId: "missing-cert",
+            } as any),
+        ).rejects.toBeInstanceOf(NotFoundError);
+
+        expect(fs.writeCompose).not.toHaveBeenCalled();
+        expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it("creates a domain adopted from a hand-written compose file with an explicit ACME certificate source", async () => {
+        const content =
+            'services:\n  web:\n    image: nginx:latest\n    environment:\n      VIRTUAL_HOST: old.example.com\n      VIRTUAL_PORT: "9090"\n';
+        const {service, repo} = buildService(createFakeProxyRepo(), createMockStackRepo(), createFakeFs(content));
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "new.example.com",
+            internalPort: 9090,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+
+        const adopted = repo._rows.find((r) => r.domain === "old.example.com")!;
+        expect((adopted as any).certSource).toBe("acme");
+        expect((adopted as any).certificateId).toBeNull();
+    });
+});
+
+describe("ProxyService.renderProxyEnvForService — issuance filtered by TLS-enabled AND ACME-sourced (D-11)", () => {
+    it("renders a routing host with all three domains and an issuance host containing only the two ACME-sourced domains for a mixed service", async () => {
+        const {service, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "acme-a.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "acme-b.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "custom.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        const readBack = readServiceProxyEnv(fs.content, "web");
+        expect(readBack.virtualHost).toBe("acme-a.example.com,acme-b.example.com,custom.example.com");
+        expect(readBack.letsencryptHost).toBe("acme-a.example.com,acme-b.example.com");
+        expect(readBack.letsencryptHost).not.toContain("custom.example.com");
+    });
+
+    it("renders a null issuance host (LETSENCRYPT_HOST absent) when every TLS-enabled row is custom-sourced", async () => {
+        const {service, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "custom.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        const readBack = readServiceProxyEnv(fs.content, "web");
+        expect(readBack.virtualHost).toBe("custom.example.com");
+        expect(readBack.letsencryptHost).toBeNull();
+        expect(fs.content).not.toContain("LETSENCRYPT_HOST");
+    });
+
+    it("excludes a TLS-disabled row from the issuance host regardless of its certificate source", async () => {
+        const {service, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "tls-off.example.com",
+            internalPort: 8080,
+            tlsEnabled: false,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "tls-on.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+
+        const readBack = readServiceProxyEnv(fs.content, "web");
+        expect(readBack.letsencryptHost).toBe("tls-on.example.com");
+        expect(readBack.letsencryptHost).not.toContain("tls-off.example.com");
+    });
+
+    it("leaves the routing host populated and the issuance host null after removing the last ACME-sourced domain while custom-sourced domains remain", async () => {
+        const {service, repo, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        const acmeRow = await service.assignDomain("web-stack", "web", {
+            domain: "acme.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "custom.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        await service.removeDomain(acmeRow.id);
+
+        const readBack = readServiceProxyEnv(fs.content, "web");
+        expect(readBack.virtualHost).toBe("custom.example.com");
+        expect(readBack.letsencryptHost).toBeNull();
+        expect(repo._rows.map((r) => r.domain)).toEqual(["custom.example.com"]);
+    });
+});
+
 describe("ProxyService.assignDomain — rollback on failure", () => {
     it("rolls back a brand-new row when the compose write fails", async () => {
         const repo = createFakeProxyRepo();
@@ -295,8 +539,9 @@ describe("ProxyService.assignDomain — rollback on failure", () => {
         };
         const settings = createMockSettings();
         const docker = createMockDocker();
+        const certRepo = createMockCertRepo();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any);
+        const service = new ProxyService(repo as any, stackRepo as any, fs as any, stackService as any, settings as any, docker as any, certRepo as any);
 
         await expect(
             service.assignDomain("web-stack", "web", {domain: "app.example.com", internalPort: 8080, tlsEnabled: false}),
@@ -598,6 +843,76 @@ describe("ProxyService.updateProxySettingsAndSync (PRXY-03)", () => {
 
         expect(fs.writeCompose).not.toHaveBeenCalled();
         expect(stackService.deployStack).not.toHaveBeenCalled();
+    });
+});
+
+describe("ProxyService — end-to-end suppression proof against real compose YAML (D-11, Task 3)", () => {
+    it("writes no LETSENCRYPT_HOST key at all — proven by parsing the real rendered document, not a string search — when every TLS-enabled row is custom-sourced", async () => {
+        const {service, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "cloud.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        // Real YAML round-trip: fs.content is exactly what setServiceProxyEnv
+        // (the real compose editor, never mocked) wrote. Parse it with the
+        // same "yaml" package the editor itself uses and assert an absence
+        // on the parsed document tree — this cannot pass on a truncated or
+        // coincidentally-matching string read the way `.not.toContain(...)`
+        // theoretically could.
+        const doc = parseDocument(fs.content);
+        expect(doc.hasIn(["services", "web", "environment", "LETSENCRYPT_HOST"])).toBe(false);
+        // Suppression is issuance-only — routing must still be present.
+        expect(doc.hasIn(["services", "web", "environment", "VIRTUAL_HOST"])).toBe(true);
+        expect(String(doc.getIn(["services", "web", "environment", "VIRTUAL_HOST"]))).toBe("cloud.example.com");
+    });
+
+    it("writes an issuance value containing every ACME-sourced domain and excluding the custom-sourced one for a mixed service", async () => {
+        const {service, fs} = buildService(
+            createFakeProxyRepo(),
+            createMockStackRepo(),
+            createFakeFs("services:\n  web:\n    image: nginx:latest\n"),
+        );
+
+        await service.assignDomain("web-stack", "web", {
+            domain: "acme-a.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "acme-b.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "acme",
+        } as any);
+        await service.assignDomain("web-stack", "web", {
+            domain: "custom.example.com",
+            internalPort: 8080,
+            tlsEnabled: true,
+            certSource: "custom",
+            certificateId: "cert-1",
+        } as any);
+
+        const doc = parseDocument(fs.content);
+        expect(doc.hasIn(["services", "web", "environment", "LETSENCRYPT_HOST"])).toBe(true);
+        const issuanceValue = String(doc.getIn(["services", "web", "environment", "LETSENCRYPT_HOST"]));
+        expect(issuanceValue).toContain("acme-a.example.com");
+        expect(issuanceValue).toContain("acme-b.example.com");
+        expect(issuanceValue).not.toContain("custom.example.com");
+
+        const routingValue = String(doc.getIn(["services", "web", "environment", "VIRTUAL_HOST"]));
+        expect(routingValue).toContain("acme-a.example.com");
+        expect(routingValue).toContain("acme-b.example.com");
+        expect(routingValue).toContain("custom.example.com");
     });
 });
 

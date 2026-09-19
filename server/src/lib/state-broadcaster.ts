@@ -52,7 +52,11 @@ export interface ProxyCertStatusEvent {
     proxyConfigId: string
     stackId: string
     domain: string
-    status: "pending" | "issued" | "failed"
+    // Matches @docktor/shared's certStatusSchema exactly — "expiring" is the
+    // D-13 approaching-expiry state for custom certificates, which have no
+    // automatic renewal. This travels the existing event; no second event
+    // type is introduced for it.
+    status: "pending" | "issued" | "failed" | "expiring"
     message?: string
 }
 

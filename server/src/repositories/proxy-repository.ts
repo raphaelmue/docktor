@@ -8,6 +8,8 @@ export class ProxyRepository {
         domain: string;
         internalPort: number;
         tlsEnabled: boolean;
+        certSource: string;
+        certificateId?: string | null;
     }) {
         return prisma.proxyConfig.create({data});
     }
@@ -45,9 +47,33 @@ export class ProxyRepository {
         return prisma.proxyConfig.findMany({orderBy: {createdAt: "asc"}});
     }
 
+    /**
+     * Returns every proxy configuration row together with its linked
+     * certificate's domain pattern and expiry date (a thin select through
+     * the relation — no filtering, no mapping). This is the shape
+     * ProxyCertPoller needs to classify both ACME-sourced and
+     * custom-sourced rows without ever deriving a custom certificate's file
+     * name from anything but the linked certificate's own domain pattern.
+     * findAll() above is left untouched for its existing callers.
+     */
+    async findAllForCertPolling() {
+        return prisma.proxyConfig.findMany({
+            orderBy: {createdAt: "asc"},
+            include: {
+                certificate: {select: {domainPattern: true, expiresAt: true}},
+            },
+        });
+    }
+
     async updateConfig(
         id: string,
-        data: {domain?: string; internalPort?: number; tlsEnabled?: boolean},
+        data: {
+            domain?: string;
+            internalPort?: number;
+            tlsEnabled?: boolean;
+            certSource?: string;
+            certificateId?: string | null;
+        },
     ) {
         return prisma.proxyConfig.update({where: {id}, data});
     }

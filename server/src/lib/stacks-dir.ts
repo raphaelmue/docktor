@@ -151,6 +151,16 @@ export interface MountEntry {
  * Malformed lines (too few fields, no "-" separator, nothing after it) are
  * skipped rather than thrown on — a single corrupt line must not make this
  * function unusable for every other line in the file.
+ *
+ * The ancestor-boundary check below always uses a literal "/" rather than
+ * `path.sep`: every mount point this function ever sees originates from
+ * /proc/self/mountinfo, which is exclusively POSIX-formatted (Linux has no
+ * concept of a platform-native separator), regardless of which OS the
+ * *caller* happens to run on. Using `path.sep` here made this function
+ * silently stop matching any deeper-than-root mount point whenever it ran
+ * on a win32 host (e.g. this codebase's own Windows CI unit-test job),
+ * since `path.sep` is `"\\"` there — a corrupt-looking bug for a value
+ * that has nothing to do with the host OS's path conventions at all.
  */
 export function findMountEntryForPath(
     resolvedPath: string,
@@ -174,7 +184,7 @@ export function findMountEntryForPath(
         const covers =
             mountPoint === resolvedPath ||
             (mountPoint === "/" && resolvedPath.startsWith("/")) ||
-            resolvedPath.startsWith(mountPoint + path.sep);
+            resolvedPath.startsWith(mountPoint + "/");
         if (!covers) continue;
 
         if (!best || mountPoint.length > best.mountPoint.length) {
@@ -183,6 +193,27 @@ export function findMountEntryForPath(
     }
 
     return best;
+}
+
+/**
+ * Converts a resolved stacks-directory path into the POSIX-only comparable
+ * form /proc/self/mountinfo entries are always expressed in, before handing
+ * it to findMountEntryForPath(). This is a genuine no-op everywhere Docktor
+ * actually runs in production — the server only ever executes inside a
+ * Linux container, so `process.platform` is never "win32" there. It exists
+ * purely because this module's unit tests inject a Linux-format mountinfo
+ * fixture directly (bypassing the real /proc read, which callers can't
+ * reach on a non-Linux host), and that fixture-matching logic also runs on
+ * this codebase's windows-latest CI job: node's native, host-OS-aware
+ * `path.resolve()` (used by getStacksDir()) turns a POSIX-style env value
+ * like "/opt/docktor/stacks" into a drive-qualified, backslash-separated
+ * path such as "D:\opt\docktor\stacks" on win32, which could never
+ * structurally match any forward-slash mountinfo entry without this
+ * conversion.
+ */
+function toMountinfoComparablePath(target: string): string {
+    if (process.platform !== "win32") return target;
+    return target.replace(/\\/g, "/").replace(/^[A-Za-z]:/, "");
 }
 
 /**
@@ -275,7 +306,7 @@ export async function assertStacksDirIsMounted(
         return;
     }
 
-    const entry = findMountEntryForPath(target, content);
+    const entry = findMountEntryForPath(toMountinfoComparablePath(target), content);
     if (!entry) {
         console.warn(
             `[stacks-dir] No mount entry covering the stacks directory at "${target}" was found — persistence could not be verified.`,

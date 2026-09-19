@@ -13,6 +13,7 @@ import {
     removeDomain,
     type ProxyConfig,
 } from "@/lib/proxy-api";
+import {getCertificates, type Certificate} from "@/lib/certificates-api";
 import type {Service} from "@/lib/stacks-api";
 import {useProxyStatus} from "@/hooks/use-proxy-status";
 import {CertStatusBadge} from "@/components/domain/stack/cert-status-badge";
@@ -62,6 +63,7 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
     const [loading, setLoading] = useState(true);
     const [removeTarget, setRemoveTarget] = useState<ProxyConfig | null>(null);
     const [serviceName, setServiceName] = useState(services[0]?.serviceName ?? "");
+    const [certificates, setCertificates] = useState<Certificate[]>([]);
     const {statuses} = useProxyStatus(stackId);
 
     const form = useForm<AssignDomainInput>({
@@ -71,8 +73,9 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
         // at runtime the resolver still coerces exactly to AssignDomainInput,
         // matching what the form actually submits. Mirrors notifications-step.tsx.
         resolver: standardSchemaResolver(assignDomainSchema) as Resolver<AssignDomainInput>,
-        defaultValues: {domain: "", internalPort: 80, tlsEnabled: true},
+        defaultValues: {domain: "", internalPort: 80, tlsEnabled: true, certSource: "acme", certificateId: undefined},
     });
+    const certSource = form.watch("certSource");
 
     useEffect(() => {
         let cancelled = false;
@@ -80,13 +83,15 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
         async function load() {
             setLoading(true);
             try {
-                const [cfgs, settings] = await Promise.all([
+                const [cfgs, settings, certs] = await Promise.all([
                     getProxyConfigs(stackId),
                     getProxySettings(),
+                    getCertificates(),
                 ]);
                 if (cancelled) return;
                 setConfigs(cfgs);
                 setDeployed(settings.deployed);
+                setCertificates(certs);
             } catch {
                 // silently fail — mirrors backup-config-card.tsx's load effect
             } finally {
@@ -112,7 +117,13 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
             success: "Domain assigned",
             error: (err: Error) => err?.message ?? "Assign domain failed",
         });
-        form.reset({domain: "", internalPort: data.internalPort, tlsEnabled: data.tlsEnabled});
+        form.reset({
+            domain: "",
+            internalPort: data.internalPort,
+            tlsEnabled: data.tlsEnabled,
+            certSource: data.certSource,
+            certificateId: undefined,
+        });
     }
 
     function handleRemove(target: ProxyConfig) {
@@ -196,6 +207,7 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
                                     <TableHead>Internal Port</TableHead>
                                     <TableHead>TLS</TableHead>
                                     <TableHead>Certificate</TableHead>
+                                    <TableHead>Source</TableHead>
                                     <TableHead />
                                 </TableRow>
                             </TableHeader>
@@ -236,6 +248,15 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
                                                         />
                                                     );
                                                 })}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                {rows.map((row) => (
+                                                    <span key={row.id} className="text-sm">
+                                                        {row.certSource === "custom" ? "Custom certificate" : "Automatic"}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -337,6 +358,79 @@ export function ProxyTab({stackId, services}: Readonly<ProxyTabProps>) {
                                     </FormItem>
                                 )}
                             />
+
+                            <FormField
+                                control={form.control}
+                                name="certSource"
+                                render={({field}) => (
+                                    <FormItem>
+                                        <FormLabel className="font-semibold">Certificate Source</FormLabel>
+                                        <Select
+                                            value={field.value}
+                                            onValueChange={(value) => {
+                                                field.onChange(value);
+                                                if (value !== "custom") {
+                                                    form.setValue("certificateId", undefined);
+                                                }
+                                            }}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="acme">Automatic (Let&apos;s Encrypt)</SelectItem>
+                                                <SelectItem value="custom">One of my certificates</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-muted-foreground">
+                                            Choosing an uploaded certificate means Docktor will not request one from
+                                            the certificate authority for this domain.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {certSource === "custom" && (
+                                certificates.length === 0 ? (
+                                    <Alert>
+                                        <AlertDescription>
+                                            You haven&apos;t uploaded any certificates yet. Add one in{" "}
+                                            <Link to="/settings/proxy" className="underline">
+                                                Settings
+                                            </Link>{" "}
+                                            before choosing this option.
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : (
+                                    <FormField
+                                        control={form.control}
+                                        name="certificateId"
+                                        render={({field}) => (
+                                            <FormItem>
+                                                <FormLabel className="font-semibold">Certificate</FormLabel>
+                                                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select a certificate..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {certificates.map((cert) => (
+                                                            <SelectItem key={cert.id} value={cert.id}>
+                                                                {cert.domainPattern}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )
+                            )}
                         </CardContent>
                         <CardFooter>
                             <Button type="submit" disabled={!serviceName}>

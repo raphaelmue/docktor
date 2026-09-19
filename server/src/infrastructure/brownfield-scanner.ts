@@ -51,9 +51,19 @@ export class BrownfieldScanner {
         const foundFiles: string[] = [];
         let skippedCount = 0;
 
-        // Filter out system directories
+        // Filter out system directories. Deliberately path.posix.normalize()
+        // here, not the host-OS-aware path.normalize() used everywhere else
+        // in this method: SYSTEM_DIRS is a fixed list of Linux-only special
+        // filesystem entries (/proc, /sys, /dev — these are meaningless
+        // paths on Windows, where no user would ever type them as a scan
+        // root), so the comparison must stay POSIX regardless of which host
+        // OS actually runs this code. Using the host-native normalize() made
+        // this check silently stop matching entirely on a win32 host
+        // (path.normalize("/proc") -> "\\proc", which never equals the
+        // literal "/proc"), letting a directory this scanner must never
+        // touch slip straight through to fast-glob.
         const filteredDirs = directories.filter((dir) => {
-            const normalized = path.normalize(dir);
+            const normalized = path.posix.normalize(dir);
             if (this.SYSTEM_DIRS.includes(normalized)) {
                 console.warn(`[BrownfieldScanner] Skipping system directory: ${dir}`);
                 skippedCount++;
@@ -90,6 +100,12 @@ export class BrownfieldScanner {
                 // host OS from a single call site, and it also canonicalizes
                 // the spelling so two overlapping scan roots that surface
                 // different spellings of one file collapse to one stack.
+                // Deliberately the host-OS-aware `node:path` here (not
+                // path.posix) — see
+                // server/test/unit/infrastructure/brownfield-scanner-windows-paths.test.ts,
+                // which pins exactly this "returns native separators on a
+                // native Windows host" contract by mocking node:path to its
+                // win32 implementation.
                 foundFiles.push(...files.map((f) => path.normalize(f)));
             } catch (err: unknown) {
                 // Safe: fs.access/fast-glob only ever throw NodeJS.ErrnoException

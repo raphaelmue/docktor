@@ -21,6 +21,29 @@ export function CertStatusBadge({status, message}: Readonly<CertStatusBadgeProps
         );
     }
 
+    // D-13: an approaching-expiry certificate is still serving traffic —
+    // colouring it as a failure (destructive variant) would flatten the
+    // distinction the poller works to make between "broken" and "working,
+    // but renew soon". Placed before the final fallback so an unrecognised
+    // status still lands on the pending branch below.
+    if (status === "expiring") {
+        return (
+            <div className="space-y-1">
+                <Badge
+                    variant="outline"
+                    className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700"
+                >
+                    Expiring soon
+                </Badge>
+                {message && (
+                    <ScrollArea className="h-16 w-full max-w-xs rounded border">
+                        <pre className="whitespace-pre-wrap p-2 text-xs font-mono">{message}</pre>
+                    </ScrollArea>
+                )}
+            </div>
+        );
+    }
+
     if (status === "failed") {
         return (
             <div className="space-y-1">

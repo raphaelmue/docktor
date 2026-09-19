@@ -21,12 +21,14 @@ try {
     process.exit(1);
 }
 
-// Guarded, interim schema-sync step (todo B2) — must complete before
-// buildApp()/app.listen(), since app.ts's onReady hook calls startJobs(),
-// which immediately touches the database. Never throws: every outcome is
-// logged at a level matching its severity, and the HTTP server still comes
-// up on a non-success outcome so the operator can reach the container and
-// read the logs.
+// Guarded schema-sync step: applies pending Prisma migrations (and, for an
+// upgrading install whose schema was created by the older schemaless
+// mechanism, auto-baselines it into migration history first) — must
+// complete before buildApp()/app.listen(), since app.ts's onReady hook
+// calls startJobs(), which immediately touches the database. Never throws:
+// every outcome is logged at a level matching its severity, and the HTTP
+// server still comes up on a non-success outcome so the operator can reach
+// the container and read the logs.
 const schemaSyncResult = await syncDatabaseSchema();
 switch (schemaSyncResult.outcome) {
     case "applied":
@@ -36,21 +38,25 @@ switch (schemaSyncResult.outcome) {
         );
         break;
     case "skipped":
-        console.info("[schema-sync] skipped (DOCKTOR_DB_AUTO_PUSH=false)");
+        console.info(
+            `[schema-sync] skipped${schemaSyncResult.detail ? ` (${schemaSyncResult.detail})` : ""} — set ` +
+                "DOCKTOR_DB_AUTO_MIGRATE=false to disable this step; DOCKTOR_DB_AUTO_PUSH=false is honoured as a deprecated alias",
+        );
         break;
     case "lock-not-acquired":
-        console.info("[schema-sync] lock-not-acquired — another instance is applying the schema");
+        console.info("[schema-sync] lock-not-acquired — another instance is applying migrations");
         break;
     case "unreachable":
         console.error(
             `[schema-sync] unreachable (${schemaSyncResult.detail ?? "unknown host"}) — starting the server anyway; ` +
-                "verify the database is reachable and DATABASE_URL is correct, then restart to apply the schema",
+                "verify the database is reachable and DATABASE_URL is correct, then restart to apply migrations",
         );
         break;
     case "failed":
         console.error(
             `[schema-sync] failed${schemaSyncResult.detail ? `: ${schemaSyncResult.detail}` : ""} — starting the server anyway; ` +
-                "resolve the schema conflict manually, or set DOCKTOR_DB_AUTO_PUSH=false to disable this step",
+                "pending migrations were not applied, so the instance may be running against a schema missing tables or columns. " +
+                "Resolve the schema conflict manually, or set DOCKTOR_DB_AUTO_MIGRATE=false to disable this step",
         );
         break;
 }

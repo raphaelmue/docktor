@@ -10,6 +10,8 @@ export interface ProxyConfig {
     certStatus: string
     certMessage: string | null
     certCheckedAt: string | null
+    certSource: string
+    certificateId: string | null
     createdAt: string
     updatedAt: string
 }
@@ -18,6 +20,8 @@ export interface AssignDomainInput {
     domain: string
     internalPort: number
     tlsEnabled: boolean
+    certSource: string
+    certificateId?: string
 }
 
 export interface ProxyState {

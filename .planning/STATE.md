@@ -1,17 +1,17 @@
 ---
 gsd_state_version: "1.0"
 milestone: v1.0
-current_phase: 08
-current_phase_name: Live State Consistency
+current_phase: 09
+current_phase_name: Deployment and Release Readiness
 status: Phase 05.1 (Stabilization) complete — 12/12 plans, UAT 10/10 passed, VERIFICATION.md passed (17/17 must-haves, 4 human_verification items confirmed by user 2026-09-11). ROADMAP.md Phase 1 checkbox bookkeeping corrected to match disk truth (was stale — Phase 1 has been fully executed and verified since 2026-03-11).
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-09-14T08:32:29.853Z"
-state_head: f1295f55e8eb43c8b121ceea617346a7efe248d2
+stopped_at: Completed 09-08-PLAN.md (last plan of Phase 09 — ready for verification)
+last_updated: "2026-09-17T18:44:36.767Z"
+state_head: a96378c0fc08c10434335833b401079d00377c21
 progress:
   total_phases: 11
-  completed_phases: 7
-  total_plans: 77
-  completed_plans: 77
+  completed_phases: 6
+  total_plans: 85
+  completed_plans: 85
 milestone_name: milestone
 ---
 
@@ -22,12 +22,12 @@ milestone_name: milestone
 See: .planning/PROJECT.md (updated 2026-08-30)
 
 **Core value:** Users can deploy, monitor, and manage Docker Compose stacks through a browser UI without needing SSH or Docker CLI access.
-**Current focus:** Phase 08 — Live State Consistency
+**Current focus:** Phase 09 — Deployment and Release Readiness
 
 ## Current Position
 
-Phase: 08 (Live State Consistency) — EXECUTING
-Plan: 1 of 1
+Phase: 09 (Deployment and Release Readiness) — EXECUTING
+Plan: 8 of 8
 
 ## Performance Metrics
 
@@ -126,6 +126,14 @@ Plan: 1 of 1
 | Phase 06 P07 | 25min | 2 tasks | 5 files |
 | Phase 07 P01 | 40min | 3 tasks | 4 files |
 | Phase 08 P01 | 30min | 3 tasks | 6 files |
+| Phase 09 P01 | 25min | 2 tasks | 3 files |
+| Phase 09 P02 | 53min | 3 tasks | 4 files |
+| Phase 09 P03 | 35min | 3 tasks | 5 files |
+| Phase 09 P04 | 30min | 2 tasks | 5 files |
+| Phase 09 P05 | 30min | 3 tasks | 5 files |
+| Phase 09 P06 | 1h | 3 tasks | 17 files |
+| Phase 09 P07 | 35min | 3 tasks | 7 files |
+| Phase 09 P08 | 1h35m | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -282,6 +290,25 @@ Recent decisions affecting current work:
 - [Phase 08]: [Phase 08-01]: Branch B taken (TCP-payload block reconfirmed at both 127.0.0.1:5432 and the container's own bridge address) — no live verification pass attempted; six items handed to UAT as a self-contained script
 - [Phase 08]: [Phase 08-01]: Full client test suite flake (4 unrelated files, host contention — load avg 2-4/6 cores, swap fully allocated) not attributed to this plan's change per Task 1's own precondition; all 4 files pass 28/28 in isolation
 - [Phase 08]: [Phase 08-01]: Todos closed now (not after UAT) per plan decision PD-5 — each Resolution states a failing UAT item reopens it through normal gap closure
+- [Phase 09]: [Phase 09-01]: Fixed .env.example's .env.local->.env header drift confirmed by 09-RESEARCH.md; found and fixed a second undocumented drift in docs/deployment.md (DOCKTOR_FS_POLLING's stated default disagreed with Dockerfile's baked ENV); closed the item-1 deployment-docs todo with a resolution tracing all 8 original defects to their fixing plans; .env.production remains blocked by a workspace secret-file access guard, exact edit recorded in 09-01-SUMMARY.md — Root-caused via a direct fact-by-fact audit of docs/deployment.md against docker-compose.yml/.env.example/Dockerfile per the plan's Task 2 mandate; the Dockerfile is the authoritative source for baked ENV defaults per CLAUDE.md and 09-RESEARCH.md's architectural map.
+- [Phase 09]: [Phase 09-02]: Added cross-platform-unit CI job (windows-latest + macos-latest matrix, fail-fast:false) as sibling of build-and-test, with explicit yarn workspace @docktor/server test:unit step since root test:unit excludes the server workspace
+- [Phase 09]: [Phase 09-02]: D-07 applied as a from-scratch minimal main branch protection rule (none existed before) requiring both cross-platform-unit checks; user accepted windows-latest being required despite currently failing on 3 real platform bugs
+- [Phase 09]: [Phase 09-02]: 3 genuine Windows-only unit test failures (stacks-dir.ts mount detection, brownfield-scanner.ts path separators, proxy-cert-poller.ts mock/timezone assertion) found by the first real CI run are out of this plan's scope and filed as a new todo rather than fixed inline; they now block all merges to main via the required windows-latest check
+- [Phase 09]: [Phase 09-03]: Task 1 checkpoint (developer-confirmed): proceed with Prisma migrate cutover (D-02), replace not supplement the guarded db push step (D-04), and unattended D-05 auto-baseline with a post-baseline drift probe as the mitigation instead of an interactive boot prompt
+- [Phase 09]: [Phase 09-03]: buildDriftProbeArgv() resolves the schema directory as a sibling of the already-resolved prisma.config.ts path (no second candidate search); needsBaseline()/hasApplicationTables() consume a narrow QueryFn port added to the acquired LockAcquisitionResult rather than the raw pg.Client
+- [Phase 09]: [Phase 09-03]: DOCKTOR_DB_AUTO_MIGRATE is the new opt-out; DOCKTOR_DB_AUTO_PUSH=false is honoured as a deprecated alias only when the new var is unset, with a console.warn naming both variables
+- [Phase 09]: [Phase 09-04]: Verified migrations-in-image by actually building the server-build Docker stage and running ls inside the resulting image, rather than relying only on static .dockerignore/COPY analysis
+- [Phase 09]: [Phase 09-04]: docs/deployment.md's Database schema section carries an explicit live-verification note since 09-03's SUMMARY recorded Branch B — the automatic upgrade baseline is unit-tested but not yet exercised against a live database
+- [Phase 09]: [Phase 09]: [Phase 09-05]: certSource promote framing implemented exactly as D-11 specifies — ProxyConfig.certSource String @default("acme") backfills every existing row explicitly via the migration's NOT NULL DEFAULT, never by absence
+- [Phase 09]: [Phase 09]: [Phase 09-05]: domainPatternRegex kept as a second, separate regex (not a hostnamePattern widening) — Certificate.domainPattern accepts one leading wildcard label, ProxyConfig.domain continues rejecting wildcards via unmodified hostnamePattern
+- [Phase 09]: [Phase 09]: [Phase 09-05]: Task 3 Branch B taken (same environmental TCP-to-Postgres-protocol block as 09-03/05.1-01/05.1-05/05.1-06/06-01/06-07/08-01) — add_certificate migration generated via the from-schema-copy diff technique and not applied to any live database; WINDOWS.md entry #11 records the gap
+- [Phase 09]: [Phase 09]: [Phase 09-06]: certificate-service.ts's constructor Pick<> grew incrementally across Task 2 (create-only) and Task 3 (adds findAll/findByIdOrThrow/findReferencingDomains/removeCertificateFiles) rather than over-provisioning the interface up front
+- [Phase 09]: [Phase 09]: [Phase 09-06]: CertificateFilesystem owns leaf+CA-bundle concatenation, not the service — the service passes the leaf certificate and optional bundle through as separate fields to writeCertificateFiles
+- [Phase 09]: [Phase 09]: [Phase 09-06]: app.ts's global error handler does not map @fastify/multipart's RequestFileTooLargeError (statusCode 413, not an AppError) to a 4xx on its own — routes/certificates.ts explicitly catches FST_REQ_FILE_TOO_LARGE and re-throws BadRequestError
+- [Phase 09]: [Phase 09]: [Phase 09-07]: renderProxyEnvForService's issuance-host filter is TLS-enabled AND certSource==='acme' — the single place ACME suppression happens; no second code path for custom rows
+- [Phase 09]: [Phase 09]: [Phase 09-07]: ProxyCertPoller.reconcile() splits into reconcileAcmeRows()/reconcileCustomRows() sharing one applyStatus() choke point; custom rows resolve their file via the linked Certificate's own domainPattern (certFileBaseName), never ProxyConfig.domain, and a missing file classifies failed not pending
+- [Phase 09]: [Phase 09]: [Phase 09-08]: proxy-tab.tsx's automatic-source Select label reads 'Automatic (Let's Encrypt)' (not bare 'Automatic') to avoid exact-text collision with the per-domain listing's own 'Automatic' cell, both on screen simultaneously once any config exists
+- [Phase 09]: [Phase 09]: [Phase 09-08]: certificate-source validity rules (custom requires certificateId, acme forbids it, custom requires tlsEnabled) stay entirely in assignDomainSchema's superRefine — proxy-tab.tsx only surfaces the resulting field messages, never re-implements the pairing logic
 
 ### Quick Tasks Completed
 
@@ -316,6 +343,7 @@ Recent decisions affecting current work:
 - [minor] Support authenticated/private container registries for update checking — `.planning/todos/pending/2026-08-28-support-authenticated-custom-registries.md`
 - [minor] Add live resource stats to stacks (CPU, memory, disk) — `.planning/todos/pending/2026-09-11-add-live-resource-stats-to-stacks-cpu-memory-disk.md`
 - [cosmetic] Add stack/service topology visualization — `.planning/todos/pending/2026-09-11-add-stack-and-service-topology-visualization.md`
+- [blocker] Windows CI check fails on real platform bugs — blocks all merges to main — `.planning/todos/pending/2026-09-16-windows-ci-check-fails-on-real-platform-bugs.md`
 
 ### Blockers/Concerns
 
@@ -338,6 +366,11 @@ Recent decisions affecting current work:
 - [Phase 06-06] Task 2's human-check (fresh-install browser walkthrough of the 6-step wizard, confirming Skip deploys nothing and Deploy Proxy Stack with free ports 80/443 leaves two running proxy containers) not performed live in this session — same shared-host risk documented for 06-03's D-human-check. A human on a dedicated/verified-clear host must perform this before phase UAT closes.
 - [Phase 06-05] Full-suite yarn workspace @docktor/client test / playwright test runs are unreliable on this host right now (uptime showed load avg ~85 on 6 cores, swap nearly exhausted, ps aux confirmed unrelated resident SonarQube/Immich/MySQL/MariaDB/Postgres/Tandoor workloads) — 17 vitest failures and 2 Playwright failures observed this session were all in files this plan does not touch (pre-existing flake, same class documented in 06-04-SUMMARY.md). All of this plan's own new/changed test files pass reliably in isolation and small groups; see 06-05-SUMMARY.md Issues Encountered for the full breakdown.
 - [Phase 06-07] Human-check (live DB-backed re-run of test/integration/proxy.test.ts 'returns 400 for an invalid hostname' on an unrestricted host) still not performed — same pre-existing TCP-payload-block class as 05.1-01/05.1-05/05.1-06/06-01. All database-free unit tests (40 files, 616 passed, 2 todo) and tsc --noEmit pass cleanly; G-06-3 stays open pending this live confirmation.
+- [Phase 09-02] cross-platform-unit (windows-latest) is a required status check on main and is currently FAILING for real reasons (3 genuine Windows platform bugs in stacks-dir.ts, brownfield-scanner.ts, proxy-cert-poller.ts) — no PR, including this phase's own draft PR #6, can merge to main until fixed. See .planning/todos/pending/2026-09-16-windows-ci-check-fails-on-real-platform-bugs.md
+- [Phase 09-03] No live database has been baselined by any session to date for this schema shape — TCP connects to localhost:5432 (docktor-db-dev) but the Postgres protocol handshake never completes (confirmed via prisma migrate status P1001 and a raw pg.Client timeout), same block class as 05.1-01/05.1-05/05.1-06/06-01/06-07/08-01. migrate deploy's real no-op stdout is unverified against schema-sync.ts's classification regex. A developer on an unrestricted host must run the 4-command sequence in 09-03-SUMMARY.md. Tracked as WINDOWS.md entry #10 (open).
+- [Phase 09-05] No live database has the add_certificate migration applied (Branch B taken, same TCP-to-Postgres-protocol block class as 09-03/05.1-01/05.1-05/05.1-06/06-01/06-07/08-01) — the certSource='acme' backfill onto pre-existing ProxyConfig rows is unverified. A developer on an unrestricted host must run yarn db:migrate then verify. Tracked as WINDOWS.md entry #11 (open), compounds with entry #10 from 09-03.
+- [Phase 09-06] Live end-to-end proof that an uploaded certificate lands on the mounted proxy-stack certificates directory under the filename nginx-proxy resolves (against a real running proxy stack) is unverified in this session — proven only via source-level containment/naming logic and unit tests with mocked filesystem I/O. A developer on an unrestricted host should perform one live upload through the API and confirm nginx-proxy serves it. See 09-06-SUMMARY.md coverage item D7.
+- [Phase 09-08] Custom-certificate feature has never been exercised against a live nginx-proxy/acme-companion deployment (uploaded cert serving real HTTPS, no ACME issuance attempt) — WINDOWS.md entry #12 (open), compounds entries #10/#11 (Prisma migrate baseline/certSource backfill never applied to a live database). A developer on an unrestricted host must complete both before scope item 4 is fully proven in production; Phase 09 is otherwise fully executed (8/8 plans) and ready for verification.
 
 ### Roadmap Evolution
 
@@ -350,6 +383,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-09-14T08:32:29.056Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-09-17T18:44:24.249Z
+Stopped at: Completed 09-08-PLAN.md (last plan of Phase 09 — ready for verification)
 Resume file: None

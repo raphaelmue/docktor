@@ -33,6 +33,7 @@ import {ApiError} from "@/lib/api";
 import {cn} from "@/lib/utils";
 import {useContainerEvents} from "@/hooks/use-container-events";
 import {ProxySettingsCard} from "@/routes/app/settings/components/proxy-settings-card";
+import {CertificatesCard} from "@/routes/app/settings/components/certificates-card";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 const VALID_TABS = ["general", "notifications", "backup", "proxy"] as const;
@@ -1115,6 +1116,7 @@ export default function SettingsPage() {
                     </TabsContent>
                     <TabsContent value="proxy" className="space-y-6">
                         <ProxySettingsCard />
+                        <CertificatesCard />
                     </TabsContent>
                 </Tabs>
             </PageContent>

@@ -98,8 +98,13 @@ Every command below was actually run against this repository's own
    docker compose logs -f docktor
    ```
 
-   A healthy first boot logs a `[schema-sync]` line reporting `applied`, then
-   the Fastify server starts listening.
+   A healthy first boot logs a `[schema-sync] applied: ...` line (or
+   `[schema-sync] already-current: ...` on a restart with nothing pending),
+   then the Fastify server starts listening. An install upgrading from the
+   older schemaless `db push` mechanism additionally reports
+   `baselined 0_init` inside that same line's detail before the outcome —
+   see [Database schema](#database-schema) below for what that means and
+   what to do if it's followed by a divergence warning.
 
 4. **Open the setup wizard.** Visit `http://<server-ip>:3000` (or whatever
    `BETTER_AUTH_URL` you set) in a browser. A fresh instance with no users yet
@@ -123,14 +128,15 @@ Every variable the server reads (`server/src`), matching `.env.example` exactly.
 | `CLIENT_DIST_PATH` | Optional | resolved by the image | Path to the built SPA; used only when `NODE_ENV=production`. You should not need to set this. |
 | `DATABASE_URL` | Required | — | Postgres connection string. Use the compose service name `db` as the host, not `localhost`. |
 | `POSTGRES_PASSWORD` | **Required** | — (no shipped default) | Not read by the server itself — consumed by `docker-compose.yml`'s `db` service via `env_file: .env`. Must match the password embedded in `DATABASE_URL`. Not in `.env.example`; add it yourself. If unset, Postgres refuses to start rather than falling back to a guessable default. |
-| `DOCKTOR_DB_AUTO_PUSH` | Optional | `true` | Applies the Prisma schema automatically at container startup. See [Database schema](#database-schema). |
+| `DOCKTOR_DB_AUTO_MIGRATE` | Optional | `true` | Applies pending Prisma migrations automatically at container startup, and auto-baselines an upgrading install's pre-migration schema into migration history. See [Database schema](#database-schema). |
+| `DOCKTOR_DB_AUTO_PUSH` | Optional | `true` | Deprecated alias for `DOCKTOR_DB_AUTO_MIGRATE` above, honoured only when the new variable is unset. Kept so an existing install's opt-out survives the upgrade — set `DOCKTOR_DB_AUTO_MIGRATE` for new deployments. |
 | `BETTER_AUTH_SECRET` | **Required** | — | Session-signing secret. The server crashes at boot with an unhelpful `BetterAuthError` if this is missing — see Troubleshooting #1. |
 | `BETTER_AUTH_URL` | **Required** for real use | dev-only fallback (`http://localhost:5173`) | The externally-reachable URL of this instance. Feeds both `baseURL` and `trustedOrigins`. Wrong value → "invalid origin" login failure, not a crash — see Troubleshooting #4. |
 | `ENCRYPTION_KEY` | **Required** | — | Encrypts SMTP passwords, SFTP keys, S3 secrets, and the restic repository password at rest. Must be exactly 64 hex characters (32 bytes) or every encrypt/decrypt call throws. |
 | `DOCKTOR_STACKS_DIR` | Required (has a working default) | `/opt/docktor/stacks` (image default) | Container-side path where managed stacks live. See [Stacks directory path](#stacks-directory-path-read-this-before-your-first-deploy) — **must exactly match `DOCKTOR_STACKS_HOST_DIR`.** |
 | `DOCKTOR_STACKS_HOST_DIR` | Required (has a working default) | `/opt/docktor/stacks` (compose default) | Host-side path of the same directory. Drives both sides of the `docker-compose.yml` stacks volume. |
 | `DOCKTOR_STACKS_MOUNT_CHECK` | Optional | enabled | The server verifies at boot that the stacks directory is backed by a real mount rather than the container's own writable layer. Setting this to `false` downgrades that refusal to a warning, for deployments deliberately running on ephemeral storage. See [Stacks directory persistence](#stacks-directory-persistence). |
-| `DOCKTOR_FS_POLLING` | Optional | auto-detected | Forces the stacks-directory file watcher into polling mode instead of native inotify. Needed on some Docker Desktop (Windows/Mac) hosts where inotify events don't propagate into the Linux container. |
+| `DOCKTOR_FS_POLLING` | Optional | `true` (forced on by the image; not auto-detected) | Forces the stacks-directory file watcher into polling mode instead of native inotify. The shipped `Dockerfile` bakes this to `true` unconditionally, since the stacks volume's host side may be a Docker Desktop (Windows/Mac) virtualized filesystem that doesn't propagate inotify events into the Linux container — set to `false` only if you've confirmed a native Linux host and want inotify instead. |
 | `DOCKER_DATA_PATH` | Optional | `/var/lib/docker` (wrong for this deployment — see below) | Filesystem path the disk-space checker monitors. **Set to `/host/var/lib/docker`** for this deployment — `docker-compose.yml` mounts the host's root filesystem read-only at `/host` specifically so this check can see real host disk usage; the plain default measures this container's own tiny filesystem instead. |
 | `RESTIC_BINARY` | Optional | `restic` (resolved via PATH) | Path to the restic binary. The image installs a pinned, checksum-verified release at `/usr/local/bin/restic`, already on PATH. |
 
@@ -212,34 +218,86 @@ silent — it always logs a warning naming the variable.
 
 ## Database schema
 
-This project currently uses Prisma's schemaless `db push` rather than formal
-`prisma migrate` migrations (`server/prisma/migrations/` does not exist) — the
-schema is still changing shape during active development. See
-`.planning/todos/pending/2026-09-01-adopt-prisma-migrate-post-mvp.md` for the
-plan to move to real migrations once the schema stabilizes.
+The container applies the project's formal Prisma migrations
+(`server/prisma/migrations/`) on startup, before the HTTP server starts
+listening, orchestrated by `server/src/lib/schema-sync.ts` and wired into
+`server/src/index.ts`. This step replaced the earlier schemaless `db push`
+mechanism this guide previously described.
 
-To avoid a fresh `docker compose up` crashing on `relation "public.Setting" does
-not exist` (or any other missing table) against a brand-new, empty database,
-the container runs a guarded `prisma db push` as one of the first things it
-does on every startup, before the HTTP server starts listening
-(`server/src/lib/schema-sync.ts`, wired into `server/src/index.ts`). This step:
+The step keeps the same four guards the earlier mechanism already had:
 
-- Skips entirely if `DOCKTOR_DB_AUTO_PUSH=false` is set.
-- Retries reachability against the database for roughly a minute before giving
-  up, so it tolerates Postgres still starting.
-- Takes a Postgres advisory lock first, so two Docktor replicas starting at the
-  same time can't both push at once.
-- Never passes a data-loss-acceptance or database-reset flag — if applying the
-  schema would drop data, the step fails loudly (logged, server still starts)
-  rather than forcing it through.
+- Skips entirely if `DOCKTOR_DB_AUTO_MIGRATE=false` is set (or, as a
+  deprecated alias, `DOCKTOR_DB_AUTO_PUSH=false` — see
+  [Environment variables](#environment-variables)).
+- Retries reachability against the database for roughly a minute before
+  giving up, so it tolerates Postgres still starting.
+- Takes a Postgres advisory lock first, so two Docktor replicas starting at
+  the same time can't both apply migrations at once.
+- Never passes a data-loss-acceptance or database-reset flag — `prisma
+  migrate deploy` applies only recorded, already-reviewed migrations by
+  design and does not accept either flag in the first place.
 - Never blocks the server from starting even if it fails — a failed schema
   sync is logged, not fatal, so you can still reach the instance to
-  investigate (though most routes will then fail with a missing-table error
-  until you resolve it, typically by fixing the reachability/permissions
-  problem and restarting).
+  investigate (though most routes will then fail with a missing-table or
+  missing-column error until you resolve it and restart).
 
-**To disable this step** (e.g. once you've adopted `prisma migrate` yourself),
-set `DOCKTOR_DB_AUTO_PUSH=false` in your `.env`.
+**Upgrading an existing install.** If your database already has Docktor's
+tables but no `_prisma_migrations` history table — because it was created by
+an earlier version's schemaless `db push` step — the startup step detects
+this automatically and records the baseline migration `0_init` as already
+applied (`prisma migrate resolve --applied 0_init`), then proceeds to apply
+any migrations added since. **No operator action is required** for this
+baseline; it happens on first boot after upgrade with no confirmation
+prompt.
+
+Immediately after any such baseline, the step also probes the live schema
+for residual divergence against the shipped schema (`prisma migrate diff
+--exit-code`) and reports any divergence loudly in the `[schema-sync]` logs.
+That divergence means your database's schema was already behind the shipped
+schema at upgrade time — the automatic baseline recorded more as "applied"
+than your database actually has. **There is no automatic repair for this by
+design.** If you see it:
+
+1. Read the reported diff to see exactly which tables/columns are missing.
+2. Apply the missing changes deliberately (by hand, or by re-running
+   `prisma migrate deploy` after fixing the underlying cause), or
+3. Set `DOCKTOR_DB_AUTO_MIGRATE=false` and manage the schema yourself from
+   that point on.
+
+A fresh, empty database records no baseline at all — the migration is simply
+applied cold, the same as any new install.
+
+> **Live-verification note.** The automatic upgrade baseline above is fully
+> unit-tested (fresh database, previously-`db push`-synced database,
+> already-migrated database, and the post-baseline drift probe), but it has
+> **not yet been exercised against a real, previously-`db push`-synced live
+> database** in this project's own environment — the session that
+> implemented it could not reach the dev database from its sandboxed
+> execution host (TCP connected, but the Postgres wire-protocol handshake
+> never completed). A developer on an unrestricted host should run the
+> command sequence recorded in `09-03-SUMMARY.md` (baseline the dev
+> database, apply, re-apply to confirm the no-op is stable, then diff)
+> before treating this upgrade path as live-proven. Tracked as
+> `.planning/WINDOWS.md` entry #10.
+
+**Authoring a schema change.** Now that migrations are the source of truth,
+edit the relevant file under `server/prisma/schema/`, then run:
+
+```bash
+yarn db:migrate
+```
+
+This runs Prisma's dev migration command (`prisma migrate dev`) against your
+local database, generates a new migration file under
+`server/prisma/migrations/`, and regenerates the Prisma client. The earlier
+schemaless `db:push` convenience script was removed, so every schema change
+now produces a reviewable migration file — commit it alongside your schema
+change.
+
+**To disable this step** (e.g. once you manage migrations entirely outside
+the container), set `DOCKTOR_DB_AUTO_MIGRATE=false` in your `.env`.
+`DOCKTOR_DB_AUTO_PUSH=false` is still honoured as a deprecated alias if you
+set it on an earlier version and haven't updated it yet.
 
 ## Backups
 
@@ -262,7 +320,7 @@ of this project — fixed as noted, or still requiring the workaround described.
 |---|---|---|---|
 | 1 | Container crashes immediately at boot with a `BetterAuthError` and no clear explanation | `BETTER_AUTH_SECRET` was missing from the environment | Set `BETTER_AUTH_SECRET` in `.env` — see the [Environment variables](#environment-variables) table for the generation command. Fixed in `.env.example`/`.env.production` (now REQUIRED and documented) as of this guide; if you still hit this, check your `.env` actually has the line uncommented. |
 | 2 | The app looks like a backend-only install — API responds, but visiting the root URL shows nothing resembling a frontend | `NODE_ENV` was not exactly `production` (e.g. unset, or `development`) | Set `NODE_ENV=production` in `.env`. `server/src/app.ts` only registers the SPA static-file handler when `NODE_ENV === "production"`. |
-| 3 | Fresh `docker compose up` against an empty database crashes with `The table 'public.Backup' does not exist` (or `Setting`, or any other table) | Nothing applied the Prisma schema before the app tried to query it | Fixed by the startup schema-sync step — see [Database schema](#database-schema). Make sure `DOCKTOR_DB_AUTO_PUSH` isn't set to `false` unless you're applying the schema yourself. |
+| 3 | Fresh `docker compose up` against an empty database crashes with `The table 'public.Backup' does not exist` (or `Setting`, or any other table) | Nothing applied the Prisma migrations before the app tried to query it | Fixed by the startup schema-sync step — see [Database schema](#database-schema). Make sure `DOCKTOR_DB_AUTO_MIGRATE` isn't set to `false` (nor the deprecated `DOCKTOR_DB_AUTO_PUSH` alias) unless you're applying migrations yourself. |
 | 4 | Login fails with an "invalid origin" error, even though the app itself loads fine | `BETTER_AUTH_URL` was unset or pointed at the wrong URL — it feeds both `baseURL` and `trustedOrigins` in `server/src/lib/auth.ts`, and an unset value falls back to a dev-only `http://localhost:5173` origin that doesn't match a real deployment | Set `BETTER_AUTH_URL` to the exact URL you access this instance at (protocol + host + port), in `.env`. |
 | 5 | A stack you created never shows up in the host directory you expected, or the data disappears after recreating the Docktor container | `DOCKTOR_STACKS_DIR` (container-side) and `DOCKTOR_STACKS_HOST_DIR` (host-side) didn't match | Read [Stacks directory path](#stacks-directory-path-read-this-before-your-first-deploy) above. As of this guide, `.env.example` sets both to the same default value, and the server refuses to boot on a mismatch (rather than silently misplacing data) whenever `DOCKTOR_STACKS_HOST_DIR` is set. |
 | 6 | A managed stack's relative bind-mount volume (e.g. `./volumes/data:/var/opt/app`) writes its data somewhere unexpected on the host, even though `DOCKTOR_STACKS_DIR`/`DOCKTOR_STACKS_HOST_DIR` match | Docker-outside-of-Docker: `docker compose` inside the Docktor container resolves the relative path, then hands the resulting *absolute* path to the *host* daemon. If the stacks directory pair (see row 5) doesn't match, the resolved absolute path doesn't exist on the host | Same fix as row 5 — this is the exact mechanism the stacks-directory-path pairing exists to prevent. |

@@ -17,8 +17,73 @@ model ProxyConfig {
   certMessage   String?
   certCheckedAt DateTime?
 
+  // certSource (D-11, promote framing) — governs EVERY row, not only custom
+  // ones. Existing and future ACME-issued rows carry "acme" explicitly via
+  // this column's default (backfilled onto every pre-existing row by the
+  // migration), and every code path that branches on certificate source
+  // reads this field for both values — in particular the ACME issuance env
+  // var (plan 09-07) is written because a row's certSource is "acme", not
+  // because the row merely lacks a custom-certificate link. Plain String
+  // rather than a Prisma enum for the same reason certStatus is above; the
+  // closed set of valid values lives in @docktor/shared's certSourceSchema.
+  certSource    String  @default("acme")
+  certificateId String?
+  // onDelete: Restrict is deliberate — deleting a Certificate that proxy
+  // configurations still reference would leave those domains with a compose
+  // file pointing at a certificate file about to be removed, so the
+  // database refuses the delete and the service layer (plan 09-06) turns
+  // that refusal into a message naming the blocking domains.
+  certificate   Certificate? @relation(fields: [certificateId], references: [id], onDelete: Restrict)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([domain])
+}
+
+// Certificate (D-10) — a reusable, wildcard-capable TLS certificate entity,
+// decoupled from any single ProxyConfig row. Any number of ProxyConfig rows
+// may reference one Certificate, so a single upload covers every matching
+// subdomain (e.g. one *.example.com upload serves cloud.example.com and
+// app.example.com alike). Keyed by its own domain pattern rather than by a
+// single domain, because a wildcard certificate has no single domain to
+// name an on-disk file after.
+model Certificate {
+  id String @id @default(cuid())
+
+  // May carry a leading "*." (e.g. "*.example.com"). Validated by
+  // domainPatternRegex before it ever reaches here — that regex is also the
+  // filesystem-path boundary for the on-disk certificate filename derived
+  // from this value (plan 09-06).
+  domainPattern String
+
+  // AES-256-GCM ciphertext produced by server/src/lib/crypto.ts's encrypt(),
+  // never PEM plaintext — decrypted only at the single point plan 09-06
+  // writes the plaintext key to disk under volumes/certs. Never returned by
+  // any API response.
+  privateKey String
+
+  // The leaf certificate PEM. Not a secret, but still excluded from list
+  // responses — a Certificate row is metadata/index over the on-disk file
+  // that nginx-proxy actually reads (YAML-first / files-as-source-of-truth
+  // precedent).
+  certificate String
+
+  // Optional intermediate/CA chain PEM (D-09) — a distinct field so users
+  // need not hand-concatenate a chain before uploading.
+  caBundle String?
+
+  // Required, not optional: the certificate is parsed and validated at
+  // upload (D-12), so its expiry is always known by the time a row exists.
+  // A separate field rather than an overload of certStatus's vocabulary;
+  // this is what ProxyCertPoller re-reads on its cron cadence (D-13).
+  expiresAt DateTime
+
+  // Back-relation making the one-to-many explicit.
+  proxyConfigs ProxyConfig[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([domainPattern])
 }

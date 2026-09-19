@@ -298,7 +298,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Proxy Configuration | 7/7 | Complete    | 2026-09-12 |
 | 7. Release Hardening: Data Safety and Core Workflows | 2/2 | Complete    | 2026-09-13 |
 | 8. Live State Consistency | 1/1 | In Progress|  |
-| 9. Deployment and Release Readiness | 0/0 | Not planned |  |
+| 9. Deployment and Release Readiness | 8/8 | In Progress|  |
 | 10. UX Redesign: Service Colors, Editors, and Dashboard Stats | 0/0 | Not planned |  |
 
 ### Phase 7: Release Hardening: Data Safety and Core Workflows
@@ -345,7 +345,7 @@ Plans:
 **Goal:** Deployment documentation and process match what v1.0.0 actually ships, and the remaining release-process gaps are closed
 **Requirements**: n/a — this phase is scoped by the todo list below, not by REQUIREMENTS.md IDs
 **Depends on:** Phase 8
-**Plans:** 0 plans
+**Plans:** 8/8 plans executed
 
 Scope is exactly 4 items, promoted from `.planning/todos/pending/` as release-blocking for v1.0.0:
 
@@ -355,8 +355,28 @@ Scope is exactly 4 items, promoted from `.planning/todos/pending/` as release-bl
 4. **[proxy, major]** Add support for custom TLS certificates — `.planning/todos/pending/2026-09-07-add-support-for-custom-tls-certificates.md`
 
 Plans:
+**Wave 1** *(all three independent)*
 
-- [ ] TBD (run /gsd-plan-phase 9 to break down)
+- [x] 09-01-PLAN.md — Item 1: fix the env-template filename drift, audit the deployment guide against the shipped config, close the docs todo
+- [x] 09-02-PLAN.md — Item 3: windows-latest + macos-latest unit-test matrix job, branch-protection checkpoint, close the CI todo
+- [x] 09-03-PLAN.md — Item 2 tracer: generate the `0_init` baseline, cut the guarded startup step over to `migrate deploy` with D-05 auto-baselining, apply it live [BLOCKING]
+
+**Wave 2** *(09-04 and 09-05 both blocked on 09-03)*
+
+- [x] 09-04-PLAN.md — Item 2 surround: image ENV, startup logs, `.env.example`, deployment-guide schema section, close the migrate todo
+- [x] 09-05-PLAN.md — Item 4 schema: `Certificate` model, `certSource`/`certificateId` linkage, shared wildcard + source + status schemas, incremental migration [BLOCKING]
+
+**Wave 3** *(blocked on 09-05)*
+
+- [x] 09-06-PLAN.md — Item 4 tracer: certificate upload end to end — validation, encryption at rest, on-disk materialisation, authenticated multipart routes
+
+**Wave 4** *(blocked on 09-06)*
+
+- [x] 09-07-PLAN.md — Item 4: D-11 ACME suppression via the certificate-source field, D-13 expiry classification in the cert poller
+
+**Wave 5** *(blocked on 09-06 and 09-07)*
+
+- [x] 09-08-PLAN.md — Item 4 client: multipart-capable API helper, Settings certificates card, certificate-source choice, expiring badge, close the TLS todo
 
 ### Phase 10: UX Redesign: Service Colors, Editors, and Dashboard Stats
 

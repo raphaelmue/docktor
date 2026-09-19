@@ -84,6 +84,12 @@ async function mockCommonRoutes(page: Page) {
     await page.route("**/api/stacks/test-stack/env", async (route) => {
         await route.fulfill({json: {content: ""}});
     });
+    // proxy-tab.tsx's load effect fetches certificates alongside proxy
+    // configs/settings; this suite doesn't test certificate behavior, so an
+    // empty list is a sufficient stub.
+    await page.route("**/api/certificates", async (route) => {
+        await route.fulfill({json: []});
+    });
 }
 
 async function mockProxyConfigs(page: Page, configs: unknown[]) {

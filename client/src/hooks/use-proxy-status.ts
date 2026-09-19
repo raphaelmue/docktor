@@ -2,7 +2,7 @@ import {useEffect, useState} from "react"
 import {useContainerEvents} from "@/hooks/use-container-events"
 
 export interface ProxyStatusEntry {
-    status: "pending" | "issued" | "failed"
+    status: "pending" | "issued" | "failed" | "expiring"
     message?: string
 }
 

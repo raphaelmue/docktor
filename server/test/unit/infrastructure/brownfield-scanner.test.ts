@@ -15,6 +15,23 @@ vi.mock("node:fs/promises", () => ({
     },
 }));
 
+// This suite's fixtures are all deliberately POSIX-style scan roots and
+// fast-glob outputs (representing Docktor's typical Linux/container
+// deployment target), asserted with real, unmocked `node:path` — unlike
+// brownfield-scanner-windows-paths.test.ts, which pins the "returns native
+// separators on a native Windows host" contract via an explicit node:path
+// mock, this file relies on whichever host actually runs it. On a
+// windows-latest CI runner, real `node:path` resolves to its win32
+// implementation, so BrownfieldScanner's (intentionally host-native, see
+// that other file) `path.normalize()`/`path.dirname()` calls turn these
+// POSIX literals into backslash-separated strings. Normalizing back to a
+// POSIX-comparable form before comparing keeps these assertions verifying
+// the scanner's platform-independent *structure* rather than accidentally
+// pinning one host's separator spelling.
+function toPosixComparable(p: string): string {
+    return p.replace(/\\/g, "/");
+}
+
 function createMockAnalyzer() {
     return {
         analyzeCompatibility: vi.fn().mockReturnValue({
@@ -138,7 +155,7 @@ describe("BrownfieldScanner", () => {
             const result = await scanner.scan(["/opt"]);
 
             result.stacks.forEach((stack) => {
-                expect(stack.path.startsWith("/")).toBe(true);
+                expect(toPosixComparable(stack.path).startsWith("/")).toBe(true);
             });
             const callOptions = mockFg.mock.calls[0][1];
             expect(callOptions.absolute).toBe(true);
@@ -150,26 +167,27 @@ describe("BrownfieldScanner", () => {
             const scanner = new BrownfieldScanner(mockAnalyzer);
             const result = await scanner.scan(["/opt"]);
 
-            expect(result.stacks[0].directory).toBe("/opt/myapp");
+            expect(toPosixComparable(result.stacks[0].directory)).toBe("/opt/myapp");
         });
 
         // G-05.1-4: pins the no-op-on-POSIX guarantee explicitly. The
         // boundary normalization added for the Windows fix must not alter
-        // already-clean POSIX output — this file runs with the real
-        // node:path (no win32 mock), so it is a genuine POSIX assertion.
+        // already-clean POSIX output on an actually-POSIX host; the
+        // toPosixComparable() wrapper is a no-op there and only kicks in
+        // when this suite runs for real on a win32 host (windows-latest CI).
         it("should leave an already-POSIX directory unchanged (G-05.1-4 no-op guarantee)", async () => {
             mockFg.mockResolvedValue(["/opt/myapp/docker-compose.yml"]);
 
             const scanner = new BrownfieldScanner(mockAnalyzer);
             const result = await scanner.scan(["/opt"]);
 
-            expect(result.stacks[0].directory).toBe("/opt/myapp");
+            expect(toPosixComparable(result.stacks[0].directory)).toBe("/opt/myapp");
         });
 
         it("should skip files that fail to read/parse and continue scanning others", async () => {
             mockFg.mockResolvedValue(["/opt/broken/docker-compose.yml", "/opt/ok/docker-compose.yml"]);
             mockReadFile.mockImplementation((filePath: string) => {
-                if (filePath === "/opt/broken/docker-compose.yml") {
+                if (toPosixComparable(filePath) === "/opt/broken/docker-compose.yml") {
                     return Promise.reject(new Error("EACCES: permission denied"));
                 }
                 return Promise.resolve("services:\n  app:\n    image: nginx\n");
@@ -180,7 +198,7 @@ describe("BrownfieldScanner", () => {
             const result = await scanner.scan(["/opt"]);
 
             expect(result.stacks).toHaveLength(1);
-            expect(result.stacks[0].path).toBe("/opt/ok/docker-compose.yml");
+            expect(toPosixComparable(result.stacks[0].path)).toBe("/opt/ok/docker-compose.yml");
             expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Could not analyze"));
 
             warnSpy.mockRestore();

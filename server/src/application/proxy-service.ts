@@ -17,6 +17,7 @@ import {withKeyedLock} from "../lib/keyed-mutex.js";
 import {Prisma} from "../generated/prisma/client.js";
 import type {AssignDomainInput} from "@docktor/shared";
 import type {ProxyRepository} from "../repositories/proxy-repository.js";
+import type {CertificateRepository} from "../repositories/certificate-repository.js";
 import type {StackRepository} from "../repositories/stack-repository.js";
 import type {StackFilesystem} from "../infrastructure/stack-filesystem.js";
 import type {StackService} from "./stack-service.js";
@@ -38,6 +39,7 @@ export class ProxyService {
         private readonly stackService: Pick<StackService, "deployStack">,
         private readonly settings: Pick<SettingsService, "getProxySettings" | "updateProxySettings">,
         private readonly docker: Pick<DockerodeClient, "listContainers">,
+        private readonly certRepo: Pick<CertificateRepository, "findByIdOrThrow">,
     ) {}
 
     async listByStack(stackId: string) {
@@ -215,6 +217,20 @@ export class ProxyService {
                 );
             }
 
+            // D-11 promote rule: every row carries an explicit certificate
+            // source — never inferred from the link's presence/absence. A
+            // custom source must name a certificate that actually exists,
+            // confirmed before anything is created so an unknown id fails
+            // loudly before the compose file (or any row) is touched.
+            const certSource = input.certSource ?? "acme";
+            if (certSource === "custom") {
+                if (!input.certificateId) {
+                    throw new BadRequestError("certificateId is required when certSource is custom");
+                }
+                await this.certRepo.findByIdOrThrow(input.certificateId);
+            }
+            const certificateId = certSource === "custom" ? (input.certificateId ?? null) : null;
+
             await this.adoptUnmanagedDomains(stackId, serviceName, input.internalPort);
 
             const existingForService = await this.proxyRepo.findByStackAndService(stackId, serviceName);
@@ -225,6 +241,8 @@ export class ProxyService {
                 result = await this.proxyRepo.updateConfig(existingRow.id, {
                     internalPort: input.internalPort,
                     tlsEnabled: input.tlsEnabled,
+                    certSource,
+                    certificateId,
                 });
 
                 // A user's explicit re-assign is the instruction to change
@@ -253,6 +271,8 @@ export class ProxyService {
                         domain: input.domain,
                         internalPort: input.internalPort,
                         tlsEnabled: input.tlsEnabled,
+                        certSource,
+                        certificateId,
                     });
                 } catch (err) {
                     throw this.translateProxyConfigError(err, input.domain);
@@ -323,13 +343,21 @@ export class ProxyService {
         await this.stackService.deployStack(stackId);
     }
 
+    /**
+     * The single place the issuance host is computed. Filtered to rows that
+     * are both TLS-enabled AND ACME-sourced (D-11) — a custom-sourced row
+     * never appears here regardless of TLS state, so acme-companion (which
+     * only acts on a container carrying LETSENCRYPT_HOST) structurally
+     * never attempts issuance for a domain whose certificate the user
+     * supplied. The routing host is unaffected: every domain still routes.
+     */
     private async renderProxyEnvForService(stackId: string, serviceName: string): Promise<ServiceProxyEnv | null> {
         const rows = await this.proxyRepo.findByStackAndService(stackId, serviceName);
         if (rows.length === 0) return null;
 
         const virtualHost = rows.map((row) => row.domain).join(",");
-        const tlsRows = rows.filter((row) => row.tlsEnabled);
-        const letsencryptHost = tlsRows.length > 0 ? tlsRows.map((row) => row.domain).join(",") : null;
+        const acmeTlsRows = rows.filter((row) => row.tlsEnabled && row.certSource === "acme");
+        const letsencryptHost = acmeTlsRows.length > 0 ? acmeTlsRows.map((row) => row.domain).join(",") : null;
         const virtualPort = String(rows[0].internalPort);
 
         return {virtualHost, virtualPort, letsencryptHost};
@@ -385,6 +413,12 @@ export class ProxyService {
                     domain,
                     internalPort,
                     tlsEnabled: letsencryptDomains.has(domain),
+                    // A domain hand-written into the compose file has no
+                    // Docktor-managed Certificate link — its source is ACME
+                    // by definition, persisted explicitly (D-11 promote
+                    // rule) rather than left to be inferred later.
+                    certSource: "acme",
+                    certificateId: null,
                 });
             } catch (err) {
                 if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
